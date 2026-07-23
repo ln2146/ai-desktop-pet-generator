@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import requests
 
-from petgen.openai_common import format_http_error
+from petgen.openai_common import format_http_error, with_retry
 
 
 class TextGenerationError(RuntimeError):
@@ -32,6 +32,7 @@ class TextRequestConfig:
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
     timeout_seconds: int = 60
+    max_attempts: int = 3
 
     @classmethod
     def from_env(
@@ -40,16 +41,21 @@ class TextRequestConfig:
         api_key: str | None = None,
         base_url: str | None = None,
         model: str | None = None,
+        max_attempts: int | None = None,
     ) -> "TextRequestConfig":
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         if not resolved_key:
             raise TextGenerationError(
                 "OPENAI_API_KEY is required. Set it in the environment or pass --api-key."
             )
+        if max_attempts is None:
+            env_attempts = os.environ.get("OPENAI_TEXT_MAX_ATTEMPTS")
+            max_attempts = int(env_attempts) if env_attempts else cls.max_attempts
         return cls(
             api_key=resolved_key,
             base_url=(base_url or os.environ.get("OPENAI_BASE_URL") or cls.base_url).rstrip("/"),
             model=model or os.environ.get("OPENAI_TEXT_MODEL") or cls.model,
+            max_attempts=max_attempts,
         )
 
 
@@ -65,19 +71,25 @@ class OpenAITextClient:
         self.session = session or requests.Session()
 
     def complete(self, *, system: str, user: str) -> str:
-        response = self.session.post(
-            f"{self.config.base_url}/chat/completions",
-            headers=self._json_headers(),
-            json={
-                "model": self.config.model,
-                "messages": [
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user},
-                ],
-                "max_tokens": 500,
-            },
-            timeout=self.config.timeout_seconds,
-        )
+        try:
+            response = with_retry(
+                lambda: self.session.post(
+                    f"{self.config.base_url}/chat/completions",
+                    headers=self._json_headers(),
+                    json={
+                        "model": self.config.model,
+                        "messages": [
+                            {"role": "system", "content": system},
+                            {"role": "user", "content": user},
+                        ],
+                        "max_tokens": 500,
+                    },
+                    timeout=self.config.timeout_seconds,
+                ),
+                max_attempts=self.config.max_attempts,
+            )
+        except requests.HTTPError as exc:
+            raise TextGenerationError(str(exc)) from exc
         return self._extract_text(response)
 
     def enrich(self, description: str) -> str:

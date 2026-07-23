@@ -180,3 +180,44 @@ def test_should_enrich_flag_overrides_length() -> None:
 def test_should_enrich_measures_stripped_length() -> None:
     padded = "   " + "猫" * ENRICH_MIN_DESCRIPTION_CHARS + "  \n"
     assert should_enrich(padded, None) is False
+
+
+class _QueuedSession:
+    def __init__(self, responses: list[FakeResponse]) -> None:
+        self._responses = list(responses)
+        self.posts = 0
+
+    def post(self, url: str, **kwargs):
+        self.posts += 1
+        return self._responses.pop(0)
+
+
+def _retry_client(session: _QueuedSession) -> OpenAITextClient:
+    return OpenAITextClient(
+        TextRequestConfig(api_key="test", base_url="https://example.test/v1", max_attempts=3),
+        session=session,  # type: ignore[arg-type]
+    )
+
+
+def test_text_retries_on_429_then_succeeds(monkeypatch) -> None:
+    import petgen.openai_common as oc
+
+    monkeypatch.setattr(oc, "_retry_sleep", lambda _s: None)
+    session = _QueuedSession(
+        [
+            FakeResponse(429, {"error": "rate limited"}),
+            FakeResponse(200, {"choices": [{"message": {"content": "ok"}}]}),
+        ]
+    )
+    assert _retry_client(session).complete(system="s", user="u") == "ok"
+    assert session.posts == 2
+
+
+def test_text_retry_exhausted_raises(monkeypatch) -> None:
+    import petgen.openai_common as oc
+
+    monkeypatch.setattr(oc, "_retry_sleep", lambda _s: None)
+    session = _QueuedSession([FakeResponse(502, {"error": "bad gateway"})] * 3)
+    with pytest.raises(TextGenerationError):
+        _retry_client(session).complete(system="s", user="u")
+    assert session.posts == 3

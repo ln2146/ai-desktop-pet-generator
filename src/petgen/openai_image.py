@@ -8,7 +8,7 @@ from pathlib import Path
 
 import requests
 
-from petgen.openai_common import format_http_error
+from petgen.openai_common import format_http_error, with_retry
 
 
 class ImageGenerationError(RuntimeError):
@@ -23,6 +23,7 @@ class ImageRequestConfig:
     size: str = "1536x1024"
     quality: str = "high"
     timeout_seconds: int = 180
+    max_attempts: int = 3
 
     @classmethod
     def from_env(
@@ -33,18 +34,23 @@ class ImageRequestConfig:
         model: str | None = None,
         size: str | None = None,
         quality: str | None = None,
+        max_attempts: int | None = None,
     ) -> "ImageRequestConfig":
         resolved_key = api_key or os.environ.get("OPENAI_API_KEY", "")
         if not resolved_key:
             raise ImageGenerationError(
                 "OPENAI_API_KEY is required. Set it in the environment or pass --api-key."
             )
+        if max_attempts is None:
+            env_attempts = os.environ.get("OPENAI_IMAGE_MAX_ATTEMPTS")
+            max_attempts = int(env_attempts) if env_attempts else cls.max_attempts
         return cls(
             api_key=resolved_key,
             base_url=(base_url or os.environ.get("OPENAI_BASE_URL") or cls.base_url).rstrip("/"),
             model=model or os.environ.get("OPENAI_IMAGE_MODEL") or cls.model,
             size=size or os.environ.get("OPENAI_IMAGE_SIZE") or cls.size,
             quality=quality or os.environ.get("OPENAI_IMAGE_QUALITY") or cls.quality,
+            max_attempts=max_attempts,
         )
 
 
@@ -66,18 +72,24 @@ class OpenAIImageClient:
         return self._generate_from_text(prompt)
 
     def _generate_from_text(self, prompt: str) -> bytes:
-        response = self.session.post(
-            f"{self.config.base_url}/images/generations",
-            headers=self._json_headers(),
-            json={
-                "model": self.config.model,
-                "prompt": prompt,
-                "size": self.config.size,
-                "quality": self.config.quality,
-                "output_format": "png",
-            },
-            timeout=self.config.timeout_seconds,
-        )
+        try:
+            response = with_retry(
+                lambda: self.session.post(
+                    f"{self.config.base_url}/images/generations",
+                    headers=self._json_headers(),
+                    json={
+                        "model": self.config.model,
+                        "prompt": prompt,
+                        "size": self.config.size,
+                        "quality": self.config.quality,
+                        "output_format": "png",
+                    },
+                    timeout=self.config.timeout_seconds,
+                ),
+                max_attempts=self.config.max_attempts,
+            )
+        except requests.HTTPError as exc:
+            raise ImageGenerationError(str(exc)) from exc
         return self._extract_image_bytes(response)
 
     def _edit_with_references(self, prompt: str, reference_images: list[Path]) -> bytes:
@@ -92,18 +104,24 @@ class OpenAIImageClient:
                 opened_files.append(handle)
                 files.append(("image[]", (image_path.name, handle, mime)))
 
-            response = self.session.post(
-                f"{self.config.base_url}/images/edits",
-                headers=self._auth_headers(),
-                data={
-                    "model": self.config.model,
-                    "prompt": prompt,
-                    "size": self.config.size,
-                    "quality": self.config.quality,
-                },
-                files=files,
-                timeout=self.config.timeout_seconds,
-            )
+            try:
+                response = with_retry(
+                    lambda: self.session.post(
+                        f"{self.config.base_url}/images/edits",
+                        headers=self._auth_headers(),
+                        data={
+                            "model": self.config.model,
+                            "prompt": prompt,
+                            "size": self.config.size,
+                            "quality": self.config.quality,
+                        },
+                        files=files,
+                        timeout=self.config.timeout_seconds,
+                    ),
+                    max_attempts=self.config.max_attempts,
+                )
+            except requests.HTTPError as exc:
+                raise ImageGenerationError(str(exc)) from exc
             return self._extract_image_bytes(response)
         finally:
             for handle in opened_files:
@@ -143,7 +161,13 @@ class OpenAIImageClient:
 
         url = first.get("url")
         if isinstance(url, str) and url:
-            download = self.session.get(url, timeout=self.config.timeout_seconds)
+            try:
+                download = with_retry(
+                    lambda: self.session.get(url, timeout=self.config.timeout_seconds),
+                    max_attempts=self.config.max_attempts,
+                )
+            except requests.HTTPError as exc:
+                raise ImageGenerationError(str(exc)) from exc
             if download.status_code < 200 or download.status_code >= 300:
                 raise ImageGenerationError(format_http_error(download, label="image"))
             return download.content
