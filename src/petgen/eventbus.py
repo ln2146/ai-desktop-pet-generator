@@ -91,7 +91,7 @@ def parse_event_line(line: str) -> TaskEvent | None:
 
 # --- Qt-dependent poller; only defined when PySide6 is importable -------------
 try:  # pragma: no cover - import-time branch
-    from PySide6.QtCore import QObject, Signal, QTimer
+    from PySide6.QtCore import QObject, QTimer, Signal
 
     class EventBus(QObject):
         """Polls a JSONL inbox and emits parsed task events (mirrors TaskEventInbox)."""

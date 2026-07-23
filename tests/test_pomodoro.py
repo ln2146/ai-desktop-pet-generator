@@ -12,7 +12,13 @@ from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from petgen.pomodoro import BREAK, WORK, PomodoroService, PomodoroWindow, format_mmss  # noqa: E402
+from petgen.pomodoro import (  # noqa: E402
+    BREAK,
+    WORK,
+    PomodoroService,
+    PomodoroWindow,
+    format_mmss,
+)
 
 
 @pytest.fixture(scope="module")

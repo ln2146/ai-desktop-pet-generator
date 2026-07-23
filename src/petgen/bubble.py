@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QGuiApplication
+from PySide6.QtGui import QBrush, QColor, QFont, QGuiApplication, QPainter, QPainterPath
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 _DEFAULT_TIMEOUT_MS = 12_000

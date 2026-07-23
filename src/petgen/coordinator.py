@@ -122,7 +122,7 @@ class GenerationWorker(QThread):
 
     def run(self) -> None:  # noqa: D401 - QThread entry
         try:
-            from petgen.openai_image import ImageGenerationError, ImageRequestConfig, OpenAIImageClient
+            from petgen.openai_image import ImageRequestConfig, OpenAIImageClient
             from petgen.prompt import build_pet_prompt
             from petgen.spritesheet import build_pet_assets
 

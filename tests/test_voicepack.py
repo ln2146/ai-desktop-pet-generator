@@ -9,8 +9,19 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest  # noqa: E402
 
 from petgen import sound as sound_mod  # noqa: E402
-from petgen.sound import SoundService, _build, _resolve_sfx, ensure_sfx, generate_sfx  # noqa: E402
-from petgen.voicepack import SYNTH_SFX, VOICE_CLIP_KINDS, default_pack, load_catalog  # noqa: E402
+from petgen.sound import (  # noqa: E402
+    SoundService,
+    _build,
+    _resolve_sfx,
+    ensure_sfx,
+    generate_sfx,
+)
+from petgen.voicepack import (  # noqa: E402
+    SYNTH_SFX,
+    VOICE_CLIP_KINDS,
+    default_pack,
+    load_catalog,
+)
 
 
 def test_catalog_has_three_packs_with_required_kinds() -> None:

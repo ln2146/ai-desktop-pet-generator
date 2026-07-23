@@ -4,7 +4,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from petgen.reminder import Reminder
-from petgen.store import AiEventStore, PetRecord, PetRegistry, ReminderStore, SettingsStore
+from petgen.store import (
+    AiEventStore,
+    PetRecord,
+    PetRegistry,
+    ReminderStore,
+    SettingsStore,
+)
 
 T = lambda s: datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
 

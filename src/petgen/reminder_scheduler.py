@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 from PySide6.QtCore import QObject, Signal
 
-from petgen.reminder import Reminder, parse_dt, to_iso, utcnow
+from petgen.reminder import Reminder, to_iso, utcnow
 from petgen.store import ReminderStore
 
 DEFAULT_SNOOZE_MINUTES = 15

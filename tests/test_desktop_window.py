@@ -10,7 +10,6 @@ pytest = __import__("pytest")
 pytest.importorskip("PySide6")
 
 from PIL import Image  # noqa: E402
-
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtGui import QImage  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402

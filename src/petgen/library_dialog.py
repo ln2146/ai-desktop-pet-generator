@@ -4,8 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import QPoint, QRect, Qt, Signal
-from PySide6.QtGui import QAction, QFont, QMouseEvent, QPixmap
+from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QInputDialog,
     QLabel,
-    QLineEdit,
     QMenu,
     QPushButton,
     QScrollArea,

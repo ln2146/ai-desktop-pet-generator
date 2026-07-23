@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # QRect is imported lazily inside badge_anchor to avoid a hard Qt dep
+    from PySide6.QtCore import QRect
 
 BADGE_EXPRESSIONS = {"happy", "busy", "alert", "error"}
 BADGE_SIZE = 30
@@ -68,7 +72,7 @@ def draw_badge(painter, expression: str, rect) -> None:
 
 
 def _draw_hearts(painter, rect) -> None:
-    from PySide6.QtCore import QPointF, QRectF, Qt
+    from PySide6.QtCore import QRectF, Qt
     from PySide6.QtGui import QBrush, QColor, QPainterPath
 
     painter.setPen(Qt.NoPen)
@@ -116,7 +120,7 @@ def _draw_gear(painter, cx: float, cy: float, r: float) -> None:
 
 
 def _draw_star(painter, cx: float, cy: float, r: float, rotation: float = 0.0) -> None:
-    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtCore import QPointF
     from PySide6.QtGui import QBrush, QColor, QPen
 
     points = 5

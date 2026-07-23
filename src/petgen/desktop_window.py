@@ -5,14 +5,22 @@ import random
 from pathlib import Path
 
 from PIL import Image
+from PySide6.QtCore import QPoint, QPointF, QRect, QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QBitmap,
+    QBrush,
+    QColor,
+    QGuiApplication,
+    QImage,
+    QPainter,
+    QPixmap,
+    QRegion,
+)
+from PySide6.QtWidgets import QApplication, QWidget
 
 from petgen.animation import AnimationScheduler, frame_interval_ms
-from petgen.overlay import BADGE_EXPRESSIONS, badge_anchor, badge_mask, composite_badge
+from petgen.overlay import BADGE_EXPRESSIONS, badge_mask, composite_badge
 from petgen.pet_manifest import FrameAtlas, PetManifest, load_manifest
-
-from PySide6.QtCore import QPointF, QPoint, QRect, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QBitmap, QBrush, QColor, QGuiApplication, QImage, QPainter, QPixmap, QRegion
-from PySide6.QtWidgets import QApplication, QWidget
 
 DRAG_THRESHOLD = 6
 CORNER_MARGIN = 32

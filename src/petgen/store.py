@@ -8,7 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from petgen.datadir import db_path
-from petgen.reminder import Reminder, reminder_from_dict, reminder_to_dict, to_iso, utcnow
+from petgen.reminder import (
+    Reminder,
+    reminder_from_dict,
+    reminder_to_dict,
+    to_iso,
+    utcnow,
+)
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (

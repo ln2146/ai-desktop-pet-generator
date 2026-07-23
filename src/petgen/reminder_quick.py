@@ -4,7 +4,6 @@ from datetime import timedelta
 from typing import Callable
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QDialog, QDialogButtonBox, QLabel, QLineEdit, QVBoxLayout
 
 from petgen.reminder import to_iso, utcnow

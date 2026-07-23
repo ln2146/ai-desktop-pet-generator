@@ -6,8 +6,8 @@ import math
 from dataclasses import dataclass
 from pathlib import Path
 
-from PIL import Image
 import numpy as np
+from PIL import Image
 
 
 class SpriteBuildError(RuntimeError):

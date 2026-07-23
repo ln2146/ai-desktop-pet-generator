@@ -13,8 +13,6 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import QThread  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from petgen.spritesheet import build_pet_assets  # noqa: E402
-
 
 @pytest.fixture(scope="module")
 def qapp():

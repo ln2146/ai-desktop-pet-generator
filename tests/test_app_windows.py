@@ -11,7 +11,6 @@ import pytest  # noqa: E402
 pytest.importorskip("PySide6")
 
 from PIL import Image  # noqa: E402
-
 from PySide6.QtCore import Qt  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QPushButton  # noqa: E402
@@ -19,7 +18,7 @@ from PySide6.QtWidgets import QApplication, QPushButton  # noqa: E402
 from petgen.bubble import BubbleWindow  # noqa: E402
 from petgen.library_dialog import LibraryDialog  # noqa: E402
 from petgen.settings_dialog import SettingsDialog  # noqa: E402
-from petgen.store import PetRecord, PetRegistry, SettingsStore  # noqa: E402
+from petgen.store import PetRecord, SettingsStore  # noqa: E402
 
 
 @pytest.fixture(scope="module")

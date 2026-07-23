@@ -45,7 +45,6 @@ def test_coordinator_builds_with_reminder_and_pomodoro(qapp, tmp_path: Path, mon
 def test_coordinator_create_reminder_and_quick_capture(qapp, tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
     from petgen.coordinator import AppCoordinator
-    from petgen.reminder import parse_dt
 
     coord = AppCoordinator()
     try:
