@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QTabWidget,
@@ -20,7 +21,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from petgen import __version__
+from petgen import __version__, integrations
 from petgen.datadir import data_dir
 from petgen.envfile import load_env_file
 from petgen.personalities import PERSONALITIES
@@ -121,6 +122,7 @@ class SettingsDialog(QDialog):
         tabs = QTabWidget()
         tabs.addTab(_wrap_tab_scroll(self._build_ai_tab()), "🤖  AI 服务")
         tabs.addTab(_wrap_tab_scroll(self._build_pet_tab()), "🐶  宠物行为")
+        tabs.addTab(_wrap_tab_scroll(self._build_tools_tab()), "🔌  工具接入")
         tabs.addTab(_wrap_tab_scroll(self._build_about_tab()), "ℹ️  关于 PetGen")
         root.addWidget(tabs, 1)
 
@@ -232,23 +234,17 @@ class SettingsDialog(QDialog):
         layout.setSpacing(14)
 
         # Visual & Animation Card
-        card1, c1_layout = _create_card_container("外观与动作", "调整桌宠在屏幕上的尺寸与动画显示")
-        scale_row = QHBoxLayout()
-        scale_row.setSpacing(10)
-        scale_row.addWidget(_create_field_label("宠物显示缩放倍率："))
+        card1, c1_layout = _create_card_container("外观与动作", "调整桌宠动画显示与悬浮互动行为")
         self.pet_scale = QDoubleSpinBox()
         self.pet_scale.setRange(0.5, 3.0)
         self.pet_scale.setSingleStep(0.25)
-        self.pet_scale.setFixedWidth(100)
-        self.pet_scale.setFixedHeight(34)
-        scale_row.addWidget(self.pet_scale)
-        scale_row.addStretch(1)
-        c1_layout.addLayout(scale_row)
+        self.pet_scale.setVisible(False)
 
         self.pet_motion = QCheckBox("开启动画动作与呼吸效果")
         self.pet_sound = QCheckBox("开启音效反馈")
         self.pet_click_chat = QCheckBox("点击宠物时触发 AI 实时智能对话")
         for cb in (self.pet_motion, self.pet_sound, self.pet_click_chat):
+            cb.setCursor(Qt.PointingHandCursor)
             cb.setStyleSheet("font-size: 13px; font-weight: 500;")
             c1_layout.addWidget(cb)
         layout.addWidget(card1)
@@ -289,6 +285,55 @@ class SettingsDialog(QDialog):
         layout.addStretch(1)
         return w
 
+    def _build_tools_tab(self) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(w)
+        layout.setContentsMargins(0, 14, 12, 14)
+        layout.setSpacing(14)
+
+        card, c_layout = _create_card_container(
+            "🔌 AI 工具接入",
+            "接通后，桌宠会实时回应 Claude Code / Codex / Antigravity 的任务状态。"
+            "点击按钮即时生效（无需「保存设置」），配置文件改动前自动备份。",
+        )
+
+        self._tool_rows: dict[str, tuple[QLabel, QPushButton]] = {}
+        for tool in integrations.TOOLS:
+            row = QHBoxLayout()
+            row.setSpacing(10)
+            name = QLabel(integrations.TOOL_LABELS[tool])
+            name.setStyleSheet(
+                "color: #0f172a; font-weight: 600; font-size: 13px; border: none; background: transparent;"
+            )
+            chip = QLabel()
+            chip.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; border: none; background: transparent;")
+            btn = QPushButton()
+            btn.setFixedHeight(32)
+            btn.setFixedWidth(92)
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 12px; }")
+            btn.clicked.connect(lambda _checked=False, t=tool: self._toggle_tool(t))
+            row.addWidget(name)
+            row.addStretch(1)
+            row.addWidget(chip)
+            row.addWidget(btn)
+            c_layout.addLayout(row)
+            self._tool_rows[tool] = (chip, btn)
+
+        connect_all = QPushButton("⚡ 一键全部接通")
+        connect_all.setProperty("accent", "primary")
+        connect_all.setCursor(Qt.PointingHandCursor)
+        connect_all.setFixedHeight(36)
+        connect_all.clicked.connect(self._connect_all_tools)
+        c_layout.addSpacing(4)
+        c_layout.addWidget(connect_all)
+
+        layout.addWidget(card)
+        layout.addStretch(1)
+        self.refresh_tool_rows()
+        return w
+
     def _build_about_tab(self) -> QWidget:
         w = QWidget()
         w.setStyleSheet("background: transparent;")
@@ -326,6 +371,13 @@ class SettingsDialog(QDialog):
         vpack = self._settings.get("pet.voice_pack", "soft-meow")
         vidx = self._voice_pack_keys.index(vpack) if vpack in self._voice_pack_keys else 0
         self.voice_pack.setCurrentIndex(vidx)
+        # Refresh the tool-wiring states (the dialog instance is reused across shows);
+        # a failure here must never break the dialog itself.
+        try:
+            if hasattr(self, "_tool_rows"):
+                self.refresh_tool_rows()
+        except Exception:
+            pass
 
     def apply_values(self) -> None:
         values = {
@@ -373,3 +425,78 @@ class SettingsDialog(QDialog):
                 value = os.environ.get(env_name, "")
                 if value:
                     widget.setText(value)
+
+    # --- tool wiring tab ------------------------------------------------------
+
+    _TOOL_CHIP_STYLE = {
+        integrations.ToolStatus.CONNECTED: ("✅ 已接通", "#16a34a"),
+        integrations.ToolStatus.STALE: ("⚠️ 需重连", "#d97706"),
+        integrations.ToolStatus.NOT_CONNECTED: ("○ 未接通", "#64748b"),
+        integrations.ToolStatus.NOT_DETECTED: ("未检测到", "#94a3b8"),
+    }
+
+    def refresh_tool_rows(self) -> None:
+        for tool, (chip, btn) in self._tool_rows.items():
+            try:
+                state = integrations.status(tool)
+            except Exception:
+                # Never let a status probe failure break the dialog.
+                chip.setText("状态未知")
+                chip.setStyleSheet(
+                    "color: #94a3b8; font-size: 12px; font-weight: 600; border: none; background: transparent;"
+                )
+                btn.setEnabled(False)
+                btn.setText("接通")
+                continue
+            text, color = self._TOOL_CHIP_STYLE[state.status]
+            chip.setText(text)
+            chip.setStyleSheet(
+                f"color: {color}; font-size: 12px; font-weight: 600; border: none; background: transparent;"
+            )
+            btn.setToolTip(state.detail)
+            if state.status == integrations.ToolStatus.NOT_DETECTED:
+                btn.setEnabled(False)
+                btn.setText("接通")
+                self._set_btn_accent(btn, "primary")
+            elif state.status == integrations.ToolStatus.CONNECTED:
+                btn.setEnabled(True)
+                btn.setText("断开")
+                self._set_btn_accent(btn, "danger")
+            else:
+                btn.setEnabled(True)
+                btn.setText("重连" if state.status == integrations.ToolStatus.STALE else "接通")
+                self._set_btn_accent(btn, "primary")
+
+    @staticmethod
+    def _set_btn_accent(btn: QPushButton, accent: str) -> None:
+        # theme.py styles buttons via the [accent="..."] property selector;
+        # unpolish/polish is required for the style to re-apply on change.
+        btn.setProperty("accent", accent)
+        btn.style().unpolish(btn)
+        btn.style().polish(btn)
+
+    def _toggle_tool(self, tool: str) -> None:
+        _chip, btn = self._tool_rows[tool]
+        try:
+            state = integrations.status(tool)
+            btn.setEnabled(False)
+            if state.status == integrations.ToolStatus.CONNECTED:
+                integrations.disconnect(tool)
+            else:
+                integrations.connect(tool)
+        except (integrations.IntegrationsError, OSError, ValueError) as exc:
+            QMessageBox.warning(self, "操作失败", str(exc))
+        finally:
+            self.refresh_tool_rows()
+
+    def _connect_all_tools(self) -> None:
+        errors: list[str] = []
+        for tool in integrations.TOOLS:
+            try:
+                if integrations.status(tool).status != integrations.ToolStatus.CONNECTED:
+                    integrations.connect(tool)
+            except (integrations.IntegrationsError, OSError, ValueError) as exc:
+                errors.append(f"{integrations.TOOL_LABELS[tool]}：{exc}")
+        self.refresh_tool_rows()
+        if errors:
+            QMessageBox.warning(self, "部分工具接通失败", "\n".join(errors))

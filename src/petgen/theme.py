@@ -158,15 +158,15 @@ QPushButton[accent="danger"]:hover {
 
 /* CheckBox */
 QCheckBox {
-    spacing: 8px;
-    color: #1e293b;
-    min-height: 24px;
+    spacing: 10px;
+    color: #0f172a;
+    min-height: 28px;
 }
 
 QCheckBox::indicator {
     width: 18px;
     height: 18px;
-    border-radius: 4px;
+    border-radius: 5px;
     border: 1px solid #cbd5e1;
     background-color: #ffffff;
 }
@@ -178,6 +178,7 @@ QCheckBox::indicator:hover {
 QCheckBox::indicator:checked {
     background-color: #4f46e5;
     border-color: #4f46e5;
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>");
 }
 
 /* Scroll Area & ScrollBars */
