@@ -45,6 +45,10 @@ Layout, strict:
 - Leave generous padding around head, ears, tail, wings, limbs, props, and feet.
 - Do not crop any body part. Do not let characters overlap.
 - Keep the pet's outside colors away from #00FF00.
+- IMPORTANT: the pet's BODY must NOT be green-dominant (no all-green / leaf-green
+  / lime creatures such as a plain green frog or dragon). A green body on a green
+  screen cannot be cut out by colour keying. If the concept is green, give it a
+  contrasting belly, outline, or palette so no large area matches the background.
 
 Make the pet adorable, rounded, memorable, and suitable as a small desktop companion.
 """.strip()

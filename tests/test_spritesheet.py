@@ -10,6 +10,7 @@ from petgen.spritesheet import (
     build_pet_assets,
     compose_sprite_sheet,
     crop_premium_action_rows,
+    remove_chroma_background,
 )
 
 
@@ -109,3 +110,53 @@ def crop_frame(sprite: Image.Image, frame_index: int, spec: SpriteSpec) -> Image
             (row + 1) * spec.frame_height,
         )
     )
+
+
+def test_remove_chroma_preserves_non_green_core_with_green_edge() -> None:
+    """A subject with a non-green body but green-ish edges keeps its body.
+
+    The body core (not green dominant) is never keyed; only the green spill on
+    its outline is attenuated. This is the realistic green-pet case the despill
+    post-pass and prompt guidance target.
+    """
+    width, height = 100, 100
+    image = Image.new("RGBA", (width, height), (0, 255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((30, 30, 70, 70), fill=(200, 60, 60, 255))  # red body core
+    draw.ellipse((27, 27, 73, 73), outline=(70, 180, 80, 255))  # green-ish edge
+
+    result = remove_chroma_background(image)
+    # Body core survives opaque; far background removed.
+    assert result.getpixel((50, 50))[3] == 255
+    assert result.getpixel((0, 0))[3] == 0
+
+
+def test_remove_chroma_soft_edge_is_reachable() -> None:
+    """Subject edges that *gradient-fade* into the key get a partial alpha.
+
+    Regression: the old soft-edge branch was dead due to an and/or precedence
+    bug (``a or b and c`` == ``a or (b and c)``), so edges were always hard-cut.
+    A subject whose outline ramps from opaque body colour toward green must now
+    produce semi-transparent pixels (anti-aliasing) instead of a jagged edge.
+    """
+    width, height = 90, 90
+    image = Image.new("RGBA", (width, height), (0, 255, 0, 255))
+    px = image.load()
+    cx = cy = 45
+    for y in range(height):
+        for x in range(width):
+            d = ((x - cx) ** 2 + (y - cy) ** 2) ** 0.5
+            if d < 14:
+                px[x, y] = (240, 240, 240, 255)  # opaque white core
+            elif d < 26:
+                t = (d - 14) / 12.0  # 0 at core edge -> 1 toward background
+                r = int(240 + (0 - 240) * t)
+                g = int(240 + (255 - 240) * t)
+                b = int(240 + (0 - 240) * t)
+                px[x, y] = (r, g, b, 255)  # green-dominant feather band
+
+    result = remove_chroma_background(image)
+    alphas = {result.getpixel((x, y))[3] for x in range(width) for y in range(height)}
+    semi = {a for a in alphas if 0 < a < 255}
+    assert semi, f"expected soft-edge alpha ramp, got alpha set {sorted(alphas)}"
+    assert result.getpixel((cx, cy))[3] == 255  # core preserved

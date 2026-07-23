@@ -6,10 +6,16 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from PIL import Image
+import numpy as np
 
 
 class SpriteBuildError(RuntimeError):
     """Raised when the generated source sheet cannot be converted safely."""
+
+
+# Chroma-key distance thresholds (Euclidean distance in RGB space to the key).
+_CHROMA_TRANSPARENT_DISTANCE = 78.0  # within this: unconditionally background
+_CHROMA_SOFT_DISTANCE = 150.0  # green-dominant pixels below this may be keyed
 
 
 @dataclass(frozen=True)
@@ -153,25 +159,60 @@ def compose_sprite_sheet(source_rows: list[list[Image.Image]], spec: SpriteSpec 
 
 
 def remove_chroma_background(image: Image.Image, *, key: tuple[int, int, int] = (0, 255, 0)) -> Image.Image:
-    rgba = image.convert("RGBA")
-    pixels = rgba.load()
-    width, height = rgba.size
-    transparent_distance = 78.0
-    soft_distance = 150.0
-    span = soft_distance - transparent_distance
+    """Remove the chroma-key background (vectorised with numpy).
 
-    for y in range(height):
-        for x in range(width):
-            r, g, b, a = pixels[x, y]
-            if a == 0:
-                continue
-            distance = math.sqrt((r - key[0]) ** 2 + (g - key[1]) ** 2 + (b - key[2]) ** 2)
-            green_dominant = g > 120 and g > r * 1.25 and g > b * 1.25
-            if distance <= transparent_distance or green_dominant and distance < soft_distance:
-                pixels[x, y] = (0, 0, 0, 0)
-            elif distance < soft_distance and green_dominant:
-                new_alpha = int((distance - transparent_distance) / span * 255)
-                pixels[x, y] = (min(r, max(r, b)), min(g, max(r, b)), b, max(0, min(255, new_alpha)))
+    Rule, per pixel with alpha > 0:
+
+    * very close to the key colour (``distance <= TRANSPARENT``) -> transparent;
+    * green-dominant and inside the soft band -> a soft alpha ramp (anti-alias),
+      so subject edges that fade into the green are feathered instead of hard
+      cut, and green spill fringes are attenuated;
+    * everything else (the subject body) -> left opaque.
+
+    The previous code expressed the same intent but the soft-edge branch was
+    *unreachable*: ``a or b and c`` parses as ``a or (b and c)``, so the
+    green-dominant clause in the hard-cut test swallowed the ``elif`` that was
+    meant to feather it. The explicit three-way branch below restores it. The
+    per-pixel distance loop is now a single numpy pass (the old pure-Python
+    double loop was the ~1s hotspot on a 1536x1024 sheet).
+
+    Limitation (inherent to colour keying, not a bug): a subject whose body is
+    itself green-dominant and within the soft band cannot be separated from a
+    same-colour green screen by colour alone -- the two are indistinguishable.
+    :func:`_despill_light_subject_edges` rescues the *edges* of green subjects
+    that have a non-green core, and the prompt steers the model away from
+    green-dominant bodies; a fully green pet on green remains unkeyable without
+    a reference mask / learned matting.
+    """
+    rgba = image.convert("RGBA")
+    arr = np.asarray(rgba)
+    rgb = arr[..., :3].astype(np.float32)  # float32: squared sums exceed int16 range
+    alpha = arr[..., 3]
+
+    key_arr = np.asarray(key, dtype=np.float32)
+    distance = np.sqrt(np.sum((rgb - key_arr) ** 2, axis=-1))
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    green_dominant = (g > 120) & (g > r * 1.25) & (g > b * 1.25)
+    opaque = alpha > 0
+
+    hard = opaque & (distance <= _CHROMA_TRANSPARENT_DISTANCE)
+    soft = (
+        opaque
+        & ~hard
+        & green_dominant
+        & (distance < _CHROMA_SOFT_DISTANCE)
+    )
+
+    new_alpha = alpha.copy()
+    new_alpha[hard] = 0
+    span = max(1.0, _CHROMA_SOFT_DISTANCE - _CHROMA_TRANSPARENT_DISTANCE)
+    ramp = (distance[soft] - _CHROMA_TRANSPARENT_DISTANCE) / span * 255.0
+    new_alpha[soft] = np.clip(ramp, 0, 255).astype(np.uint8)
+
+    out = np.empty((rgb.shape[0], rgb.shape[1], 4), dtype=np.uint8)
+    out[..., :3] = rgb.astype(np.uint8)
+    out[..., 3] = new_alpha
+    rgba = Image.fromarray(out, "RGBA").copy()  # .copy() -> writable pixel buffer
     _despill_light_subject_edges(rgba)
     return rgba
 
