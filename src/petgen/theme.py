@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QApplication, QWidget
 # Color Tokens
 COLOR_PRIMARY = "#6366f1"
 COLOR_PRIMARY_HOVER = "#4f46e5"
-COLOR_PRIMARY_LIGHT = "#eeef2ff"
+COLOR_PRIMARY_LIGHT = "#eef2ff"
 COLOR_TEXT_MAIN = "#0f172a"
 COLOR_TEXT_MUTED = "#64748b"
 COLOR_BG_CARD = "#ffffff"
@@ -27,37 +27,45 @@ QDialog {
     background-color: #f8fafc;
 }
 
-/* Tabs */
+QLabel {
+    border: none;
+    background: transparent;
+    color: #0f172a;
+}
+
+/* Tabs Segmented Control */
 QTabWidget::pane {
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    background-color: #ffffff;
-    top: -1px;
+    border: none;
+    background-color: transparent;
+    top: 0px;
+}
+
+QTabBar {
+    background-color: #e2e8f0;
+    border-radius: 10px;
+    padding: 3px;
 }
 
 QTabBar::tab {
-    background-color: #f1f5f9;
+    background-color: transparent;
     color: #64748b;
-    border: 1px solid #e2e8f0;
-    border-bottom: none;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    padding: 8px 16px;
-    margin-right: 4px;
+    border: none;
+    border-radius: 8px;
+    padding: 7px 18px;
+    margin: 2px;
     font-weight: 500;
 }
 
 QTabBar::tab:selected {
     background-color: #ffffff;
     color: #4f46e5;
-    border-color: #cbd5e1;
-    border-bottom: 2px solid #6366f1;
     font-weight: 600;
+    border: 1px solid #cbd5e1;
 }
 
 QTabBar::tab:hover:!selected {
-    background-color: #e2e8f0;
-    color: #334155;
+    color: #0f172a;
+    background-color: rgba(255, 255, 255, 0.4);
 }
 
 /* LineEdit, TextEdit, SpinBox, ComboBox */
@@ -65,14 +73,14 @@ QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 6px 10px;
+    padding: 7px 12px;
     color: #0f172a;
     selection-background-color: #818cf8;
 }
 
 QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border: 2px solid #6366f1;
-    padding: 5px 9px;
+    padding: 6px 11px;
 }
 
 QLineEdit:hover, QTextEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover {
@@ -98,7 +106,7 @@ QPushButton {
     color: #1e293b;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 6px 14px;
+    padding: 7px 16px;
     font-weight: 500;
 }
 
@@ -202,15 +210,17 @@ QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
 /* QMenu (Tray / Context Menu) */
 QMenu {
     background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
+    border: 1px solid #cbd5e1;
+    border-radius: 12px;
     padding: 6px;
 }
 
 QMenu::item {
-    padding: 6px 20px;
+    padding: 6px 18px;
     border-radius: 6px;
-    color: #1e293b;
+    color: #0f172a;
+    font-size: 13px;
+    font-weight: 500;
 }
 
 QMenu::item:selected {
@@ -221,7 +231,7 @@ QMenu::item:selected {
 QMenu::separator {
     height: 1px;
     background: #e2e8f0;
-    margin: 4px 8px;
+    margin: 5px 8px;
 }
 """
 

@@ -36,7 +36,7 @@ def test_coordinator_builds_with_reminder_and_pomodoro(qapp, tmp_path: Path, mon
         assert coord.reminder_scheduler is not None
         assert coord.pomodoro is not None
         texts = _menu_texts(coord.tray.menu())
-        for label in ["＋ 快速记提醒", "提醒列表…", "🍅 番茄钟…"]:
+        for label in ["快速记提醒", "提醒列表", "番茄钟"]:
             assert label in texts
     finally:
         coord._due_timer.stop()  # noqa: SLF001
