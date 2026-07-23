@@ -28,6 +28,31 @@ def _config_overrides(settings: SettingsStore) -> dict:
     }
 
 
+class BuildResult:
+    """Cross-thread payload handed from the generation QThread to the main thread.
+
+    Wrapped in a plain object (not a dict) because PySide6's ``Signal(object)``
+    tries to copy-convert built-in containers to C++ types and drops them; a
+    custom Python instance is passed through untouched.
+    """
+
+    __slots__ = ("pet_id", "paths", "model", "prompt", "description")
+
+    def __init__(
+        self,
+        pet_id: str,
+        paths: dict[str, str],
+        model: str,
+        prompt: str,
+        description: str,
+    ) -> None:
+        self.pet_id = pet_id
+        self.paths = paths
+        self.model = model
+        self.prompt = prompt
+        self.description = description
+
+
 def _set_macos_accessory_policy() -> None:
     """Drop the interpreter's Dock icon on macOS by becoming a UI accessory.
 
@@ -76,7 +101,7 @@ def _set_macos_accessory_policy() -> None:
 
 class GenerationWorker(QThread):
     progress = Signal(str)
-    finished_ok = Signal(str)
+    finished_ok = Signal(object)
     failed = Signal(str)
 
     def __init__(
@@ -122,15 +147,20 @@ class GenerationWorker(QThread):
                 model=config.model,
                 prompt=prompt,
             )
+            # Registration touches SQLite, whose connection lives on the main
+            # thread; doing it here (a QThread) raises ProgrammingError
+            # ("SQLite objects created in a thread can only be used in that same
+            # thread"). Emit the built paths and let the main thread register.
             self.progress.emit("正在登记到宠物库…")
-            record = self._library.register_build(
-                paths,
-                pet_id=self._pet_id,
-                model=config.model,
-                prompt=prompt,
-                description=self._description,
+            self.finished_ok.emit(
+                BuildResult(
+                    pet_id=self._pet_id,
+                    paths={key: str(value) for key, value in paths.items()},
+                    model=config.model,
+                    prompt=prompt,
+                    description=self._description,
+                )
             )
-            self.finished_ok.emit(record.id)
         except Exception as exc:  # surface any failure to the UI thread
             self.failed.emit(str(exc))
 
@@ -393,6 +423,10 @@ class AppCoordinator(QObject):
         self._worker.progress.connect(self._on_gen_progress)
         self._worker.finished_ok.connect(self._on_gen_done)
         self._worker.failed.connect(self._on_gen_failed)
+        # Keep the QThread alive until it finishes: dropping the last Python
+        # reference while it runs aborts the process ("QThread: Destroyed while
+        # thread is still running"). deleteLater reclaims it once done.
+        self._worker.finished.connect(self._worker.deleteLater)
         if self.library_dialog is not None:
             self.library_dialog.set_progress("正在生成形象…")
         self._worker.start()
@@ -402,16 +436,28 @@ class AppCoordinator(QObject):
             self.library_dialog.set_progress(text)
         self.bubble.show_message(text, timeout_ms=4000)
 
-    def _on_gen_done(self, pet_id: str) -> None:
+    def _on_gen_done(self, result: BuildResult) -> None:
         if self.library_dialog is not None:
             self.library_dialog.set_progress("")
-        record = self.library.get(pet_id)
-        self._select_pet(pet_id)
+        # Registration runs here on the main thread (the worker only produced
+        # files) so the SQLite connection is never used cross-thread.
+        paths = {key: Path(value) for key, value in result.paths.items()}
+        try:
+            record = self.library.register_build(
+                paths,
+                pet_id=result.pet_id,
+                model=result.model,
+                prompt=result.prompt,
+                description=result.description,
+            )
+        except Exception as exc:
+            self.bubble.show_message(f"登记失败：{exc}")
+            return
+        self._select_pet(record.id)
         if self.pet_window is not None:
             self.pet_window.set_expression("happy")
             self.pet_window.celebrate()
-        name = record.display_name if record else "新伙伴"
-        self.bubble.show_message(f"新伙伴「{name}」来啦！")
+        self.bubble.show_message(f"新伙伴「{record.display_name}」来啦！")
 
     def _on_gen_failed(self, message: str) -> None:
         if self.library_dialog is not None:
@@ -580,6 +626,13 @@ class AppCoordinator(QObject):
     def _quit(self) -> None:
         self.bus.stop()
         self._due_timer.stop()
+        # Let an in-flight generation thread exit cleanly instead of being
+        # destroyed mid-run (which aborts the process). It only does local file
+        # work + a network call, so it returns promptly; the timeout is a safety
+        # net so a stuck network request can't hang shutdown.
+        if self._worker is not None and self._worker.isRunning():
+            self._worker.quit()
+            self._worker.wait(3000)
         if self.pet_window is not None:
             self.pet_window.close()
         self.bubble.hide_now()
