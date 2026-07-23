@@ -95,7 +95,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("PetGen 设置中心")
         self.resize(680, 680)
         self.setMinimumSize(620, 620)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
+        self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
         root = QVBoxLayout(self)

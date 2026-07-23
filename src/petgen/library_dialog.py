@@ -316,7 +316,7 @@ class LibraryDialog(QDialog):
         self.setWindowTitle("PetGen 宠物管理")
         self.resize(960, 680)
         self.setMinimumSize(840, 580)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
+        self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
         self._grid_layout: QGridLayout | None = None

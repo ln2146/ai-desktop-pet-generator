@@ -118,7 +118,7 @@ class ReminderListDialog(QDialog):
         self.setWindowTitle("提醒事项中心")
         self.resize(560, 520)
         self.setMinimumSize(480, 440)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
+        self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
         self._cards: list[_ReminderCard] = []
