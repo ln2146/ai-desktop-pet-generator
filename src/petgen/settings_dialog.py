@@ -95,6 +95,7 @@ class SettingsDialog(QDialog):
         self.setWindowTitle("PetGen 设置中心")
         self.resize(680, 680)
         self.setMinimumSize(620, 620)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
         apply_theme(self)
 
         root = QVBoxLayout(self)
@@ -408,9 +409,21 @@ class SettingsDialog(QDialog):
             pack = load_catalog().get(pack_id)
             if pack is None:
                 return
-            VoicePackService(pack, enabled=True).preview()
+            svc = getattr(self, "_preview_voice_svc", None)
+            if svc is None:
+                # Keep the service alive on the dialog (the coordinator reuses the
+                # dialog for its whole lifetime). TTS / SFX / edge playback are async,
+                # so a throwaway service gets GC'd before the sound actually plays.
+                svc = VoicePackService(pack, enabled=True)
+                self._preview_voice_svc = svc
+            else:
+                svc.set_pack(pack.id)
+            svc.set_enabled(True)  # preview ignores mute / do-not-disturb
+            svc.preview()
         except Exception:
-            pass
+            import logging
+
+            logging.getLogger(__name__).exception("voice preview failed")
 
     def _fill_from_env(self) -> None:
         load_env_file(None)

@@ -5,13 +5,14 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QMouseEvent, QPixmap
+from PySide6.QtGui import QColor, QFont, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QFrame,
     QGridLayout,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -50,6 +51,7 @@ class _CreatePetDialog(QDialog):
         self.setWindowTitle("✨ 创建新宠物")
         self.resize(580, 480)
         self.setMinimumSize(520, 420)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
         apply_theme(self)
 
         self._images: list[str] = []
@@ -119,50 +121,60 @@ class _PetCard(QFrame):
         self._id = record.id
         self._dir = record.dir_path
         self._name = record.display_name or record.id
-        self.setFrameShape(QFrame.StyledPanel)
-        self.setFixedSize(132, 132)
+        self.setFrameShape(QFrame.NoFrame)
+        self.setFixedSize(132, 150)
         self.setCursor(Qt.PointingHandCursor)
 
-        # Style matching Image 2: clean rounded tile with dark border when selected
+        # Premium tile: vertical gradient + brand-colored ring when selected
         if selected:
             self.setStyleSheet(
                 "QFrame {"
-                "  background-color: #e5e7eb;"
-                "  border: 2px solid #1e293b;"
-                "  border-radius: 14px;"
+                "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #eef2ff, stop:1 #e7ecff);"
+                "  border: 2px solid #6366f1; border-radius: 16px;"
                 "}"
             )
         else:
             self.setStyleSheet(
                 "QFrame {"
-                "  background-color: #ffffff;"
-                "  border: 1px solid #e2e8f0;"
-                "  border-radius: 14px;"
+                "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #ffffff, stop:1 #eef1f9);"
+                "  border: 1px solid #e7ecf3; border-radius: 16px;"
                 "}"
                 "QFrame:hover {"
-                "  background-color: #f8fafc;"
-                "  border-color: #cbd5e1;"
+                "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #ffffff, stop:1 #e9edf7);"
+                "  border: 1px solid #c7d2fe;"
                 "}"
             )
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 10, 8, 8)
-        layout.setSpacing(6)
+        # Soft elevation so cards read as objects on a surface, not flat cells
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(22 if selected else 16)
+        shadow.setOffset(0, 6 if selected else 4)
+        shadow.setColor(QColor(30, 41, 59, 52 if selected else 30))
+        self.setGraphicsEffect(shadow)
 
-        # Thumbnail
-        thumb = QLabel()
-        thumb.setFixedSize(_THUMB, _THUMB)
-        thumb.setAlignment(Qt.AlignCenter)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 9, 8, 8)
+        layout.setSpacing(5)
+
+        # Stage: a baked studio backdrop (radial gradient + ground shadow) behind the pet,
+        # so light/white pets are no longer washed out by a flat white card.
+        stage = QLabel()
+        stage.setFixedSize(116, 96)
+        stage.setAlignment(Qt.AlignCenter)
         thumb_path = record.preview_path or record.sprite_path
         if thumb_path and Path(thumb_path).is_file():
-            pm = QPixmap(thumb_path).scaled(_THUMB, _THUMB, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            thumb.setPixmap(pm)
+            stage.setPixmap(self._compose_stage(thumb_path, 116, 96))
+            stage.setStyleSheet("background: transparent; border: none;")
         else:
-            thumb.setText("🐾")
-            font = QFont()
-            font.setPointSize(24)
-            thumb.setFont(font)
-        layout.addWidget(thumb, 0, Qt.AlignCenter)
+            stage.setText("🐾")
+            ef = QFont()
+            ef.setPointSize(26)
+            stage.setFont(ef)
+            stage.setStyleSheet(
+                "background: qradialgradient(cx:0.5,cy:0.42,radius:0.78, stop:0 #fcfdff, stop:1 #e7ebf5);"
+                " border: 1px solid #eef1f8; border-radius: 12px;"
+            )
+        layout.addWidget(stage, 0, Qt.AlignCenter)
 
         # Pet Name Label
         name = QLabel(record.display_name or record.id)
@@ -172,7 +184,11 @@ class _PetCard(QFrame):
         name_font.setBold(True)
         name_font.setPointSize(12)
         name.setFont(name_font)
-        name.setStyleSheet("color: #0f172a; border: none; background: transparent;")
+        name.setStyleSheet(
+            "color: #4338ca; border: none; background: transparent;"
+            if selected
+            else "color: #1e293b; border: none; background: transparent;"
+        )
         layout.addWidget(name)
 
         # Hidden Test Compatibility Buttons (for unit tests like test_app_windows.py)
@@ -197,7 +213,62 @@ class _PetCard(QFrame):
         self._del_btn.clicked.connect(lambda: self.deleted.emit(self._id))
 
         for b in (self._legacy_sel, self._prev_btn, self._rev_btn, self._rename_btn, self._del_btn):
-            layout.addWidget(b)
+            b.setParent(self)
+
+    def _compose_stage(self, path: str, w: int, h: int) -> QPixmap:
+        """Render the pet on a soft studio stage (radial backdrop + ground shadow)."""
+        from PySide6.QtCore import QPointF, QRectF
+        from PySide6.QtGui import QImage, QPainter, QPen, QRadialGradient
+
+        dpr = 2.0
+        img = QImage(int(w * dpr), int(h * dpr), QImage.Format.Format_ARGB32_Premultiplied)
+        img.fill(Qt.GlobalColor.transparent)
+        p = QPainter(img)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        p.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform, True)
+        p.scale(dpr, dpr)
+
+        rect = QRectF(0.5, 0.5, w - 1, h - 1)
+        # Studio backdrop: warm-light centre falling to a cool edge so white pets get a defining frame
+        rg = QRadialGradient(w * 0.5, h * 0.40, max(w, h) * 0.80)
+        rg.setColorAt(0.0, QColor("#fcfdff"))
+        rg.setColorAt(1.0, QColor("#e6eaf4"))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(rg)
+        p.drawRoundedRect(rect, 12, 12)
+        # Glossy inner highlight + hairline border
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.setPen(QPen(QColor(255, 255, 255, 150), 1))
+        p.drawRoundedRect(rect.adjusted(0.6, 0.6, -0.6, -0.6), 11, 11)
+        p.setPen(QPen(QColor(225, 230, 242, 255), 1))
+        p.drawRoundedRect(rect, 12, 12)
+        # Ground shadow: an elliptical radial gradient anchors the toy to the stage
+        cx, cy = w * 0.5, h * 0.88
+        rw = w * 0.32
+        sg = QRadialGradient(0, 0, rw)
+        sg.setColorAt(0.0, QColor(25, 30, 55, 82))
+        sg.setColorAt(0.65, QColor(25, 30, 55, 26))
+        sg.setColorAt(1.0, QColor(25, 30, 55, 0))
+        p.save()
+        p.translate(cx, cy)
+        p.scale(1.0, (h * 0.075) / rw)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(sg)
+        p.drawEllipse(QPointF(0, 0), rw, rw)
+        p.restore()
+        # Pet, centred and lifted slightly above its shadow
+        src = QPixmap(path)
+        aw, ah = w - 18, h - 24
+        pm = src.scaled(int(aw * dpr), int(ah * dpr), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        pm.setDevicePixelRatio(dpr)
+        lw = pm.width() / dpr
+        lh = pm.height() / dpr
+        p.drawPixmap(QRectF((w - lw) / 2, (h - lh) / 2 - 3, lw, lh), pm, QRectF(pm.rect()))
+        p.end()
+
+        out = QPixmap.fromImage(img)
+        out.setDevicePixelRatio(dpr)
+        return out
 
     def mousePressEvent(self, event: QMouseEvent) -> None:  # noqa: N802
         if event.button() == Qt.LeftButton:
@@ -245,6 +316,7 @@ class LibraryDialog(QDialog):
         self.setWindowTitle("PetGen 宠物管理")
         self.resize(960, 680)
         self.setMinimumSize(840, 580)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
         apply_theme(self)
 
         self._grid_layout: QGridLayout | None = None
@@ -319,12 +391,12 @@ class LibraryDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { border: 1px solid #e2e8f0; border-radius: 14px; background: #fafafa; }")
+        scroll.setStyleSheet("QScrollArea { border: 1px solid #e7ecf3; border-radius: 16px; background: #f4f6fc; }")
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         self._grid_layout = QGridLayout(container)
-        self._grid_layout.setContentsMargins(14, 14, 14, 14)
-        self._grid_layout.setSpacing(14)
+        self._grid_layout.setContentsMargins(16, 16, 16, 16)
+        self._grid_layout.setSpacing(16)
         self._grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         scroll.setWidget(container)
         root.addWidget(scroll, 1)
