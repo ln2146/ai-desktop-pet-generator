@@ -95,3 +95,39 @@ def test_delete(qapp, tmp_path: Path) -> None:
     assert sched.delete(r.id) is True
     assert store.get(r.id) is None
     assert changed
+
+
+def test_update_edits_fields_resets_handled_and_signals(qapp, tmp_path: Path) -> None:
+    import sqlite3
+
+    store, sched = _make(tmp_path)
+    r = sched.create("旧标题", T("2026-03-01T09:00:00"))
+    # Simulate a previously-fired reminder (due_handled=1) via raw SQL.
+    raw = sqlite3.connect(str(tmp_path / "db.sqlite"))
+    raw.execute("UPDATE reminders SET due_handled = 1 WHERE id = ?", (r.id,))
+    raw.commit()
+    raw.close()
+
+    changed: list = []
+    sched.reminders_changed.connect(lambda: changed.append(1))
+    updated = sched.update(
+        r.id,
+        title="新标题",
+        trigger_at=T("2026-04-01T08:00:00"),
+        recurrence="daily",
+    )
+
+    assert updated is not None
+    assert updated.title == "新标题"
+    assert updated.recurrence == "daily"
+    assert parse_dt(updated.trigger_at) == T("2026-04-01T08:00:00")
+    assert changed  # reminders_changed emitted
+    raw = sqlite3.connect(str(tmp_path / "db.sqlite"))
+    handled = raw.execute("SELECT due_handled FROM reminders WHERE id = ?", (r.id,)).fetchone()[0]
+    raw.close()
+    assert handled == 0  # reset so the edited time can fire
+
+
+def test_update_missing_returns_none(qapp, tmp_path: Path) -> None:
+    store, sched = _make(tmp_path)
+    assert sched.update("no-such-id", title="x", trigger_at=T("2026-03-01T09:00:00")) is None

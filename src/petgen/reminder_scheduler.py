@@ -68,6 +68,36 @@ class ReminderScheduler(QObject):
         self.reminders_changed.emit()
         return reminder
 
+    def update(
+        self,
+        reminder_id: str,
+        *,
+        title: str,
+        trigger_at: datetime | str,
+        recurrence: str = "none",
+        custom_weekdays: list[int] | None = None,
+    ) -> Reminder | None:
+        """Edit an existing reminder's schedule; returns None if it is gone.
+
+        Centralises the edit path (previously duplicated in the coordinator):
+        mutate the fields, persist, reset the handled flag so the new trigger
+        time can fire, and notify listeners.
+        """
+        reminder = self._store.get(reminder_id)
+        if reminder is None:
+            return None
+        if isinstance(trigger_at, datetime):
+            trigger_at = to_iso(trigger_at)
+        reminder.title = title
+        reminder.trigger_at = trigger_at
+        reminder.recurrence = recurrence
+        reminder.custom_weekdays = list(custom_weekdays or [])
+        reminder.updated_at = to_iso(utcnow())
+        self._store.upsert(reminder)
+        self._store.clear_handled(reminder_id)
+        self.reminders_changed.emit()
+        return reminder
+
     def snooze(
         self,
         reminder_id: str,

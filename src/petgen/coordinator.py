@@ -558,21 +558,17 @@ class AppCoordinator(QObject):
         self.reminder_editor_dialog.raise_()
 
     def _save_reminder(self, data: dict) -> None:
-        from petgen.reminder import Reminder
-
         try:
             if data.get("id"):
-                existing = self.reminder_store.get(data["id"])
-                if existing is not None:
-                    existing.title = data["title"]
-                    existing.trigger_at = data["trigger_at"]
-                    existing.recurrence = data.get("recurrence", "none")
-                    existing.custom_weekdays = data.get("custom_weekdays") or []
-                    self.reminder_store.upsert(existing)
-                    self.reminder_store.clear_handled(existing.id)
-                    self.reminder_scheduler.reminders_changed.emit()
-                else:
-                    self._create_reminder(data)
+                updated = self.reminder_scheduler.update(
+                    data["id"],
+                    title=data["title"],
+                    trigger_at=data["trigger_at"],
+                    recurrence=data.get("recurrence", "none"),
+                    custom_weekdays=data.get("custom_weekdays") or [],
+                )
+                if updated is None:
+                    self._create_reminder(data)  # vanished; recreate instead
             else:
                 self._create_reminder(data)
         except Exception as exc:
