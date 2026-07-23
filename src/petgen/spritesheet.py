@@ -172,7 +172,63 @@ def remove_chroma_background(image: Image.Image, *, key: tuple[int, int, int] = 
             elif distance < soft_distance and green_dominant:
                 new_alpha = int((distance - transparent_distance) / span * 255)
                 pixels[x, y] = (min(r, max(r, b)), min(g, max(r, b)), b, max(0, min(255, new_alpha)))
+    _despill_light_subject_edges(rgba)
     return rgba
+
+
+def _despill_light_subject_edges(rgba: Image.Image) -> None:
+    """去除近白/浅色主体轮廓上的绿幕混色光晕（原地修改）。
+
+    仅处理紧邻透明像素的轮廓环；且仅当环像素"朝内的本体颜色非绿主导"时才压绿，
+    以免误伤奶绿龙/树蛙等绿色角色的本体边缘。详见记忆 white-subject-green-halo。
+    """
+    from PIL import ImageChops, ImageFilter
+
+    alpha = rgba.getchannel("A")
+    transp = alpha.point(lambda v: 255 if v == 0 else 0)
+    near = transp.filter(ImageFilter.MaxFilter(7))  # 距透明 <=3px 的区域
+    opaque = alpha.point(lambda v: 255 if v > 0 else 0)
+    ring = ImageChops.multiply(near, opaque)
+    rb = ring.getbbox()
+    if not rb:
+        return
+    px = rgba.load()
+    rng = ring.load()
+    width, height = rgba.size
+    sample_r = 6  # 朝内采样半径，需大于环宽
+
+    for y in range(rb[1], rb[3]):
+        for x in range(rb[0], rb[2]):
+            if rng[x, y] != 255:
+                continue
+            r, g, b, a = px[x, y]
+            if a == 0 or g <= max(r, b) + 6:
+                continue  # 非绿溢色像素
+            ir = ig = ib = n = 0
+            for dx, dy in ((sample_r, 0), (-sample_r, 0), (0, sample_r), (0, -sample_r)):
+                xx, yy = x + dx, y + dy
+                if 0 <= xx < width and 0 <= yy < height:
+                    pr, pg, pb, pa = px[xx, yy]
+                    if pa > 0:
+                        ir += pr
+                        ig += pg
+                        ib += pb
+                        n += 1
+            if n == 0:
+                continue
+            ir //= n
+            ig //= n
+            ib //= n
+            if ig > ir + 15 and ig > ib + 15:
+                continue  # 本体为绿色角色，保留其边缘
+            ng = max(r, b) + 4
+            if g <= ng:
+                continue
+            na = a
+            d = math.sqrt(r * r + (g - 255) * (g - 255) + b * b)
+            if d < 175:  # 极接近背景者轻微羽化
+                na = max(0, min(a, int((d - 110) / 65 * 255)))
+            px[x, y] = (r, ng, b, na)
 
 
 def normalize_to_frame(image: Image.Image, spec: SpriteSpec = SpriteSpec()) -> Image.Image:
