@@ -275,8 +275,21 @@ class AppCoordinator(QObject):
             self.pet_window = None
         if record is None:
             return
-        manifest = load_manifest(record.manifest_path)
-        atlas = FrameAtlas.load(manifest.sprite_path, manifest.frame)
+        try:
+            manifest = load_manifest(record.manifest_path)
+            atlas = FrameAtlas.load(manifest.sprite_path, manifest.frame)
+        except Exception as exc:  # corrupt / missing assets must not crash startup
+            print(
+                f"petgen: failed to load pet {record.id!r} ({exc}); clearing selection",
+                file=sys.stderr,
+            )
+            self.settings.set("pet.selected_id", None)
+            if self.bubble is not None:
+                try:
+                    self.bubble.show_message(f"宠物素材损坏，已跳过：{exc}")
+                except Exception:  # noqa: BLE001 - bubble is best-effort at startup
+                    pass
+            return
         scale = self._scale_override or float(self.settings.get("pet.scale", 1.5))
         window = PetWindow(
             manifest,
