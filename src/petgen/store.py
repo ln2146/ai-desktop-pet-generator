@@ -53,18 +53,48 @@ CREATE TABLE IF NOT EXISTS reminders (
 CREATE INDEX IF NOT EXISTS reminders_trigger_idx ON reminders(trigger_at);
 """
 
+# Ordered schema migrations. Index i upgrades version i -> i+1 and must be
+# idempotent (a crashed upgrade may be retried). The current schema lives at
+# version 1 (_migrate_v1); append new functions here when columns/tables change
+# so existing on-disk databases (which only ever saw CREATE IF NOT EXISTS before)
+# are upgraded instead of hitting "no such column" at runtime.
+_MIGRATIONS: list = []
+
+
+def _migrate_v1(conn: sqlite3.Connection) -> None:
+    conn.executescript(_SCHEMA)
+
+
+_MIGRATIONS.append(_migrate_v1)
+
+_TARGET_VERSION = len(_MIGRATIONS)
+
 
 def _connect(target: Path | sqlite3.Connection | None) -> sqlite3.Connection:
     if isinstance(target, sqlite3.Connection):
-        return target
-    path = db_path() if target is None else Path(target)
-    conn = sqlite3.connect(str(path))
+        conn = target
+    else:
+        path = db_path() if target is None else Path(target)
+        conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
+    # WAL lets the main thread (settings writes on every scale drag) and the
+    # generation worker / event poller read+write concurrently without
+    # "database is locked". No-op for :memory: / shared connections that
+    # already configured a journal mode.
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.DatabaseError:
+        pass
     return conn
 
 
 def _init_schema(conn: sqlite3.Connection) -> None:
-    conn.executescript(_SCHEMA)
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    while version < _TARGET_VERSION:
+        _MIGRATIONS[version](conn)
+        version += 1
+        conn.execute(f"PRAGMA user_version = {version}")
+    conn.commit()
 
 
 @dataclass(frozen=True)

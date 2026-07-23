@@ -68,6 +68,72 @@ def test_schema_is_idempotent(tmp_path: Path) -> None:
         second.close()
 
 
+def test_legacy_db_is_migrated_to_current_version(tmp_path: Path) -> None:
+    """A pre-migration database (user_version 0, no schema) is upgraded on open.
+
+    Simulates a DB created before the migration framework existed: we write a
+    file with user_version left at 0 and no tables, then open it via a store and
+    assert the schema now exists and the version advanced to the target.
+    """
+    import sqlite3
+
+    from petgen.store import _TARGET_VERSION
+
+    path = tmp_path / "legacy.sqlite"
+    raw = sqlite3.connect(str(path))
+    raw.execute("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+    raw.execute("INSERT INTO settings(key, value) VALUES ('k', '1')")
+    raw.commit()
+    assert raw.execute("PRAGMA user_version").fetchone()[0] == 0
+    raw.close()
+
+    store = SettingsStore(path)  # runs migrations (v1 CREATE IF NOT EXISTS is safe)
+    try:
+        assert store.get("k") == 1  # pre-existing row survived
+        conn = sqlite3.connect(str(path))
+        try:
+            assert conn.execute("PRAGMA user_version").fetchone()[0] == _TARGET_VERSION
+            # All current tables present after migration.
+            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            assert {"settings", "pets", "ai_events", "reminders"} <= tables
+        finally:
+            conn.close()
+    finally:
+        store.close()
+
+
+def test_open_is_idempotent_at_target_version(tmp_path: Path) -> None:
+    """Re-opening a fully-migrated DB does not error (migrations are skipped)."""
+    import sqlite3
+
+    from petgen.store import _TARGET_VERSION
+
+    path = tmp_path / "db.sqlite"
+    first = PetRegistry(path)
+    first.close()
+    second = PetRegistry(path)
+    second.close()
+    conn = sqlite3.connect(str(path))
+    try:
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == _TARGET_VERSION
+    finally:
+        conn.close()
+
+
+def test_connection_uses_wal_journal_mode(tmp_path: Path) -> None:
+    import sqlite3
+
+    path = tmp_path / "db.sqlite"
+    store = SettingsStore(path)
+    store.close()
+    conn = sqlite3.connect(str(path))
+    try:
+        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        assert mode.lower() == "wal"
+    finally:
+        conn.close()
+
+
 def test_registry_register_list_get_delete(tmp_path: Path) -> None:
     reg = PetRegistry(tmp_path / "db.sqlite")
     try:
