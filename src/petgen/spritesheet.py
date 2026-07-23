@@ -97,7 +97,6 @@ def crop_premium_action_rows(image: Image.Image, spec: SpriteSpec = SpriteSpec()
         active_threshold=max(4, cutout.width // 140),
         min_length=max(24, cutout.height // 24),
         merge_gap=max(8, cutout.height // 80),
-        target_count=len(spec.source_row_counts),
     )
     if len(row_bands) != len(spec.source_row_counts):
         # Safety net: the column-friendly segmentation change below makes
@@ -337,7 +336,7 @@ def _crop_row_frames(image: Image.Image, row_band: tuple[int, int], expected_cou
 
     frames = []
     for x_band in x_bands:
-        label = x_band[2] if len(x_band) > 2 else None
+        label = x_band[2]  # x_bands entries are always (left, right, label) triples
         if label:
             crop = _mask_component(image, row_band, x_band, label, labels)
         else:
@@ -396,29 +395,6 @@ def _label_row_components(
                             stack.append((nx, ny))
             info[next_label] = [minx, maxx, area]
     return labels, info
-
-
-def _connected_component_xbands(
-    image: Image.Image, row_band: tuple[int, int]
-) -> list[tuple[int, int, int]]:
-    """Left-to-right ``(x0, x1, label)`` of the non-transparent blobs in a row band.
-
-    8-connectivity keeps a pose's diagonally-linked limbs together while star /
-    spark specks stay isolated and are dropped by the area filter. The returned
-    ``label`` lets callers mask a frame to a single blob so a neighbour that
-    pokes into the crop box (touching wings / tails) cannot leak in.
-    """
-    top, bottom = row_band
-    _, info = _label_row_components(image, row_band)
-    row_height = max(1, bottom - top + 1)
-    min_area = max(40, row_height * 4)
-    bands = [
-        (info[label][0], info[label][1], label)
-        for label in range(1, len(info) + 1)
-        if info[label][2] >= min_area
-    ]
-    bands.sort(key=lambda band: band[0])
-    return bands
 
 
 def _split_wide_bands(
@@ -539,7 +515,6 @@ def _mask_component(
     top, _ = row_band
     left = max(0, x_band[0])
     right = min(image.width, x_band[1] + 1)
-    minx, _, info_area = left, x_band[1], 0
     minx = maxx = miny = maxy = None
     width = image.width
     for y in range(row_band[0], row_band[1] + 1):
@@ -625,14 +600,13 @@ def _segment_projection(
     active_threshold: int,
     min_length: int,
     merge_gap: int,
-    target_count: int,
 ) -> list[tuple[int, int]]:
     """Segment a 1D projection into bands, returning the merged result.
 
     Unlike :func:`_segment_projection_legacy`, this returns the merged bands even
-    when their count differs from ``target_count``. Column segmentation uses this
-    so that a count mismatch can be recovered by connected-component valley
-    splitting instead of silently collapsing to ``[]``.
+    when their count differs from the expected frame count. Column segmentation
+    uses this so that a count mismatch can be recovered by connected-component
+    valley splitting instead of silently collapsing to ``[]``.
     """
     bands: list[tuple[int, int]] = []
     start: int | None = None
