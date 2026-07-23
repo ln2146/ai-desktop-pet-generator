@@ -18,10 +18,17 @@ silhouette, markings, accessories, material cues, and personality, while
 redesigning it as one original cute companion pet.
 
 Style:
-- Polished modern 2D mascot.
+- Polished modern 2D mascot with a plush, dimensional "vinyl toy / 3D sticker" feel.
 - Soft rounded shapes, expressive face, clean silhouette, crisp edges.
 - Subtle hand-painted shading, high-quality app icon / sticker finish.
 - Not pixel art. Not realistic photo.
+
+Premium finish (important for texture quality):
+- Soft matte fur / plush texture with visible fluffy volume, not flat color fills.
+- Gentle volumetric lighting with a soft rim light and ambient occlusion for depth.
+- Rich, harmonious, slightly warm color palette with smooth gradients.
+- Thick clean outer outline, glossy highlight in the eyes, rosy cheek blush.
+- Cozy, high-end collectible-toy aesthetic; every frame equally polished.
 
 Canvas and background:
 - One single image, landscape or square.
