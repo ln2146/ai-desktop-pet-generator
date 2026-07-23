@@ -130,7 +130,12 @@ class SettingsStore:
         ).fetchone()
         if row is None:
             return default
-        return json.loads(row["value"])
+        try:
+            return json.loads(row["value"])
+        except (ValueError, TypeError):
+            # Corrupt / hand-edited value: degrade to the default rather than
+            # crash startup (mirrors ReminderStore._to_reminder's tolerance).
+            return default
 
     def set(self, key: str, value: Any) -> None:
         self._conn.execute(
@@ -142,7 +147,13 @@ class SettingsStore:
 
     def get_all(self) -> dict[str, Any]:
         rows = self._conn.execute("SELECT key, value FROM settings").fetchall()
-        return {row["key"]: json.loads(row["value"]) for row in rows}
+        out: dict[str, Any] = {}
+        for row in rows:
+            try:
+                out[row["key"]] = json.loads(row["value"])
+            except (ValueError, TypeError):
+                continue  # skip corrupt entries instead of aborting the whole read
+        return out
 
     def set_many(self, items: dict[str, Any]) -> None:
         self._conn.executemany(

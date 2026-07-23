@@ -134,6 +134,27 @@ def test_connection_uses_wal_journal_mode(tmp_path: Path) -> None:
         conn.close()
 
 
+def test_settings_get_bad_json_returns_default(tmp_path: Path) -> None:
+    """A corrupt settings value degrades to the default instead of raising."""
+    import sqlite3
+
+    path = tmp_path / "db.sqlite"
+    store = SettingsStore(path)
+    store.close()
+    raw = sqlite3.connect(str(path))
+    raw.execute("INSERT INTO settings(key, value) VALUES ('broken', '{not json')")
+    raw.commit()
+    raw.close()
+
+    store = SettingsStore(path)
+    try:
+        assert store.get("broken", "fallback") == "fallback"
+        assert store.get("missing", "fallback") == "fallback"
+        assert store.get_all() == {}  # corrupt entry skipped, not fatal
+    finally:
+        store.close()
+
+
 def test_registry_register_list_get_delete(tmp_path: Path) -> None:
     reg = PetRegistry(tmp_path / "db.sqlite")
     try:
