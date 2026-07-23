@@ -122,3 +122,40 @@ def test_sound_service_play_unknown_is_false(qapp) -> None:
     s = SoundService()
     assert s.play(None) is False
     assert s.play("nope") is False
+
+
+class _FakePlayer:
+    """Minimal QSoundEffect stand-in: never 'playing', records deleteLater/stop."""
+
+    def __init__(self) -> None:
+        self.deleted = False
+        self.stopped = False
+
+    def isPlaying(self) -> bool:
+        return False
+
+    def deleteLater(self) -> None:
+        self.deleted = True
+
+    def stop(self) -> None:
+        self.stopped = True
+
+
+def test_sound_service_prunes_finished_players(qapp) -> None:
+    s = SoundService()
+    old = [_FakePlayer() for _ in range(3)]
+    s._players = list(old)  # noqa: SLF001
+    s._prune_finished()  # noqa: SLF001
+    assert s._players == []  # noqa: SLF001 - all finished -> removed
+    assert all(p.deleted for p in old)
+
+
+def test_sound_service_pool_is_capped(qapp) -> None:
+    cap = 2
+    s = SoundService(max_players=cap)
+    # Pre-fill with finished players beyond the cap; one more play() must prune
+    # (they are not playing) and then enforce the cap, so the pool never exceeds
+    # cap even though play() appends a fresh QSoundEffect.
+    s._players = [_FakePlayer() for _ in range(cap + 3)]  # noqa: SLF001
+    s.play("pop")
+    assert len(s._players) <= cap  # noqa: SLF001

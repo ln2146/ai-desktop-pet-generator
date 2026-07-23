@@ -142,10 +142,17 @@ def _resolve_sfx(value: str) -> Path | None:
 
 
 class SoundService:
-    """Plays per-event SFX via QSoundEffect. Degrades silently without a device."""
+    """Plays per-event SFX via QSoundEffect. Degrades silently without a device.
 
-    def __init__(self) -> None:
+    Each play() creates a QSoundEffect; left unchecked that leaks one object (and
+    its audio buffer) per event forever in a resident app. Finished players are
+    deleted via deleteLater on playingChanged, pruned before each play(), and a
+    hard pool cap drops the oldest as a last resort.
+    """
+
+    def __init__(self, max_players: int = 16) -> None:
         self._players: list = []
+        self._max_players = max_players
         self._enabled = True
         self._ok = False
         try:
@@ -158,6 +165,23 @@ class SoundService:
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = enabled
 
+    def _prune_finished(self) -> None:
+        """Delete players that are no longer playing; keep the still-playing ones."""
+        alive: list = []
+        for player in self._players:
+            try:
+                playing = bool(player.isPlaying())
+            except Exception:  # noqa: BLE001 - backend may be gone
+                playing = True
+            if playing:
+                alive.append(player)
+            else:
+                try:
+                    player.deleteLater()
+                except Exception:  # noqa: BLE001 - best effort
+                    pass
+        self._players = alive
+
     def play(self, value: str | None) -> bool:
         if not self._enabled or not value or not self._ok:
             return False
@@ -168,11 +192,36 @@ class SoundService:
             from PySide6.QtCore import QUrl
             from PySide6.QtMultimedia import QSoundEffect
 
+            self._prune_finished()
+            # Hard cap: drop the oldest so a burst of events (or a backend that
+            # never reports playingChanged) cannot grow the pool without bound.
+            while len(self._players) >= self._max_players:
+                old = self._players.pop(0)
+                try:
+                    old.stop()
+                    old.deleteLater()
+                except Exception:  # noqa: BLE001 - best effort
+                    pass
             player = QSoundEffect()
             player.setSource(QUrl.fromLocalFile(str(path)))
             player.setVolume(0.8)
+            player.playingChanged.connect(lambda p=player: self._retire(p))
             self._players.append(player)
             player.play()
             return True
         except Exception:
             return False
+
+    def _retire(self, player) -> None:
+        """playingChanged handler: when a player stops, drop and delete it."""
+        try:
+            if player.isPlaying():
+                return
+        except Exception:  # noqa: BLE001 - backend may be gone
+            pass
+        if player in self._players:
+            self._players.remove(player)
+        try:
+            player.deleteLater()
+        except Exception:  # noqa: BLE001 - best effort
+            pass
