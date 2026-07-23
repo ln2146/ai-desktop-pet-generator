@@ -101,6 +101,9 @@ class TrayController(QObject):
     about_requested = Signal()
     character_selected = Signal(str)
     quiet_toggled = Signal(bool)
+    quick_capture_requested = Signal()
+    reminder_list_requested = Signal()
+    pomodoro_requested = Signal()
     quit_requested = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -185,6 +188,11 @@ class TrayController(QObject):
         self._character_menu = QMenu("切换角色")  # no parent: held by this attribute (shiboken ownership)
         apply_theme(self._character_menu)
         menu.addMenu(self._character_menu)
+        menu.addSeparator()
+        menu.addAction("＋ 快速记提醒").triggered.connect(lambda: self.quick_capture_requested.emit())
+        menu.addAction("提醒列表…").triggered.connect(lambda: self.reminder_list_requested.emit())
+        menu.addAction("🍅 番茄钟…").triggered.connect(lambda: self.pomodoro_requested.emit())
+        menu.addSeparator()
         self._quiet_action = menu.addAction("安静模式")
         self._quiet_action.setCheckable(True)
         self._quiet_action.triggered.connect(lambda checked: self.quiet_toggled.emit(bool(checked)))

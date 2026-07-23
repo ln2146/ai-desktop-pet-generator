@@ -4,7 +4,7 @@ import sys
 import uuid
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QObject, QThread, QTimer, Signal
 from PySide6.QtWidgets import QApplication, QInputDialog
 
 from petgen.animation import frame_interval_ms
@@ -174,6 +174,24 @@ class AppCoordinator(QObject):
         self.library_dialog: LibraryDialog | None = None
         self.settings_dialog: SettingsDialog | None = None
 
+        # reminders + pomodoro
+        from petgen.pomodoro import PomodoroService
+        from petgen.reminder_scheduler import ReminderScheduler
+        from petgen.store import ReminderStore
+
+        self.reminder_store = ReminderStore()
+        self.reminder_scheduler = ReminderScheduler(self.reminder_store)
+        self.reminder_scheduler.reminder_due.connect(self._on_reminder_due)
+        self.pomodoro = PomodoroService()
+        self.pomodoro.finished.connect(self._on_pomodoro_finished)
+        self._due_timer = QTimer(self)
+        self._due_timer.setInterval(20000)
+        self._due_timer.timeout.connect(self.reminder_scheduler.check_due)
+        self.reminder_list_dialog = None
+        self.reminder_editor_dialog = None
+        self.quick_capture_dialog = None
+        self.pomodoro_window = None
+
     # --- lifecycle ----------------------------------------------------------
 
     def bootstrap(self) -> None:
@@ -194,6 +212,8 @@ class AppCoordinator(QObject):
         self.bootstrap()
         self._reload_pet()
         self.bus.start()
+        self._due_timer.start()
+        self.reminder_scheduler.check_due()  # surface anything already overdue at startup
         return app.exec()
 
     # --- wiring -------------------------------------------------------------
@@ -206,6 +226,9 @@ class AppCoordinator(QObject):
         t.about_requested.connect(self._open_settings)
         t.character_selected.connect(self._select_pet)
         t.quiet_toggled.connect(self._set_quiet)
+        t.quick_capture_requested.connect(self._open_quick_capture)
+        t.reminder_list_requested.connect(self._open_reminder_list)
+        t.pomodoro_requested.connect(self._open_pomodoro)
         t.quit_requested.connect(self._quit)
 
     def _selected_id(self) -> str | None:
@@ -423,8 +446,140 @@ class AppCoordinator(QObject):
         if self.pet_window is not None and not quiet:
             self.pet_window.set_expression("idle")
 
+    # --- reminders + pomodoro ----------------------------------------------
+
+    def _open_quick_capture(self) -> None:
+        from petgen.reminder_nl import parse_reminder_text
+        from petgen.reminder_quick import QuickCaptureDialog
+
+        self.quick_capture_dialog = QuickCaptureDialog(parser=parse_reminder_text)
+        self.quick_capture_dialog.quick_created.connect(self._create_reminder)
+        self.quick_capture_dialog.show()
+        self.quick_capture_dialog.raise_()
+
+    def _create_reminder(self, data: dict) -> None:
+        try:
+            reminder = self.reminder_scheduler.create(
+                data["title"],
+                data["trigger_at"],
+                recurrence=data.get("recurrence", "none"),
+                custom_weekdays=data.get("custom_weekdays") or [],
+            )
+        except Exception as exc:
+            self.bubble.show_message(f"新建提醒失败：{exc}")
+            return
+        self._refresh_reminder_list()
+        if not self._quiet:
+            self.bubble.show_message(f"已设置提醒：{reminder.title}")
+
+    def _open_reminder_list(self) -> None:
+        from petgen.reminder_list import ReminderListDialog
+
+        if self.reminder_list_dialog is None:
+            self.reminder_list_dialog = ReminderListDialog()
+            self.reminder_list_dialog.new_requested.connect(self._open_reminder_editor)
+            self.reminder_list_dialog.complete_requested.connect(self._complete_reminder)
+            self.reminder_list_dialog.snooze_requested.connect(self._snooze_reminder)
+            self.reminder_list_dialog.edit_requested.connect(self._edit_reminder)
+            self.reminder_list_dialog.delete_requested.connect(self._delete_reminder)
+        self._refresh_reminder_list()
+        self.reminder_list_dialog.show()
+        self.reminder_list_dialog.raise_()
+
+    def _refresh_reminder_list(self) -> None:
+        if self.reminder_list_dialog is not None:
+            self.reminder_list_dialog.refresh(self.reminder_store.list_active())
+
+    def _open_reminder_editor(self, reminder=None) -> None:
+        from petgen.reminder_editor import ReminderEditorDialog
+
+        self.reminder_editor_dialog = ReminderEditorDialog(reminder)
+        self.reminder_editor_dialog.reminder_saved.connect(self._save_reminder)
+        self.reminder_editor_dialog.show()
+        self.reminder_editor_dialog.raise_()
+
+    def _save_reminder(self, data: dict) -> None:
+        from petgen.reminder import Reminder
+
+        try:
+            if data.get("id"):
+                existing = self.reminder_store.get(data["id"])
+                if existing is not None:
+                    existing.title = data["title"]
+                    existing.trigger_at = data["trigger_at"]
+                    existing.recurrence = data.get("recurrence", "none")
+                    existing.custom_weekdays = data.get("custom_weekdays") or []
+                    self.reminder_store.upsert(existing)
+                    self.reminder_store.clear_handled(existing.id)
+                    self.reminder_scheduler.reminders_changed.emit()
+                else:
+                    self._create_reminder(data)
+            else:
+                self._create_reminder(data)
+        except Exception as exc:
+            self.bubble.show_message(f"保存提醒失败：{exc}")
+            return
+        self._refresh_reminder_list()
+
+    def _edit_reminder(self, reminder_id: str) -> None:
+        reminder = self.reminder_store.get(reminder_id)
+        if reminder is not None:
+            self._open_reminder_editor(reminder)
+
+    def _complete_reminder(self, reminder_id: str) -> None:
+        self.reminder_scheduler.complete(reminder_id)
+        self._refresh_reminder_list()
+
+    def _snooze_reminder(self, reminder_id: str) -> None:
+        self.reminder_scheduler.snooze(reminder_id)
+        self._refresh_reminder_list()
+        if not self._quiet:
+            self.bubble.show_message("已稍后提醒 ⏰")
+
+    def _delete_reminder(self, reminder_id: str) -> None:
+        self.reminder_scheduler.delete(reminder_id)
+        self._refresh_reminder_list()
+
+    def _on_reminder_due(self, reminder) -> None:
+        if self._quiet:
+            return
+        if self.pet_window is not None:
+            self.pet_window.set_expression("alert")
+        self.voice.react("alert")
+        actions = [
+            ("完成", lambda rid=reminder.id: self._complete_reminder(rid)),
+            ("稍后", lambda rid=reminder.id: self._snooze_reminder(rid)),
+        ]
+        self.bubble.show_message(
+            f"⏰ 提醒：{reminder.title}", actions=actions, timeout_ms=0
+        )
+        if self.pet_window is not None:
+            self.bubble.anchor_to(self.pet_window.frameGeometry())
+
+    def _open_pomodoro(self) -> None:
+        from petgen.pomodoro import PomodoroWindow
+
+        self.pomodoro_window = PomodoroWindow(self.pomodoro)
+        self.pomodoro_window.show()
+        self.pomodoro_window.raise_()
+
+    def _on_pomodoro_finished(self, phase: str) -> None:
+        from petgen.pomodoro import BREAK
+
+        if self._quiet:
+            return
+        if self.pet_window is not None:
+            self.pet_window.set_expression("happy")
+            self.pet_window.celebrate()
+        self.voice.react("happy")
+        msg = "🍅 专注完成，休息一下吧！" if phase != BREAK else "☕ 休息结束，继续加油！"
+        self.bubble.show_message(msg)
+        if self.pet_window is not None:
+            self.bubble.anchor_to(self.pet_window.frameGeometry())
+
     def _quit(self) -> None:
         self.bus.stop()
+        self._due_timer.stop()
         if self.pet_window is not None:
             self.pet_window.close()
         self.bubble.hide_now()
