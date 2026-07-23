@@ -24,6 +24,8 @@ def main(argv: list[str] | None = None) -> int:
             return _run_build(args)
         if args.command in ("desktop", "run"):
             return _run_desktop(args)
+        if args.command == "app":
+            return _run_app(args)
     except (ImageGenerationError, TextGenerationError, SpriteBuildError, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -58,18 +60,49 @@ def _run_generate(args: argparse.Namespace) -> int:
     image_bytes = client.generate(prompt, reference_images)
     source_path.write_bytes(image_bytes)
 
+    pet_id = args.pet_id or f"pet-{uuid.uuid4().hex[:12]}"
     paths = build_pet_assets(
         source_path,
         output_dir,
-        pet_id=args.pet_id or f"pet-{uuid.uuid4().hex[:12]}",
+        pet_id=pet_id,
         display_name=args.name,
         description=description,
         model=config.model,
         prompt=prompt,
         enriched_description=effective_description if effective_description != description else None,
     )
+    if not getattr(args, "no_register", False):
+        _register_generated_pet(
+            paths,
+            pet_id=pet_id,
+            model=config.model,
+            prompt=prompt,
+            description=description,
+        )
     _print_result(paths)
     return 0
+
+
+def _register_generated_pet(
+    paths: dict[str, Path],
+    *,
+    pet_id: str,
+    model: str,
+    prompt: str,
+    description: str,
+) -> None:
+    """Copy the generated pet into the managed library; never fail the generation."""
+    import sqlite3
+
+    try:
+        from petgen.library import PetLibrary
+        from petgen.store import PetRegistry
+
+        PetLibrary(PetRegistry()).register_build(
+            paths, pet_id=pet_id, model=model, prompt=prompt, description=description
+        )
+    except (sqlite3.Error, OSError, ValueError) as exc:
+        print(f"warning: failed to register pet in library ({exc})", file=sys.stderr)
 
 
 def _run_build(args: argparse.Namespace) -> int:
@@ -155,6 +188,11 @@ def _build_parser() -> argparse.ArgumentParser:
         help="enrich short descriptions via a text model; --no-enrich disables; default: auto when < 30 chars",
     )
     generate.add_argument("--text-model", default=None, help="defaults to OPENAI_TEXT_MODEL or gpt-4o-mini")
+    generate.add_argument(
+        "--no-register",
+        action="store_true",
+        help="do not copy/register the generated pet into the managed library",
+    )
 
     build = sub.add_parser("build", help="build desktop-pet assets from an existing generated source image")
     _add_common_args(build)
@@ -174,6 +212,18 @@ def _build_parser() -> argparse.ArgumentParser:
         help="disable transparent-area click-through if setMask misbehaves on your platform",
     )
 
+    app = sub.add_parser(
+        "app",
+        help="run the resident desktop-pet app (tray + library + settings + event bus)",
+    )
+    app.add_argument("--scale", type=float, default=None, help="override pet scale for this run")
+    app.add_argument(
+        "--no-passthrough",
+        action="store_true",
+        help="disable transparent-area click-through if setMask misbehaves on your platform",
+    )
+    app.add_argument("--data-dir", default=None, help="override the data directory (also $PETGEN_DATA_DIR)")
+
     return parser
 
 
@@ -187,6 +237,25 @@ def _run_desktop(args: argparse.Namespace) -> int:
         )
         return 1
     return run(args.path, scale=args.scale, passthrough=not args.no_passthrough)
+
+
+def _run_app(args: argparse.Namespace) -> int:
+    if args.data_dir:
+        import os
+
+        os.environ["PETGEN_DATA_DIR"] = str(Path(args.data_dir).expanduser().resolve())
+    try:
+        from petgen.coordinator import AppCoordinator
+    except ImportError:
+        print(
+            'error: desktop runtime needs PySide6; install with: pip install -e ".[desktop]"',
+            file=sys.stderr,
+        )
+        return 1
+    coordinator = AppCoordinator(
+        scale=args.scale, passthrough=not args.no_passthrough
+    )
+    return coordinator.run()
 
 
 def _add_common_args(parser: argparse.ArgumentParser) -> None:

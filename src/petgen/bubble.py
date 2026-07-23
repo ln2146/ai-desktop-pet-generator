@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QRect, Qt, QTimer, Signal
-from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QGuiApplication
+from PySide6.QtGui import QBrush, QColor, QFont, QPainter, QPainterPath, QGuiApplication
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 _DEFAULT_TIMEOUT_MS = 12_000
-_LONG_TEXT_THRESHOLD = 60
+_LONG_TEXT_THRESHOLD = 24  # Chinese is dense; ~24 chars already wraps to multiple lines
 _MAX_WIDTH = 320
 
 
 class BubbleWindow(QWidget):
-    """A frameless speech bubble that floats near the pet."""
+    """A frameless, elegant speech bubble that floats near the pet."""
 
     dismissed = Signal()
 
@@ -27,26 +27,33 @@ class BubbleWindow(QWidget):
         self.setAttribute(Qt.WA_MacAlwaysShowToolWindow, True)
 
         self._layout = QVBoxLayout(self)
-        self._layout.setContentsMargins(14, 10, 14, 12)
-        self._layout.setSpacing(6)
+        self._layout.setContentsMargins(16, 12, 16, 14)
+        self._layout.setSpacing(8)
 
         self._label = QLabel("")
         self._label.setWordWrap(True)
-        self._label.setMaximumWidth(_MAX_WIDTH - 28)
-        self._label.setStyleSheet("color: #2b2b2b; background: transparent;")
+        self._label.setMaximumWidth(_MAX_WIDTH - 32)
+        font = QFont()
+        font.setPointSize(13)
+        font.setWeight(QFont.Weight.Medium)
+        self._label.setFont(font)
+        self._label.setStyleSheet("color: #0f172a; background: transparent; line-height: 1.4;")
         self._layout.addWidget(self._label)
 
         self._button_row = QHBoxLayout()
         self._button_row.setSpacing(6)
         self._close_button = QPushButton("✕")
         self._close_button.setFixedWidth(24)
+        self._close_button.setFixedHeight(24)
+        self._close_button.setCursor(Qt.PointingHandCursor)
         self._close_button.setStyleSheet(
-            "QPushButton{border:none;color:#888;font-weight:bold;}"
-            "QPushButton:hover{color:#333;}"
+            "QPushButton { border: none; background: #f1f5f9; color: #64748b; font-weight: bold; border-radius: 12px; font-size: 11px; }"
+            "QPushButton:hover { background: #e2e8f0; color: #0f172a; }"
         )
         self._close_button.clicked.connect(self.hide_now)
         self._button_row.addWidget(self._close_button)
         self._button_row.addStretch(1)
+
         self._action_box = QHBoxLayout()
         self._action_box.setSpacing(6)
         self._button_row.addLayout(self._action_box)
@@ -98,9 +105,10 @@ class BubbleWindow(QWidget):
                 item.widget().deleteLater()
         for label, callback in actions:
             button = QPushButton(label)
+            button.setCursor(Qt.PointingHandCursor)
             button.setStyleSheet(
-                "QPushButton{border:none;background:#eef2ff;border-radius:6px;padding:3px 8px;}"
-                "QPushButton:hover{background:#dde4ff;}"
+                "QPushButton { border: 1px solid #c7d2fe; background: #eef2ff; color: #4f46e5; border-radius: 12px; padding: 4px 10px; font-weight: 600; font-size: 12px; }"
+                "QPushButton:hover { background: #e0e7ff; color: #4338ca; border-color: #a5b4fc; }"
             )
             button.clicked.connect(lambda _checked=False, cb=callback: self._run_action(cb))
             self._action_box.addWidget(button)
@@ -115,7 +123,13 @@ class BubbleWindow(QWidget):
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt naming
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QBrush(QColor(255, 255, 255, 240)))
-        painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1), 12, 12)
+
+        rect = self.rect().adjusted(1, 1, -2, -2)
+        path = QPainterPath()
+        path.addRoundedRect(rect, 14, 14)
+
+        # Subtle translucent border
+        painter.setPen(QColor(226, 232, 240, 220))
+        painter.setBrush(QBrush(QColor(255, 255, 255, 248)))
+        painter.drawPath(path)
         painter.end()

@@ -45,6 +45,7 @@ class PetWindow(QWidget):
     pet_clicked = Signal()
     pet_context_menu_requested = Signal(QPoint)
     pet_moved = Signal(QRect)
+    scale_changed = Signal(float)
 
     def __init__(
         self,
@@ -71,6 +72,8 @@ class PetWindow(QWidget):
         self._badge_expr: str | None = None
         self._particles: list[dict] = []
         self._breath_phase = 0.0
+        self._scale = float(scale)
+        self._atlas = atlas
 
         self.setWindowFlags(
             Qt.FramelessWindowHint
@@ -232,6 +235,34 @@ class PetWindow(QWidget):
             self.setMask(self._current_mask_region())
         if not self._particle_timer.isActive():
             self._particle_timer.start()
+
+    def set_scale(self, scale: float, *, persist: bool = True) -> None:
+        """Resize the pet in place (bottom-right corner stays put) and rebuild frames."""
+        scale = max(0.5, min(3.0, float(scale)))
+        if abs(scale - self._scale) < 1e-6:
+            return
+        self._scale = scale
+        old_br = self.frameGeometry().bottomRight()
+        self._frame_w = max(1, round(self._atlas._spec.width * scale))  # noqa: SLF001
+        self._frame_h = max(1, round(self._atlas._spec.height * scale))  # noqa: SLF001
+        self.setFixedSize(self._frame_w, self._frame_h)
+        self.move(old_br.x() - self._frame_w + 1, old_br.y() - self._frame_h + 1)
+        self._frame_qimages.clear()
+        self._base_pixmaps.clear()
+        self._base_bitmaps.clear()
+        self._badge_pixmaps.clear()
+        self._badge_regions.clear()
+        self._build_frames(self._atlas)
+        self._refresh()
+        if persist:
+            self.scale_changed.emit(scale)
+
+    def wheelEvent(self, event) -> None:  # noqa: N802 - Qt naming
+        delta = event.angleDelta().y()
+        if delta == 0:
+            return
+        factor = 1.12 if delta > 0 else 1 / 1.12
+        self.set_scale(self._scale * factor)
 
     # --- timers -------------------------------------------------------------
 

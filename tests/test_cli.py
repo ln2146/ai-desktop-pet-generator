@@ -8,6 +8,7 @@ from petgen.cli import (
     DEFAULT_IMAGE_ONLY_DESCRIPTION,
     _build_parser,
     _maybe_enrich_description,
+    _register_generated_pet,
     _resolve_description,
 )
 from petgen.openai_text import TextGenerationError
@@ -130,3 +131,72 @@ def test_enrichment_auto_triggers_for_short_description(
     )
 
     assert result == "enriched"
+
+
+def test_parser_no_register_flag() -> None:
+    parser = _build_parser()
+    assert parser.parse_args(["generate", "--prompt", "p"]).no_register is False
+    assert parser.parse_args(["generate", "--prompt", "p", "--no-register"]).no_register is True
+
+
+def test_register_generated_pet_copies_into_library(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path / "data"))
+    from petgen.spritesheet import build_pet_assets
+    from petgen.store import PetRegistry
+
+    out = tmp_path / "out"
+    out.mkdir()
+    sprite = _make_source_sheet()
+    sprite.save(out / "source.png")
+    paths = build_pet_assets(
+        out / "source.png",
+        out,
+        pet_id="pet-reg",
+        display_name="登记测试",
+        description="d",
+        model="m",
+        prompt="p",
+    )
+
+    _register_generated_pet(paths, pet_id="pet-reg", model="m", prompt="p", description="d")
+
+    assert PetRegistry().count() == 1
+    assert PetRegistry().get("pet-reg") is not None
+
+
+def test_register_generated_pet_failure_only_warns(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import sqlite3
+
+    def boom(*a, **k):
+        raise sqlite3.OperationalError("disk full")
+
+    monkeypatch.setattr("petgen.store.PetRegistry.register", boom)
+
+    _register_generated_pet(
+        {"sprite": tmp_path, "manifest": tmp_path, "preview": tmp_path},
+        pet_id="x",
+        model="m",
+        prompt="p",
+        description="d",
+    )
+
+    assert "warning: failed to register pet in library" in capsys.readouterr().err
+
+
+def _make_source_sheet():
+    from PIL import Image, ImageDraw
+
+    width, height = 960, 600
+    image = Image.new("RGBA", (width, height), (0, 255, 0, 255))
+    draw = ImageDraw.Draw(image)
+    for row_index, count in enumerate((6, 4, 5)):
+        top = [35, 220, 405][row_index]
+        cell_width = width / count
+        for col in range(count):
+            cx = int(cell_width * (col + 0.5))
+            draw.ellipse((cx - 30, top + 30, cx + 30, top + 120), fill=(200, 20, 20, 255))
+    return image

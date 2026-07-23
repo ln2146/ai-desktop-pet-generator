@@ -153,6 +153,20 @@ class PetRegistry:
         self._conn.commit()
         return cursor.rowcount > 0
 
+    def rename(self, pet_id: str, display_name: str) -> bool:
+        from datetime import datetime, timezone
+
+        cursor = self._conn.execute(
+            "UPDATE pets SET display_name = ?, updated_at = ? WHERE id = ?",
+            (
+                display_name,
+                datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                pet_id,
+            ),
+        )
+        self._conn.commit()
+        return cursor.rowcount > 0
+
     def count(self) -> int:
         row = self._conn.execute("SELECT COUNT(*) AS n FROM pets").fetchone()
         return int(row["n"])

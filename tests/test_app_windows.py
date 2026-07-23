@@ -41,7 +41,7 @@ def test_bubble_short_message_has_no_close_button(qapp) -> None:
 
 def test_bubble_long_message_shows_close_button(qapp) -> None:
     bubble = BubbleWindow()
-    bubble.show_message("这是一段足够长的消息，用来触发关闭按钮的显示逻辑，应该超过阈值才对。")
+    bubble.show_message("这是一段足够长的消息，用来验证超过阈值时关闭按钮会显示出来，应该够长了。")
     bubble.show()
     QApplication.processEvents()
     assert bubble._close_button.isVisible()  # noqa: SLF001
@@ -156,8 +156,8 @@ def test_library_dialog_select_and_delete_signals(qapp, tmp_path: Path) -> None:
     dlg.delete_requested.connect(deleted.append)
 
     card_a = dlg._cards[0]  # noqa: SLF001
-    QTest.mouseClick(_buttons(card_a, "选择")[0], button=Qt.LeftButton)
-    QTest.mouseClick(_buttons(card_a, "删除")[0], button=Qt.LeftButton)
+    QTest.mouseClick(_buttons(card_a, "选择")[0], Qt.LeftButton, Qt.NoModifier)
+    QTest.mouseClick(_buttons(card_a, "删除")[0], Qt.LeftButton, Qt.NoModifier)
 
     assert selected == ["a"]
     assert deleted == ["a"]
@@ -170,3 +170,30 @@ def test_library_dialog_set_progress_toggles_create(qapp) -> None:
     assert dlg._progress.text() == "正在生成形象…"  # noqa: SLF001
     dlg.set_progress("")
     assert dlg._create_btn.isEnabled()  # noqa: SLF001
+
+
+def test_settings_dialog_voice_pack_round_trip(qapp, tmp_path: Path) -> None:
+    from petgen.voicepack import load_catalog
+
+    store = SettingsStore(tmp_path / "db.sqlite")
+    try:
+        dlg = SettingsDialog(store)
+        keys = dlg._voice_pack_keys  # noqa: SLF001
+        assert set(keys) == set(load_catalog())
+        target = [k for k in keys if k != keys[0]][0]
+        dlg.voice_pack.setCurrentIndex(keys.index(target))
+        dlg.apply_values()
+
+        dlg2 = SettingsDialog(store)
+        assert dlg2._voice_pack_keys[dlg2.voice_pack.currentIndex()] == target  # noqa: SLF001
+    finally:
+        store.close()
+
+
+def test_settings_dialog_preview_voice_does_not_crash(qapp, tmp_path: Path) -> None:
+    store = SettingsStore(tmp_path / "db.sqlite")
+    try:
+        dlg = SettingsDialog(store)
+        dlg._preview_voice()  # noqa: SLF001 - offscreen: TTS/audio may no-op, must not raise
+    finally:
+        store.close()

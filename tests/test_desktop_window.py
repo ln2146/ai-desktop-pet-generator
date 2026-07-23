@@ -233,3 +233,23 @@ def test_motion_off_holds_first_frame(qapp, tmp_path: Path) -> None:
 
     assert window.scheduler.current_animation == "attentive"
     assert window.scheduler.current_index() == 1
+
+
+def test_set_scale_resizes_and_emits(qapp, tmp_path: Path) -> None:
+    manifest, atlas = _make_six_state_pet(tmp_path)  # 48x48 frames
+    window = PetWindow(manifest, atlas, scale=1.0, passthrough=False)
+    assert window.width() == 48
+
+    changes: list[float] = []
+    window.scale_changed.connect(changes.append)
+    window.set_scale(2.0)
+
+    assert window.width() == 96 and window.height() == 96
+    assert changes == [2.0]
+
+    window.set_scale(2.0, persist=False)  # no change + no persist
+    assert changes == [2.0]
+
+    window.set_scale(10.0)  # clamped to 3.0
+    assert window.width() == 144
+    assert changes[-1] == 3.0

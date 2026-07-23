@@ -123,6 +123,26 @@ class PetLibrary:
             shutil.rmtree(record.dir_path, ignore_errors=True)
         return deleted
 
+    def rename(self, pet_id: str, display_name: str) -> bool:
+        new_name = display_name.strip()
+        if not new_name:
+            return False
+        record = self._registry.get(pet_id)
+        if record is None:
+            return False
+        manifest_path = Path(record.manifest_path)
+        if manifest_path.is_file():
+            try:
+                raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if isinstance(raw, dict):
+                    raw["displayName"] = new_name
+                    manifest_path.write_text(
+                        json.dumps(raw, ensure_ascii=False, indent=2), encoding="utf-8"
+                    )
+            except (OSError, ValueError):
+                pass
+        return self._registry.rename(pet_id, new_name)
+
     def thumbnail_path(self, record: PetRecord) -> Path | None:
         if record.preview_path and Path(record.preview_path).is_file():
             return Path(record.preview_path)

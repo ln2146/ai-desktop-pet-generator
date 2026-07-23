@@ -27,6 +27,9 @@ petgen = "petgen.cli:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+petgen = ["resources/_sfx/*.wav", "resources/_sfx/*.txt"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

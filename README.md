@@ -108,6 +108,49 @@ pytest
 
 当前测试只验证本地后处理和请求配置，不会发起真实网络生图请求。
 
+## 常驻桌宠模式（前端 + 宠物管理 + 联动）
+
+安装桌面依赖后，可以把它当成一个常驻菜单栏的桌宠 app 来用：
+
+```bash
+pip install -e ".[desktop]"
+petgen app
+```
+
+`petgen app` 会启动：系统托盘（主控制面）、悬浮宠物、按需打开的**宠物库**与**设置**窗口，以及**AI 事件总线**。数据全部存在 `~/.petgen/`（可用 `$PETGEN_DATA_DIR` 或 `--data-dir` 覆盖）：`petgen.sqlite`（设置 + 宠物注册表 + 事件）、`pets/<id>/`（托管的桌宠素材）、`task-events.jsonl`（事件收件箱）。
+
+- **宠物库**：托盘「打开宠物库…」浏览/选择/预览/删除已生成的桌宠；「✨ 创建新宠物…」会在后台跑生图流水线并自动登记入库。`petgen generate` 成功后默认也会把产物拷进库（加 `--no-register` 可关闭）。
+- **设置**：托盘「设置…」配置 AI key/base_url/模型、缩放、动画/音效开关、人格（温暖/元气/沉稳/傲娇）。
+- **悬浮宠物**：6 态动画（idle/attentive/happy/busy/alert/error）+ 表情叠加 + 对话气泡 + 完成庆祝粒子；左键点 = 互动台词，右键 = 菜单，可拖动，透明区点击穿透。
+- **快速浮一只**（不走库/托盘）：`petgen desktop outputs/xxx --scale 1.5` 仍可用。
+
+### 让 AI 写代码时桌宠实时反应（事件总线）
+
+任何外部进程往 `~/.petgen/task-events.jsonl` 追加一行 JSON，桌宠约 2 秒内用对应表情回应（thinking→busy、responding→attentive、completed→happy、error→error）。附带的钩子脚本 `scripts/petgen-event.sh` 让接入只需一行，例如 Claude Code 的 `~/.claude/settings.json`：
+
+```jsonc
+{
+  "hooks": {
+    "PreToolUse":  [{"hooks": [{"type": "command", "command": "/abs/path/scripts/petgen-event.sh ai_thinking \"思考中\" \"\" claude_code"}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "/abs/path/scripts/petgen-event.sh ai_responding \"回复中\" \"\" claude_code"}]}],
+    "Stop":        [{"hooks": [{"type": "command", "command": "/abs/path/scripts/petgen-event.sh task_completed \"完成一轮\" \"\" claude_code"}]}]
+  }
+}
+```
+
+契约是语言无关的：`{"id","kind","title","detail","source","createdAt"}`，任何编辑器/agent 都能喂。
+
+> 说明：托盘图标、屏上穿透手感、气泡锚定等需在真机目检；无显示器环境用 `QT_QPA_PLATFORM=offscreen` 跑的是渲染/逻辑自检。macOS 上以裸 `python` 运行时 Dock 仍可能短暂出现图标（打成 `.app` 才能彻底去除，留作后续）。
+
+### 语音包（说话 + 音效）
+
+桌宠可以「说话」并配反馈音效，在设置「🐶 宠物行为 → 语音包」里切换，支持 ▶ 试听。内置三包：**软萌喵 🐱 / 元气电波 ⚡ / 沉稳管家 🎩**，各带语种/音色偏好与台词池。
+
+- **说话**用系统 TTS 实时合成（macOS 自带中文语音如「婷婷」），**反馈音效**由程序用正弦波现场合成（pop / 叮咚 / 庆祝 / 嗡 / 嘀嗒）——两者都**不打包任何第三方录音，零版权问题**。
+- 触发：点击宠物 = `tap`；AI 事件按 kind 映射（completed→happy、thinking→busy、error→error…）。「安静模式」会一并静音；设置里「开启音效反馈」可总开关。
+- 音效文件在 `src/petgen/resources/_sfx/`，可用 `python scripts/make_voice_sfx.py` 重新生成。
+- 想用**真人录的开源音效**？把 CC0/CC-BY 的 wav 放进 `_sfx/` 并在该包 `sounds` 里写文件名即可；推荐来源（自行下载、按许可署名，**不**默认打包）：[OpenGameArt CC0 音效](https://opengameart.org/content/cc0-sound-effects)、[freesound CC0 UI 包](https://freesound.org/people/GameAudio/packs/13940/)、[itch.io CC0 音效](https://itch.io/game-assets/assets-cc0/tag-sound-effects)。
+
 ## 图像源图约定
 
 为了让本地切图稳定，模型输出必须尽量遵守：

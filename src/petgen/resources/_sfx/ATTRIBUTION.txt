@@ -1,0 +1,5 @@
+These SFX are synthesized at build time by petgen (scripts/make_voice_sfx.py).
+They are original, generated from simple oscillators, and released to the
+public domain (CC0). No third-party recordings are included.
+To use curated open-source sounds instead, drop CC0/CC-BY wav files into a
+voice-pack folder and reference the filename in that pack's `sounds` map.

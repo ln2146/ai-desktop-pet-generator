@@ -148,6 +148,25 @@ def test_resolve_selected_empty_library(tmp_path: Path) -> None:
     assert library.resolve_selected(settings) is None
 
 
+def test_rename_updates_registry_and_manifest(tmp_path: Path) -> None:
+    import json
+
+    out = tmp_path / "build_out"
+    _write_pet_dir(out, pet_id="rename-me", display_name="旧名")
+    library, registry, _ = _make_library(tmp_path)
+    library.register_build(
+        {"manifest": out / "pet.json"}, pet_id="rename-me", model="m", prompt="p", description="d"
+    )
+
+    assert library.rename("rename-me", "  新名字  ") is True
+    assert registry.get("rename-me").display_name == "新名字"
+    manifest = json.loads(Path(registry.get("rename-me").manifest_path).read_text(encoding="utf-8"))
+    assert manifest["displayName"] == "新名字"
+
+    assert library.rename("rename-me", "   ") is False  # blank name rejected
+    assert library.rename("ghost", "x") is False  # unknown id
+
+
 def test_register_build_missing_sprite_raises(tmp_path: Path) -> None:
     out = tmp_path / "broken"
     out.mkdir()
