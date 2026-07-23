@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from petgen.spritesheet import DEFAULT_ANIMATIONS
+from petgen.spritesheet import default_animations
 
 
 class ManifestError(ValueError):
@@ -116,7 +116,7 @@ def _coerce_frame(raw: object) -> FrameSpec:
 def _coerce_animations(
     raw: object, frame: FrameSpec
 ) -> dict[str, AnimationSpec]:
-    source = raw if isinstance(raw, dict) and raw else DEFAULT_ANIMATIONS
+    source = raw if isinstance(raw, dict) and raw else default_animations()
     animations: dict[str, AnimationSpec] = {}
     for name, entry in source.items():
         if not isinstance(entry, dict):

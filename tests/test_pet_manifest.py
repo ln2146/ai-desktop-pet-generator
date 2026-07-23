@@ -172,3 +172,37 @@ def test_frame_atlas_crop_out_of_range(tmp_path: Path) -> None:
     atlas = FrameAtlas.load(sprite_path, spec)
     with pytest.raises(ManifestError):
         atlas.crop(5)
+
+
+def test_default_animations_not_shared_with_manifest(tmp_path: Path) -> None:
+    """Mutating a built manifest's animations must not leak into the global map."""
+    import json
+
+    from petgen.spritesheet import DEFAULT_ANIMATIONS, build_pet_assets
+
+    src = tmp_path / "src.png"
+    _make_source(src)
+    result = build_pet_assets(
+        src, tmp_path / "pet", pet_id="p", description="d", model="m", prompt="p"
+    )
+    manifest = json.loads(result["manifest"].read_text(encoding="utf-8"))
+    idle_before = list(DEFAULT_ANIMATIONS["idle"]["frames"])
+
+    manifest["animations"]["idle"]["frames"].append(999)
+    manifest["animations"]["POISON"] = {}
+
+    assert DEFAULT_ANIMATIONS["idle"]["frames"] == idle_before
+    assert "POISON" not in DEFAULT_ANIMATIONS
+
+
+def _make_source(path: Path) -> None:
+    from PIL import ImageDraw
+
+    img = Image.new("RGBA", (960, 600), (0, 255, 0, 255))
+    draw = ImageDraw.Draw(img)
+    for row_index, count in enumerate((6, 4, 5)):
+        top = [35, 220, 405][row_index]
+        for col in range(count):
+            cx = int(960 / count * (col + 0.5))
+            draw.ellipse((cx - 34, top + 56, cx + 34, top + 134), fill=(236, 66, 74, 255))
+    img.save(path)

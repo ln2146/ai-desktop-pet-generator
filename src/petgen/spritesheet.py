@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import math
 from dataclasses import dataclass
@@ -56,6 +57,16 @@ DEFAULT_ANIMATIONS = {
 }
 
 
+def default_animations() -> dict[str, dict]:
+    """Fresh deep copy of the default animation map.
+
+    ``DEFAULT_ANIMATIONS`` is a module-level mutable; handing it out directly
+    (into a manifest, or as a coercion fallback) would let a caller mutate the
+    shared global. Always go through this factory.
+    """
+    return copy.deepcopy(DEFAULT_ANIMATIONS)
+
+
 def build_pet_assets(
     source_image_path: Path,
     output_dir: Path,
@@ -100,7 +111,7 @@ def build_pet_assets(
             "columns": spec.columns,
             "rows": spec.rows,
         },
-        "animations": DEFAULT_ANIMATIONS,
+        "animations": default_animations(),
         "_generation": generation,
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
