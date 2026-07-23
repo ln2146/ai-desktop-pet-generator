@@ -151,6 +151,16 @@ petgen app
 - 音效文件在 `src/petgen/resources/_sfx/`，可用 `python scripts/make_voice_sfx.py` 重新生成。
 - 想用**真人录的开源音效**？把 CC0/CC-BY 的 wav 放进 `_sfx/` 并在该包 `sounds` 里写文件名即可；推荐来源（自行下载、按许可署名，**不**默认打包）：[OpenGameArt CC0 音效](https://opengameart.org/content/cc0-sound-effects)、[freesound CC0 UI 包](https://freesound.org/people/GameAudio/packs/13940/)、[itch.io CC0 音效](https://itch.io/game-assets/assets-cc0/tag-sound-effects)。
 
+### 提醒 + 番茄钟
+
+托盘里直接管理提醒与专注：
+
+- **＋ 快速记提醒**：一句话输入，支持中文自然语言时间，例如「明天下午三点 开会」「每天 9点 喝水」「周一 10点 周会」「1小时后 吃药」。能解析就按时设置，否则整句当标题、默认 +1 小时。
+- **提醒列表…**：查看/完成/稍后/编辑/删除；支持不重复/每天/工作日/每周/每月/自定义星期；到期时宠物弹气泡（带「完成/稍后」按钮）并切到 alert 表情。数据存 `~/.petgen/petgen.sqlite`。
+- **🍅 番茄钟…**：25 分钟专注 / 5 分钟休息，开始/暂停/重置/跳过；每个阶段结束宠物庆祝 + 语音提示。
+
+> 到期检测每 20 秒轮询一次；「安静模式」期间提醒气泡与番茄钟提示也会静音（事件仍记录）。
+
 ## 图像源图约定
 
 为了让本地切图稳定，模型输出必须尽量遵守：
