@@ -5,9 +5,8 @@ import uuid
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
-from PySide6.QtWidgets import QApplication, QInputDialog
+from PySide6.QtWidgets import QApplication
 
-from petgen.animation import frame_interval_ms
 from petgen.bubble import BubbleWindow
 from petgen.datadir import data_dir
 from petgen.eventbus import EventBus, expression_for_kind
@@ -65,8 +64,6 @@ def _set_macos_accessory_policy() -> None:
     call is unavailable for any reason — this is purely cosmetic and must never
     break startup.
     """
-    import sys
-
     if sys.platform != "darwin":
         return
     try:
