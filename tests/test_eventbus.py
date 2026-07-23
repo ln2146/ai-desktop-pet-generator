@@ -179,6 +179,60 @@ def test_offset_persists_across_instances(qapp, tmp_path: Path) -> None:
     assert [e.id for e in got] == ["new"]
 
 
+def test_poll_now_multibyte_partial_line_keeps_offset(qapp, tmp_path: Path) -> None:
+    """Regression: a Chinese title split across polls must not drift the offset.
+
+    The old reader counted *characters* for the partial-line consumed length but
+    used it as a *byte* offset, so multibyte titles under-advanced and re-read
+    fragments. We simulate a mid-line split by writing the line's bytes in two
+    halves (the second poll completes it).
+    """
+    inbox = tmp_path / "inbox.jsonl"
+    line = _line(id="cn", title="思考中：正在分析这段很长的中文标题内容") + "\n"
+    raw = line.encode("utf-8")
+    # Split inside a multibyte char on purpose.
+    cut = len(raw) // 2
+    inbox.write_bytes(raw[:cut])
+    bus = EventBus(inbox=inbox, state=tmp_path / "state.json", parent=qapp)
+    got: list[TaskEvent] = []
+    warns: list[str] = []
+    bus.event_received.connect(lambda e: got.append(e))
+    bus.warnings.connect(lambda w: warns.extend(w))
+
+    assert bus.poll_now() == []  # partial, nothing complete yet
+    assert got == []
+
+    with inbox.open("ab") as handle:
+        handle.write(raw[cut:])  # completes the line (ends with \n)
+    emitted = bus.poll_now()
+
+    assert [e.id for e in emitted] == ["cn"]
+    assert got[0].title.startswith("思考中")
+    assert warns == []  # no spurious malformed-line warning from offset drift
+    # Offset must equal the full byte length, so a following line reads cleanly.
+    with inbox.open("ab") as handle:
+        handle.write(_line(id="next").encode("utf-8") + b"\n")
+    assert [e.id for e in bus.poll_now()] == ["next"]
+
+
+def test_poll_now_skips_oversized_line(qapp, tmp_path: Path) -> None:
+    """A line exceeding the per-line cap is dropped in full (one warning), and
+    the following valid line is still parsed (offset advanced past the giant)."""
+    inbox = tmp_path / "inbox.jsonl"
+    giant = b'{"kind":"task_completed","title":"' + b"x" * (70 * 1024) + b'"}\n'
+    inbox.write_bytes(giant + _line(id="ok").encode("utf-8") + b"\n")
+    bus = EventBus(inbox=inbox, state=tmp_path / "state.json", parent=qapp)
+    got: list[TaskEvent] = []
+    warns: list[str] = []
+    bus.event_received.connect(lambda e: got.append(e))
+    bus.warnings.connect(lambda w: warns.extend(w))
+
+    emitted = bus.poll_now()
+
+    assert [e.id for e in emitted] == ["ok"]
+    assert len(warns) == 1 and "oversized" in warns[0]
+
+
 def test_hook_script_appends_valid_line(tmp_path: Path) -> None:
     script = Path(__file__).resolve().parents[1] / "scripts" / "petgen-event.sh"
     if not script.exists():

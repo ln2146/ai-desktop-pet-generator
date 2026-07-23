@@ -27,6 +27,11 @@ _SOURCE_LABELS = {
     "manual": "",
 }
 
+# A single inbox line larger than this is treated as malformed and skipped in
+# full (the byte range is consumed so a runaway writer cannot pin the reader at
+# a never-advancing offset and grow memory on every poll).
+_MAX_LINE_BYTES = 64 * 1024
+
 
 def expression_for_kind(kind: str) -> str:
     """Map an event kind to a pet expression; unknown kinds degrade to happy."""
@@ -119,7 +124,16 @@ try:  # pragma: no cover - import-time branch
             self._timer.stop()
 
         def poll_now(self) -> list[TaskEvent]:
-            """Incrementally read the inbox once; return the newly emitted events."""
+            """Incrementally read the inbox once; return the newly emitted events.
+
+            The inbox is read as *bytes* and split on ``b"\\n"`` so the consumed
+            offset is always a byte count (the previous char-based accounting
+            under-advanced on multibyte (Chinese) titles, drifting the offset and
+            re-reading fragments). Oversized lines are skipped in full and
+            malformed lines are reported as a single aggregated warning per poll
+            rather than one signal each (a hostile writer could otherwise flood
+            the GUI thread with emits).
+            """
             try:
                 if not self._inbox.exists():
                     return []
@@ -135,22 +149,37 @@ try:  # pragma: no cover - import-time branch
 
             if not chunk:
                 return []
-            text = chunk.decode("utf-8", errors="replace")
-            consumed = len(chunk)
-            if not text.endswith("\n"):
-                last_nl = text.rfind("\n")
-                if last_nl == -1:
-                    return []  # only a partial line so far; offset unchanged
-                consumed = last_nl + 1
-                text = text[: last_nl + 1]
+
+            last_nl = chunk.rfind(b"\n")
+            if last_nl == -1:
+                # No complete line yet. If the pending tail already exceeds the
+                # per-line cap it can never become a valid line, so drop it
+                # (advancing the offset) instead of buffering it forever.
+                if len(chunk) > _MAX_LINE_BYTES:
+                    self._offset += len(chunk)
+                    self._save_offset()
+                    self.warnings.emit(["dropped oversized event line (>64KiB)"])
+                return []
+            complete = chunk[: last_nl + 1]
+            leftover = chunk[last_nl + 1 :]
 
             emitted: list[TaskEvent] = []
-            for line in text.split("\n"):
-                if not line.strip():
+            dropped = 0
+            first_bad = ""
+            for raw in complete.split(b"\n"):
+                if not raw:
                     continue
+                if len(raw) > _MAX_LINE_BYTES:
+                    dropped += 1
+                    if not first_bad:
+                        first_bad = "<oversized line>"
+                    continue
+                line = raw.decode("utf-8", errors="replace")
                 event = parse_event_line(line)
                 if event is None:
-                    self.warnings.emit([f"dropped malformed event line: {line[:120]}"])
+                    dropped += 1
+                    if not first_bad:
+                        first_bad = line[:120]
                     continue
                 if event.id in self._seen:
                     continue
@@ -158,7 +187,14 @@ try:  # pragma: no cover - import-time branch
                 emitted.append(event)
                 self.event_received.emit(event)
 
-            self._offset += consumed
+            if dropped:
+                detail = f"; first: {first_bad}" if first_bad else ""
+                self.warnings.emit([f"dropped {dropped} malformed event line(s){detail}"])
+
+            self._offset += len(complete)
+            # leftover (a partial line, possibly ending mid multibyte char) stays
+            # on disk and is re-read from the unchanged offset next poll.
+            del leftover
             self._save_offset()
             return emitted
 
