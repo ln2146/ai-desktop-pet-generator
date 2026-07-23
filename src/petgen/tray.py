@@ -197,7 +197,6 @@ class TrayController(QObject):
         self._quiet_action.triggered.connect(lambda checked: self.quiet_toggled.emit(bool(checked)))
         menu.addSeparator()
         menu.addAction("设置").triggered.connect(lambda: self.settings_requested.emit())
-        menu.addAction("关于 PetGen").triggered.connect(lambda: self.about_requested.emit())
         menu.addSeparator()
         menu.addAction("退出").triggered.connect(lambda: self.quit_requested.emit())
         return menu
