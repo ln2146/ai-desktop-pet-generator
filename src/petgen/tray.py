@@ -184,10 +184,9 @@ class TrayController(QObject):
         self._show_action.setCheckable(True)
         self._show_action.setChecked(True)
         self._show_action.triggered.connect(lambda checked: self.show_pet_requested.emit())
-        menu.addAction("打开宠物库…").triggered.connect(lambda: self.library_requested.emit())
-        self._character_menu = QMenu("切换角色")  # no parent: held by this attribute (shiboken ownership)
+        menu.addAction("宠物中心…").triggered.connect(lambda: self.library_requested.emit())
+        self._character_menu = QMenu("切换角色")  # kept for attribute compatibility
         apply_theme(self._character_menu)
-        menu.addMenu(self._character_menu)
         menu.addSeparator()
         menu.addAction("＋ 快速记提醒").triggered.connect(lambda: self.quick_capture_requested.emit())
         menu.addAction("提醒列表…").triggered.connect(lambda: self.reminder_list_requested.emit())

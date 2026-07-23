@@ -39,9 +39,8 @@ def _record(pet_id: str, name: str) -> PetRecord:
 def test_tray_menu_has_expected_items(qapp) -> None:
     tray = TrayController()
     labels = [a.text() for a in tray.menu().actions()]
-    for expected in ["显示宠物", "打开宠物库…", "安静模式", "设置…", "关于 PetGen", "退出"]:
+    for expected in ["显示宠物", "宠物中心…", "安静模式", "设置…", "关于 PetGen", "退出"]:
         assert expected in labels
-    assert any(a.text() == "切换角色" for a in tray.menu().actions())
 
 
 def test_tray_set_characters_emits_selection(qapp) -> None:
