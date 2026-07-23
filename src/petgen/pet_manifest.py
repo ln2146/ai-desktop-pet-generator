@@ -81,6 +81,14 @@ def load_manifest(path: str | Path) -> PetManifest:
     frame = _coerce_frame(raw["frame"])
 
     sprite_path = (manifest_dir / str(raw["spritesheetPath"])).resolve()
+    # Reject paths that escape the manifest dir (e.g. "../../etc/passwd"): a
+    # manifest is untrusted input once library syncing is ever network-sourced.
+    try:
+        sprite_path.relative_to(manifest_dir)
+    except ValueError as exc:
+        raise ManifestError(
+            f"spritesheetPath escapes the manifest directory: {raw['spritesheetPath']!r}"
+        ) from exc
     if not sprite_path.is_file():
         raise ManifestError(f"sprite sheet not found: {sprite_path}")
 
@@ -150,7 +158,11 @@ class FrameAtlas:
 
     @classmethod
     def load(cls, sprite_path: Path, spec: FrameSpec) -> "FrameAtlas":
-        image = Image.open(sprite_path)
+        try:
+            image = Image.open(sprite_path)
+            image.load()  # force decode so a corrupt file fails here, not mid-crop
+        except (OSError, ValueError) as exc:  # UnidentifiedImageError is an OSError
+            raise ManifestError(f"failed to open sprite sheet {sprite_path}: {exc}") from exc
         expected = (spec.width * spec.columns, spec.height * spec.rows)
         if image.size != expected:
             raise ManifestError(

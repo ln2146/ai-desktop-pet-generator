@@ -206,3 +206,31 @@ def _make_source(path: Path) -> None:
             cx = int(960 / count * (col + 0.5))
             draw.ellipse((cx - 34, top + 56, cx + 34, top + 134), fill=(236, 66, 74, 255))
     img.save(path)
+
+
+def test_load_manifest_rejects_spritesheet_path_escape(tmp_path: Path) -> None:
+    """A spritesheetPath that resolves outside the manifest dir must be rejected."""
+    import json
+
+    pet_dir = tmp_path / "pet"
+    pet_dir.mkdir()
+    outside = tmp_path / "secret.png"
+    outside.write_bytes(b"not an image")
+    manifest = {
+        "id": "p",
+        "displayName": "p",
+        "description": "d",
+        "spritesheetPath": "../secret.png",
+        "frame": {"width": 1, "height": 1, "columns": 1, "rows": 1},
+    }
+    (pet_dir / "pet.json").write_text(json.dumps(manifest), encoding="utf-8")
+    with pytest.raises(ManifestError, match="escapes"):
+        load_manifest(pet_dir)
+
+
+def test_frame_atlas_load_wraps_corrupt_image(tmp_path: Path) -> None:
+    bad = tmp_path / "sprite.png"
+    bad.write_bytes(b"this is not a png at all")
+    spec = FrameSpec(width=1, height=1, columns=1, rows=1)
+    with pytest.raises(ManifestError, match="failed to open sprite sheet"):
+        FrameAtlas.load(bad, spec)
