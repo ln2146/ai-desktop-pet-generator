@@ -99,7 +99,6 @@ class TrayController(QObject):
     library_requested = Signal()
     settings_requested = Signal()
     about_requested = Signal()
-    character_selected = Signal(str)
     quiet_toggled = Signal(bool)
     quick_capture_requested = Signal()
     reminder_list_requested = Signal()
@@ -112,8 +111,6 @@ class TrayController(QObject):
         self._tray = QSystemTrayIcon(self) if self._available else None
         self._show_action: QAction | None = None
         self._quiet_action: QAction | None = None
-        self._character_menu: QMenu | None = None
-        self._character_actions: list[QAction] = []
         self._menu = self._build_menu()
         if self._tray is not None:
             self._tray.setContextMenu(self._menu)
@@ -125,9 +122,6 @@ class TrayController(QObject):
 
     def menu(self) -> QMenu:
         return self._menu
-
-    def character_menu(self) -> QMenu | None:
-        return self._character_menu
 
     def is_available(self) -> bool:
         return self._available
@@ -154,25 +148,6 @@ class TrayController(QObject):
         if self._quiet_action is not None:
             self._quiet_action.setChecked(quiet)
 
-    def set_characters(self, pets, selected_id: str | None) -> None:
-        if self._character_menu is None:
-            return
-        for action in self._character_actions:
-            self._character_menu.removeAction(action)
-        self._character_actions.clear()
-        if not pets:
-            empty = self._character_menu.addAction("（还没有宠物，去创建一个吧）")
-            empty.setEnabled(False)
-            self._character_actions.append(empty)
-            return
-        for record in pets:
-            action = self._character_menu.addAction(record.display_name or record.id)
-            action.setCheckable(True)
-            action.setChecked(record.id == selected_id)
-            pid = record.id
-            action.triggered.connect(lambda _checked=False, pet_id=pid: self.character_selected.emit(pet_id))
-            self._character_actions.append(action)
-
     # --- menu construction --------------------------------------------------
 
     def _build_menu(self) -> QMenu:
@@ -185,8 +160,6 @@ class TrayController(QObject):
         self._show_action.setChecked(True)
         self._show_action.triggered.connect(lambda checked: self.show_pet_requested.emit())
         menu.addAction("宠物中心").triggered.connect(lambda: self.library_requested.emit())
-        self._character_menu = QMenu("切换角色")  # kept for attribute compatibility
-        apply_theme(self._character_menu)
         menu.addSeparator()
         menu.addAction("快速记提醒").triggered.connect(lambda: self.quick_capture_requested.emit())
         menu.addAction("提醒列表").triggered.connect(lambda: self.reminder_list_requested.emit())

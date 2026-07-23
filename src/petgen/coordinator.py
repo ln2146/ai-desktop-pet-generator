@@ -229,7 +229,6 @@ class AppCoordinator(QObject):
         self.bus.event_received.connect(self._on_event)
         self.bus.warnings.connect(lambda msgs: [print(f"petgen: {m}", file=sys.stderr) for m in msgs])
         if self.tray.is_available():
-            self.tray.set_characters(self.library.list_pets(), self._selected_id())
             self.tray.show()
 
     def run(self) -> int:
@@ -254,7 +253,6 @@ class AppCoordinator(QObject):
         t.library_requested.connect(self._open_library)
         t.settings_requested.connect(self._open_settings)
         t.about_requested.connect(self._open_settings)
-        t.character_selected.connect(self._select_pet)
         t.quiet_toggled.connect(self._set_quiet)
         t.quick_capture_requested.connect(self._open_quick_capture)
         t.reminder_list_requested.connect(self._open_reminder_list)
@@ -392,7 +390,6 @@ class AppCoordinator(QObject):
     def _select_pet(self, pet_id: str) -> None:
         self.library.select(self.settings, pet_id)
         self._reload_pet()
-        self.tray.set_characters(self.library.list_pets(), pet_id)
         self._refresh_library()
 
     def _delete_pet(self, pet_id: str) -> None:
@@ -400,14 +397,12 @@ class AppCoordinator(QObject):
         if self._selected_id() == pet_id:
             self.settings.set("pet.selected_id", None)
         self._reload_pet()
-        self.tray.set_characters(self.library.list_pets(), self._selected_id())
         self._refresh_library()
 
     def _rename_pet(self, pet_id: str, new_name: str) -> None:
         if not self.library.rename(pet_id, new_name):
             return
         self._reload_pet()
-        self.tray.set_characters(self.library.list_pets(), self._selected_id())
         self._refresh_library()
 
     def _import_dir(self, directory: str) -> None:
@@ -490,7 +485,6 @@ class AppCoordinator(QObject):
     def _apply_settings(self) -> None:
         # scale lives in the fixed-size window, so any settings save rebuilds the pet
         self._reload_pet()
-        self.tray.set_characters(self.library.list_pets(), self._selected_id())
         self.voice.set_pack(self.settings.get("pet.voice_pack") or self.voice.pack.id)
         sound_on = bool(self.settings.get("pet.sound_enabled", True)) and not self._quiet
         self.voice.set_enabled(sound_on)

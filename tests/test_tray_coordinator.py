@@ -11,29 +11,12 @@ pytest.importorskip("PySide6")
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
-from petgen.store import PetRecord  # noqa: E402
 from petgen.tray import TrayController  # noqa: E402
 
 
 @pytest.fixture(scope="module")
 def qapp():
     return QApplication.instance() or QApplication(["test-tray-coord"])
-
-
-def _record(pet_id: str, name: str) -> PetRecord:
-    return PetRecord(
-        id=pet_id,
-        display_name=name,
-        dir_path=f"/tmp/{pet_id}",
-        sprite_path=f"/tmp/{pet_id}/sprite.png",
-        manifest_path=f"/tmp/{pet_id}/pet.json",
-        preview_path=None,
-        model="m",
-        prompt="p",
-        description="d",
-        created_at="2026-01-01T00:00:00Z",
-        updated_at="2026-01-01T00:00:00Z",
-    )
 
 
 def test_tray_menu_has_expected_items(qapp) -> None:
@@ -43,19 +26,13 @@ def test_tray_menu_has_expected_items(qapp) -> None:
         assert expected in labels
 
 
-def test_tray_set_characters_emits_selection(qapp) -> None:
+def test_tray_menu_has_no_character_switcher(qapp) -> None:
+    """The 'switch character' submenu was removed; character switching now lives
+    in the library dialog, so the tray must not expose it (no dangling submenu)."""
     tray = TrayController()
-    tray.set_characters([_record("a", "猫"), _record("b", "熊猫")], selected_id="a")
-    submenu = tray.character_menu()
-    assert submenu is not None
-    items = [a for a in submenu.actions() if a.text()]
-    assert [a.text() for a in items] == ["猫", "熊猫"]
-    assert items[0].isChecked() is True
-
-    got: list[str] = []
-    tray.character_selected.connect(got.append)
-    items[1].trigger()
-    assert got == ["b"]
+    labels = [a.text() for a in tray.menu().actions()]
+    assert "切换角色" not in labels
+    assert not any(a.menu() is not None for a in tray.menu().actions())
 
 
 def test_tray_quiet_and_show_actions_toggle(qapp) -> None:
