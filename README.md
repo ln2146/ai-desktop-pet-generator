@@ -3,11 +3,11 @@
 <p align="center">
   <table align="center">
     <tr>
-      <td align="center"><img src="docs/images/hero.png" alt="主角：灰白布偶小猫" width="360"></td>
+      <td align="center"><img src="docs/images/hero.png" alt="主角：灰白小猫" width="360"></td>
       <td align="center"><img src="docs/images/idle.gif" alt="主角的 idle 呼吸动画（会动）" width="200"></td>
     </tr>
     <tr>
-      <td align="center"><sub><b>Ragdoll Kitten</b> · 由一句话生成</sub></td>
+      <td align="center"><sub><b>灰白小猫</b> · 由一句话 / 参考图生成</sub></td>
       <td align="center"><sub>idle 呼吸动画</sub></td>
     </tr>
   </table>
@@ -26,7 +26,7 @@
 
 <p align="center">
   <sub>更多画风一致的伙伴：</sub><br>
-  <img src="docs/images/gallery.png" alt="更多宠物：六角恐龙、小熊猫、柯基、短尾袋鼠、猫头鹰、刺猬" width="820">
+  <img src="docs/images/gallery.png" alt="更多宠物：六角恐龙、小熊猫、柯基幼崽、短尾矮袋鼠、绒绒猫头鹰、小刺猬" width="820">
 </p>
 
 ---
