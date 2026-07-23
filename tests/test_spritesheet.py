@@ -7,6 +7,8 @@ from PIL import Image, ImageDraw
 
 from petgen.spritesheet import (
     SpriteSpec,
+    _column_alpha_counts,
+    _row_alpha_counts,
     build_pet_assets,
     compose_sprite_sheet,
     crop_premium_action_rows,
@@ -160,3 +162,35 @@ def test_remove_chroma_soft_edge_is_reachable() -> None:
     semi = {a for a in alphas if 0 < a < 255}
     assert semi, f"expected soft-edge alpha ramp, got alpha set {sorted(alphas)}"
     assert result.getpixel((cx, cy))[3] == 255  # core preserved
+
+
+def _ref_row_alpha_counts(image: Image.Image) -> list[int]:
+    px = image.load()
+    w, h = image.size
+    return [sum(1 for x in range(w) if px[x, y][3] > 10) for y in range(h)]
+
+
+def _ref_column_alpha_counts(image: Image.Image, top: int, bottom: int) -> list[int]:
+    px = image.load()
+    w, _ = image.size
+    return [sum(1 for y in range(top, bottom + 1) if px[x, y][3] > 10) for x in range(w)]
+
+
+def test_alpha_counts_match_reference() -> None:
+    """The numpy vectorised counters must be bit-exact vs the naive Python ones."""
+    import random
+
+    rng = random.Random(7)
+    width, height = 53, 41  # odd sizes to exercise non-rectangular slicing
+    image = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    px = image.load()
+    for y in range(height):
+        for x in range(width):
+            a = rng.choice([0, 0, 5, 11, 128, 255])  # straddle the >10 threshold
+            px[x, y] = (x % 256, y % 256, (x + y) % 256, a)
+
+    assert _row_alpha_counts(image) == _ref_row_alpha_counts(image)
+    for top, bottom in [(0, 0), (3, 10), (0, height - 1), (height - 1, height - 1)]:
+        assert _column_alpha_counts(image, (top, bottom)) == _ref_column_alpha_counts(
+            image, top, bottom
+        )

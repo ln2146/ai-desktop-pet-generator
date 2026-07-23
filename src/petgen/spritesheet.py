@@ -607,26 +607,16 @@ def _transform_frame(image: Image.Image, scale: float, rotation: float, spec: Sp
 
 
 def _row_alpha_counts(image: Image.Image) -> list[int]:
-    alpha_bytes = image.getchannel("A").tobytes()
-    counts: list[int] = []
-    for y in range(image.height):
-        start = y * image.width
-        row = alpha_bytes[start : start + image.width]
-        counts.append(sum(1 for value in row if value > 10))
-    return counts
+    """Per-row count of pixels with alpha > 10 (vectorised; exact)."""
+    alpha = np.asarray(image.getchannel("A"))
+    return (alpha > 10).sum(axis=1).astype(int).tolist()
 
 
 def _column_alpha_counts(image: Image.Image, row_band: tuple[int, int]) -> list[int]:
-    alpha_bytes = image.getchannel("A").tobytes()
+    """Per-column count of alpha > 10 within ``row_band`` (vectorised; exact)."""
     top, bottom = row_band
-    counts: list[int] = []
-    for x in range(image.width):
-        count = 0
-        for y in range(top, bottom + 1):
-            if alpha_bytes[y * image.width + x] > 10:
-                count += 1
-        counts.append(count)
-    return counts
+    alpha = np.asarray(image.getchannel("A"))[top : bottom + 1]
+    return (alpha > 10).sum(axis=0).astype(int).tolist()
 
 
 def _segment_projection(
