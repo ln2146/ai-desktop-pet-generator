@@ -17,6 +17,23 @@ class SpriteBuildError(RuntimeError):
 _CHROMA_TRANSPARENT_DISTANCE = 78.0  # within this: unconditionally background
 _CHROMA_SOFT_DISTANCE = 150.0  # green-dominant pixels below this may be keyed
 
+# Pixels with alpha at or below this are treated as transparent / background by
+# the segmentation and connected-component steps.
+_ALPHA_VISIBLE_THRESHOLD = 10
+
+# Vertical gap (px) left under each frame when composing the spritesheet.
+_FRAME_BOTTOM_MARGIN = 14
+
+# Despilling (green-spill suppression on subject edges) tuning.
+_DESPILL_RING_FILTER = 7  # MaxFilter size -> ring of <=3px around transparency
+_DESPILL_SAMPLE_RADIUS = 6  # inward sample radius (must exceed the ring width)
+_DESPILL_GREEN_EDGE_TOLERANCE = 6  # edge pixel counts as green spill if g > max(r,b)+this
+_DESPILL_INTERIOR_GREEN_MARGIN = 15  # inward body judged green if ig > ir/ib + this
+_DESPILL_GREEN_REPLACEMENT_MARGIN = 4  # clamped green channel = max(r,b) + this
+_DESPILL_FEATHER_DISTANCE = 175.0  # within this of the key, lightly feather alpha
+_DESPILL_FEATHER_LOW = 110.0  # feather ramp lower bound (distance)
+_DESPILL_FEATHER_SPAN = 65.0  # feather ramp span (distance)
+
 
 @dataclass(frozen=True)
 class SpriteSpec:
@@ -226,7 +243,7 @@ def _despill_light_subject_edges(rgba: Image.Image) -> None:
 
     alpha = rgba.getchannel("A")
     transp = alpha.point(lambda v: 255 if v == 0 else 0)
-    near = transp.filter(ImageFilter.MaxFilter(7))  # 距透明 <=3px 的区域
+    near = transp.filter(ImageFilter.MaxFilter(_DESPILL_RING_FILTER))  # 距透明 <=3px 的区域
     opaque = alpha.point(lambda v: 255 if v > 0 else 0)
     ring = ImageChops.multiply(near, opaque)
     rb = ring.getbbox()
@@ -235,14 +252,14 @@ def _despill_light_subject_edges(rgba: Image.Image) -> None:
     px = rgba.load()
     rng = ring.load()
     width, height = rgba.size
-    sample_r = 6  # 朝内采样半径，需大于环宽
+    sample_r = _DESPILL_SAMPLE_RADIUS  # 朝内采样半径，需大于环宽
 
     for y in range(rb[1], rb[3]):
         for x in range(rb[0], rb[2]):
             if rng[x, y] != 255:
                 continue
             r, g, b, a = px[x, y]
-            if a == 0 or g <= max(r, b) + 6:
+            if a == 0 or g <= max(r, b) + _DESPILL_GREEN_EDGE_TOLERANCE:
                 continue  # 非绿溢色像素
             ir = ig = ib = n = 0
             for dx, dy in ((sample_r, 0), (-sample_r, 0), (0, sample_r), (0, -sample_r)):
@@ -259,15 +276,18 @@ def _despill_light_subject_edges(rgba: Image.Image) -> None:
             ir //= n
             ig //= n
             ib //= n
-            if ig > ir + 15 and ig > ib + 15:
+            if ig > ir + _DESPILL_INTERIOR_GREEN_MARGIN and ig > ib + _DESPILL_INTERIOR_GREEN_MARGIN:
                 continue  # 本体为绿色角色，保留其边缘
-            ng = max(r, b) + 4
+            ng = max(r, b) + _DESPILL_GREEN_REPLACEMENT_MARGIN
             if g <= ng:
                 continue
             na = a
             d = math.sqrt(r * r + (g - 255) * (g - 255) + b * b)
-            if d < 175:  # 极接近背景者轻微羽化
-                na = max(0, min(a, int((d - 110) / 65 * 255)))
+            if d < _DESPILL_FEATHER_DISTANCE:  # 极接近背景者轻微羽化
+                na = max(
+                    0,
+                    min(a, int((d - _DESPILL_FEATHER_LOW) / _DESPILL_FEATHER_SPAN * 255)),
+                )
             px[x, y] = (r, ng, b, na)
 
 
@@ -364,7 +384,7 @@ def _label_row_components(
         base = y * width
         for x in range(width):
             idx = base + x
-            if alpha[idx] <= 10 or labels[idx]:
+            if alpha[idx] <= _ALPHA_VISIBLE_THRESHOLD or labels[idx]:
                 continue
             next_label += 1
             labels[idx] = next_label
@@ -389,7 +409,7 @@ def _label_row_components(
                         if ny < top or ny >= height:
                             continue
                         nidx = ny * width + nx
-                        if not labels[nidx] and alpha[nidx] > 10:
+                        if not labels[nidx] and alpha[nidx] > _ALPHA_VISIBLE_THRESHOLD:
                             labels[nidx] = next_label
                             area += 1
                             stack.append((nx, ny))
@@ -576,7 +596,7 @@ def _transform_frame(image: Image.Image, scale: float, rotation: float, spec: Sp
 
     frame = Image.new("RGBA", (spec.frame_width, spec.frame_height), (0, 0, 0, 0))
     x = (spec.frame_width - scaled.width) // 2
-    y = spec.frame_height - scaled.height - 14
+    y = spec.frame_height - scaled.height - _FRAME_BOTTOM_MARGIN
     frame.alpha_composite(scaled, (x, y))
     return frame
 
@@ -584,14 +604,14 @@ def _transform_frame(image: Image.Image, scale: float, rotation: float, spec: Sp
 def _row_alpha_counts(image: Image.Image) -> list[int]:
     """Per-row count of pixels with alpha > 10 (vectorised; exact)."""
     alpha = np.asarray(image.getchannel("A"))
-    return (alpha > 10).sum(axis=1).astype(int).tolist()
+    return (alpha > _ALPHA_VISIBLE_THRESHOLD).sum(axis=1).astype(int).tolist()
 
 
 def _column_alpha_counts(image: Image.Image, row_band: tuple[int, int]) -> list[int]:
     """Per-column count of alpha > 10 within ``row_band`` (vectorised; exact)."""
     top, bottom = row_band
     alpha = np.asarray(image.getchannel("A"))[top : bottom + 1]
-    return (alpha > 10).sum(axis=0).astype(int).tolist()
+    return (alpha > _ALPHA_VISIBLE_THRESHOLD).sum(axis=0).astype(int).tolist()
 
 
 def _merge_projection_bands(
