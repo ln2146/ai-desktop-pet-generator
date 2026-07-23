@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from pathlib import Path
 
-from petgen.store import AiEventStore, PetRecord, PetRegistry, SettingsStore
+from petgen.reminder import Reminder
+from petgen.store import AiEventStore, PetRecord, PetRegistry, ReminderStore, SettingsStore
+
+T = lambda s: datetime.fromisoformat(s).replace(tzinfo=timezone.utc)
+
+
+def _rem(rid: str, trigger: str, **kw) -> Reminder:
+    return Reminder(id=rid, title=f"title-{rid}", trigger_at=trigger, **kw)
 
 
 def _record(pet_id: str, tmp_path: Path, *, display_name: str | None = None) -> PetRecord:
@@ -146,3 +154,85 @@ def test_stores_share_one_connection(tmp_path: Path) -> None:
         settings.close()
         registry.close()
         conn.close()
+
+
+# --- ReminderStore ---------------------------------------------------------
+
+
+def test_reminder_upsert_get_round_trip(tmp_path: Path) -> None:
+    store = ReminderStore(tmp_path / "db.sqlite")
+    try:
+        r = _rem("r1", "2026-03-01T09:00:00+00:00", recurrence="daily", custom_weekdays=[0, 2])
+        store.upsert(r)
+        got = store.get("r1")
+        assert got is not None
+        assert got.title == "title-r1"
+        assert got.recurrence == "daily"
+        assert got.custom_weekdays == [0, 2]
+        # upsert updates in place
+        r.title = "renamed"
+        store.upsert(r)
+        assert store.get("r1").title == "renamed"
+        assert store.get("nope") is None
+    finally:
+        store.close()
+
+
+def test_reminder_list_active_excludes_completed(tmp_path: Path) -> None:
+    store = ReminderStore(tmp_path / "db.sqlite")
+    try:
+        store.upsert(_rem("a", "2026-03-01T09:00:00+00:00"))
+        store.upsert(_rem("b", "2026-03-02T09:00:00+00:00", status="completed"))
+        active = [r.id for r in store.list_active()]
+        assert active == ["a"]
+        assert {r.id for r in store.list_all()} == {"a", "b"}
+    finally:
+        store.close()
+
+
+def test_reminder_delete(tmp_path: Path) -> None:
+    store = ReminderStore(tmp_path / "db.sqlite")
+    try:
+        store.upsert(_rem("a", "2026-03-01T09:00:00+00:00"))
+        assert store.delete("a") is True
+        assert store.delete("a") is False
+        assert store.get("a") is None
+    finally:
+        store.close()
+
+
+def test_fetch_due_marks_handled_and_dedups(tmp_path: Path) -> None:
+    store = ReminderStore(tmp_path / "db.sqlite")
+    try:
+        store.upsert(_rem("past", "2026-03-01T09:00:00+00:00"))
+        store.upsert(_rem("future", "2026-12-01T09:00:00+00:00"))
+        due = store.fetch_due(T("2026-03-01T10:00:00"))
+        assert [r.id for r in due] == ["past"]
+        # second fetch does not re-return the handled one-shot
+        assert store.fetch_due(T("2026-03-01T11:00:00")) == []
+    finally:
+        store.close()
+
+
+def test_fetch_due_respects_snooze(tmp_path: Path) -> None:
+    store = ReminderStore(tmp_path / "db.sqlite")
+    try:
+        store.upsert(
+            _rem("s", "2026-03-01T09:00:00+00:00", snooze_until="2026-03-01T12:00:00+00:00")
+        )
+        assert store.fetch_due(T("2026-03-01T10:00:00")) == []  # snoozed until 12:00
+        assert [r.id for r in store.fetch_due(T("2026-03-01T12:00:00"))] == ["s"]
+    finally:
+        store.close()
+
+
+def test_clear_handled_lets_recurrence_refire(tmp_path: Path) -> None:
+    store = ReminderStore(tmp_path / "db.sqlite")
+    try:
+        store.upsert(_rem("r", "2026-03-01T09:00:00+00:00", recurrence="daily"))
+        assert len(store.fetch_due(T("2026-03-01T10:00:00"))) == 1
+        assert store.fetch_due(T("2026-03-01T10:30:00")) == []
+        store.clear_handled("r")
+        assert len(store.fetch_due(T("2026-03-01T11:00:00"))) == 1
+    finally:
+        store.close()

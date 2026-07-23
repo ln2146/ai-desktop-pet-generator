@@ -3,10 +3,12 @@ from __future__ import annotations
 import json
 import sqlite3
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from petgen.datadir import db_path
+from petgen.reminder import Reminder, reminder_from_dict, reminder_to_dict, to_iso, utcnow
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (
@@ -36,6 +38,19 @@ CREATE TABLE IF NOT EXISTS ai_events (
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ai_events_created_at_idx ON ai_events(created_at);
+CREATE TABLE IF NOT EXISTS reminders (
+  id              TEXT PRIMARY KEY,
+  title           TEXT NOT NULL,
+  trigger_at      TEXT NOT NULL,
+  snooze_until    TEXT,
+  status          TEXT NOT NULL DEFAULT 'scheduled',
+  recurrence      TEXT NOT NULL DEFAULT 'none',
+  custom_weekdays TEXT NOT NULL DEFAULT '[]',
+  due_handled     INTEGER NOT NULL DEFAULT 0,
+  created_at      TEXT NOT NULL,
+  updated_at      TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS reminders_trigger_idx ON reminders(trigger_at);
 """
 
 
@@ -229,3 +244,91 @@ class AiEventStore:
             ).fetchall()
         }
         return {"total": int(total), "today_count": int(today), "by_kind": by_kind}
+
+
+class ReminderStore:
+    """CRUD + due-detection for reminders (SQLite-backed)."""
+
+    def __init__(self, conn_or_path: Path | sqlite3.Connection | None = None) -> None:
+        self._conn = _connect(conn_or_path)
+        self._owns_conn = not isinstance(conn_or_path, sqlite3.Connection)
+        _init_schema(self._conn)
+
+    def close(self) -> None:
+        if self._owns_conn:
+            self._conn.close()
+
+    def upsert(self, reminder: Reminder) -> None:
+        d = reminder_to_dict(reminder)
+        d["custom_weekdays"] = json.dumps(d.get("custom_weekdays") or [], ensure_ascii=False)
+        self._conn.execute(
+            "INSERT INTO reminders(id, title, trigger_at, snooze_until, status, recurrence, "
+            "custom_weekdays, due_handled, created_at, updated_at) "
+            "VALUES (:id, :title, :trigger_at, :snooze_until, :status, :recurrence, "
+            ":custom_weekdays, 0, :created_at, :updated_at) "
+            "ON CONFLICT(id) DO UPDATE SET title=excluded.title, trigger_at=excluded.trigger_at, "
+            "snooze_until=excluded.snooze_until, status=excluded.status, "
+            "recurrence=excluded.recurrence, custom_weekdays=excluded.custom_weekdays, "
+            "updated_at=excluded.updated_at",
+            d,
+        )
+        self._conn.commit()
+
+    def get(self, reminder_id: str) -> Reminder | None:
+        row = self._conn.execute("SELECT * FROM reminders WHERE id = ?", (reminder_id,)).fetchone()
+        return self._to_reminder(row) if row else None
+
+    def list_active(self) -> list[Reminder]:
+        rows = self._conn.execute(
+            "SELECT * FROM reminders WHERE status <> 'completed' ORDER BY trigger_at ASC, id ASC"
+        ).fetchall()
+        return [self._to_reminder(r) for r in rows]
+
+    def list_all(self) -> list[Reminder]:
+        rows = self._conn.execute(
+            "SELECT * FROM reminders ORDER BY trigger_at ASC, id ASC"
+        ).fetchall()
+        return [self._to_reminder(r) for r in rows]
+
+    def delete(self, reminder_id: str) -> bool:
+        cursor = self._conn.execute("DELETE FROM reminders WHERE id = ?", (reminder_id,))
+        self._conn.commit()
+        return cursor.rowcount > 0
+
+    def fetch_due(self, now: datetime | None = None) -> list[Reminder]:
+        """Return not-completed, un-handled reminders whose effective time <= now,
+        and mark them handled (one-shot) in the same transaction."""
+        now = now or utcnow()
+        now_iso = to_iso(now)
+        rows = self._conn.execute(
+            "SELECT * FROM reminders WHERE status <> 'completed' AND due_handled = 0 "
+            "AND COALESCE(NULLIF(snooze_until,''), trigger_at) <= ?",
+            (now_iso,),
+        ).fetchall()
+        reminders = [self._to_reminder(r) for r in rows]
+        if reminders:
+            ids = [r.id for r in reminders]
+            placeholders = ",".join("?" * len(ids))
+            self._conn.execute(
+                f"UPDATE reminders SET due_handled = 1, updated_at = ? WHERE id IN ({placeholders})",
+                [now_iso, *ids],
+            )
+            self._conn.commit()
+        return reminders
+
+    def clear_handled(self, reminder_id: str) -> None:
+        """Reset the handled flag so a (rolled-forward) reminder can fire again."""
+        self._conn.execute(
+            "UPDATE reminders SET due_handled = 0, updated_at = ? WHERE id = ?",
+            (to_iso(utcnow()), reminder_id),
+        )
+        self._conn.commit()
+
+    @staticmethod
+    def _to_reminder(row: sqlite3.Row) -> Reminder:
+        d = dict(row)
+        try:
+            d["custom_weekdays"] = json.loads(d.get("custom_weekdays") or "[]")
+        except ValueError:
+            d["custom_weekdays"] = []
+        return reminder_from_dict(d)
