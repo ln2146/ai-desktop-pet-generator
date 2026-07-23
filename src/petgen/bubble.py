@@ -32,6 +32,9 @@ class BubbleWindow(QWidget):
 
         self._label = QLabel("")
         self._label.setWordWrap(True)
+        # Plain text only: bubble content can carry externally-sourced strings
+        # (event titles), so never let QLabel auto-detect and render rich text.
+        self._label.setTextFormat(Qt.PlainText)
         self._label.setMaximumWidth(_MAX_WIDTH - 32)
         font = QFont()
         font.setPointSize(13)
