@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWi
 
 _DEFAULT_TIMEOUT_MS = 12_000
 _LONG_TEXT_THRESHOLD = 24  # Chinese is dense; ~24 chars already wraps to multiple lines
-_MAX_WIDTH = 320
+_MAX_WIDTH = 400
 
 
 class BubbleWindow(QWidget):

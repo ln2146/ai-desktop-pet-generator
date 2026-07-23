@@ -18,7 +18,7 @@ COLOR_DANGER_BG = "#fef2f2"
 
 MAIN_STYLESHEET = """
 QWidget {
-    font-family: -apple-system, "SF Pro Display", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Segoe UI", sans-serif;
     font-size: 13px;
     color: #0f172a;
 }

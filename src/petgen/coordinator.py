@@ -28,6 +28,52 @@ def _config_overrides(settings: SettingsStore) -> dict:
     }
 
 
+def _set_macos_accessory_policy() -> None:
+    """Drop the interpreter's Dock icon on macOS by becoming a UI accessory.
+
+    Run as a bare ``python`` process, macOS registers the GUI under the
+    interpreter's own app (the rocket icon) and shows it in the Dock. Switching
+    the activation policy to *accessory* keeps the tray icon and every floating
+    window/dialog interactive while removing the Dock entry and the app menu.
+
+    No-op off-platform, in the offscreen self-check platform, and if the Cocoa
+    call is unavailable for any reason — this is purely cosmetic and must never
+    break startup.
+    """
+    import sys
+
+    if sys.platform != "darwin":
+        return
+    try:
+        from PySide6.QtGui import QGuiApplication
+
+        if QGuiApplication.platformName() == "offscreen":
+            return  # headless self-check: no real Dock to hide, skip AppKit
+
+        import ctypes
+        import ctypes.util
+
+        lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib")
+        lib.objc_getClass.restype = ctypes.c_void_p
+        lib.objc_getClass.argtypes = [ctypes.c_char_p]
+        lib.sel_registerName.restype = ctypes.c_void_p
+        lib.sel_registerName.argtypes = [ctypes.c_char_p]
+        send = lib.objc_msgSend
+        send.restype = ctypes.c_void_p
+        send.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        nsapp = send(
+            lib.objc_getClass(b"NSApplication"),
+            lib.sel_registerName(b"sharedApplication"),
+        )
+        if not nsapp:
+            return
+        send.restype = ctypes.c_bool
+        send.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long]
+        send(nsapp, lib.sel_registerName(b"setActivationPolicy:"), 1)  # Accessory
+    except Exception:  # noqa: BLE001 - cosmetic only
+        pass
+
+
 class GenerationWorker(QThread):
     progress = Signal(str)
     finished_ok = Signal(str)
@@ -103,6 +149,7 @@ class AppCoordinator(QObject):
         # A QApplication MUST exist before any QSystemTrayIcon call (isSystemTrayAvailable
         # segfaults without one), and the tray is built below, so create it up front.
         QApplication.instance() or QApplication(self._argv or ["petgen-app"])
+        _set_macos_accessory_policy()
         self._scale_override = scale
         self._passthrough = passthrough
         self._quiet = False
@@ -143,12 +190,7 @@ class AppCoordinator(QObject):
         app = QApplication.instance() or QApplication(self._argv or ["petgen-app"])
         app.setQuitOnLastWindowClosed(False)
         apply_theme(app)
-        try:  # cosmetic: hide the Dock icon on macOS when run as a bare python process
-            from PySide6.QtCore import Qt as _Qt
-
-            app.setApplicationName("PetGen")
-        except Exception:
-            pass
+        app.setApplicationName("PetGen")
         self.bootstrap()
         self._reload_pet()
         self.bus.start()
@@ -265,6 +307,7 @@ class AppCoordinator(QObject):
             self.library_dialog.import_requested.connect(self._import_dir)
             self.library_dialog.create_requested.connect(self._create_pet)
             self.library_dialog.refresh_requested.connect(self._refresh_library)
+            self.library_dialog.scale_changed.connect(self._on_library_scale_changed)
         self._refresh_library()
         self.library_dialog.show()
         self.library_dialog.raise_()
@@ -272,6 +315,13 @@ class AppCoordinator(QObject):
     def _refresh_library(self) -> None:
         if self.library_dialog is not None:
             self.library_dialog.refresh(self.library.list_pets(), self._selected_id())
+            scale = float(self.settings.get("pet.scale", 1.5))
+            self.library_dialog.set_scale_value(scale)
+
+    def _on_library_scale_changed(self, scale: float) -> None:
+        self.settings.set("pet.scale", float(scale))
+        if self.pet_window is not None:
+            self.pet_window.set_scale(float(scale))
 
     def _select_pet(self, pet_id: str) -> None:
         self.library.select(self.settings, pet_id)
