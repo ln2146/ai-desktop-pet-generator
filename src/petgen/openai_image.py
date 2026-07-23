@@ -5,9 +5,10 @@ import mimetypes
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import requests
+
+from petgen.openai_common import format_http_error
 
 
 class ImageGenerationError(RuntimeError):
@@ -118,7 +119,7 @@ class OpenAIImageClient:
 
     def _extract_image_bytes(self, response: requests.Response) -> bytes:
         if response.status_code < 200 or response.status_code >= 300:
-            raise ImageGenerationError(_format_http_error(response))
+            raise ImageGenerationError(format_http_error(response, label="image"))
 
         try:
             payload = response.json()
@@ -144,19 +145,7 @@ class OpenAIImageClient:
         if isinstance(url, str) and url:
             download = self.session.get(url, timeout=self.config.timeout_seconds)
             if download.status_code < 200 or download.status_code >= 300:
-                raise ImageGenerationError(_format_http_error(download))
+                raise ImageGenerationError(format_http_error(download, label="image"))
             return download.content
 
         raise ImageGenerationError("image API response did not include b64_json or url")
-
-
-def _format_http_error(response: requests.Response) -> str:
-    body: Any
-    try:
-        body = response.json()
-    except ValueError:
-        body = response.text
-    text = str(body)
-    if len(text) > 600:
-        text = text[:600] + "..."
-    return f"image API request failed with HTTP {response.status_code}: {text}"

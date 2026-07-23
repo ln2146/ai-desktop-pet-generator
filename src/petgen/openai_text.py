@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any
 
 import requests
+
+from petgen.openai_common import format_http_error
 
 
 class TextGenerationError(RuntimeError):
@@ -90,7 +91,7 @@ class OpenAITextClient:
 
     def _extract_text(self, response: requests.Response) -> str:
         if response.status_code < 200 or response.status_code >= 300:
-            raise TextGenerationError(_format_http_error(response))
+            raise TextGenerationError(format_http_error(response, label="text"))
 
         try:
             payload = response.json()
@@ -125,15 +126,3 @@ def should_enrich(description: str, flag: bool | None) -> bool:
     if flag is not None:
         return flag
     return len(description.strip()) < ENRICH_MIN_DESCRIPTION_CHARS
-
-
-def _format_http_error(response: requests.Response) -> str:
-    body: Any
-    try:
-        body = response.json()
-    except ValueError:
-        body = response.text
-    text = str(body)
-    if len(text) > 600:
-        text = text[:600] + "..."
-    return f"text API request failed with HTTP {response.status_code}: {text}"
