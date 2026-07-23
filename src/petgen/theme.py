@@ -73,14 +73,15 @@ QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 7px 12px;
+    padding: 6px 12px;
+    min-height: 30px;
     color: #0f172a;
     selection-background-color: #818cf8;
 }
 
 QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
     border: 2px solid #6366f1;
-    padding: 6px 11px;
+    padding: 5px 11px;
 }
 
 QLineEdit:hover, QTextEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover {
@@ -106,7 +107,8 @@ QPushButton {
     color: #1e293b;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
-    padding: 7px 16px;
+    padding: 6px 16px;
+    min-height: 30px;
     font-weight: 500;
 }
 
@@ -159,6 +161,7 @@ QPushButton[accent="danger"]:hover {
 QCheckBox {
     spacing: 8px;
     color: #1e293b;
+    min-height: 24px;
 }
 
 QCheckBox::indicator {

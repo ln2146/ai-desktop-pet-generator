@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 from petgen.reminder import Reminder, parse_dt, to_iso
+from petgen.theme import apply_theme
 
 _RECURRENCE_OPTIONS = [
     ("none", "不重复"),
@@ -51,22 +53,47 @@ class ReminderEditorDialog(QDialog):
         super().__init__(parent)
         self._editing_id = reminder.id if reminder else None
         self.setWindowTitle("编辑提醒" if reminder else "新建提醒")
-        self.resize(380, 320)
+        self.resize(480, 420)
+        self.setMinimumSize(440, 360)
+        apply_theme(self)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel("提醒内容"))
+        layout.setContentsMargins(22, 22, 22, 22)
+        layout.setSpacing(14)
+
+        # Header
+        head = QLabel("编辑提醒事项" if reminder else "新建提醒事项")
+        h_font = QFont()
+        h_font.setPointSize(15)
+        h_font.setBold(True)
+        head.setFont(h_font)
+        layout.addWidget(head)
+
+        # Title Field
+        lbl1 = QLabel("提醒内容")
+        lbl1.setStyleSheet("font-weight: 600; color: #334155;")
+        layout.addWidget(lbl1)
         self.title = QLineEdit()
         self.title.setPlaceholderText("例如：喝水 / 开会 / 站起来活动")
+        self.title.setFixedHeight(36)
         layout.addWidget(self.title)
 
-        layout.addWidget(QLabel("提醒时间"))
+        # DateTime Field
+        lbl2 = QLabel("提醒时间")
+        lbl2.setStyleSheet("font-weight: 600; color: #334155;")
+        layout.addWidget(lbl2)
         self.when = QDateTimeEdit()
         self.when.setCalendarPopup(True)
         self.when.setDisplayFormat("yyyy-MM-dd  HH:mm")
+        self.when.setFixedHeight(36)
         layout.addWidget(self.when)
 
-        layout.addWidget(QLabel("重复"))
+        # Recurrence Field
+        lbl3 = QLabel("重复模式")
+        lbl3.setStyleSheet("font-weight: 600; color: #334155;")
+        layout.addWidget(lbl3)
         self.recurrence = QComboBox()
+        self.recurrence.setFixedHeight(36)
         for key, label in _RECURRENCE_OPTIONS:
             self.recurrence.addItem(label, key)
         self.recurrence.currentIndexChanged.connect(self._on_recurrence_changed)
@@ -89,6 +116,16 @@ class ReminderEditorDialog(QDialog):
 
         layout.addStretch(1)
         box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
+        save_btn = box.button(QDialogButtonBox.Save)
+        if save_btn:
+            save_btn.setText("保存")
+            save_btn.setProperty("accent", "primary")
+            save_btn.setCursor(Qt.PointingHandCursor)
+        cancel_btn = box.button(QDialogButtonBox.Cancel)
+        if cancel_btn:
+            cancel_btn.setText("取消")
+            cancel_btn.setCursor(Qt.PointingHandCursor)
+
         box.accepted.connect(self._save)
         box.rejected.connect(self.reject)
         layout.addWidget(box)
@@ -99,25 +136,32 @@ class ReminderEditorDialog(QDialog):
     def _load(self, reminder: Reminder) -> None:
         self.title.setText(reminder.title)
         self.when.setDateTime(_to_qdt(reminder.trigger_at))
-        idx = self.recurrence.findData(reminder.recurrence)
+        rec = reminder.recurrence or "none"
+        idx = self.recurrence.findData(rec)
         if idx >= 0:
             self.recurrence.setCurrentIndex(idx)
-        for box in self._weekday_boxes:
-            box.setChecked(box.property("weekday") in (reminder.custom_weekdays or []))
-        self._on_recurrence_changed(idx)
+        if rec == "custom_weekly":
+            for box in self._weekday_boxes:
+                w = int(box.property("weekday"))
+                box.setChecked(w in (reminder.custom_weekdays or []))
 
     def _save(self) -> None:
         title = self.title.text().strip()
         if not title:
-            self.title.setFocus()
             return
+        rec = str(self.recurrence.currentData())
+        custom_weekdays: list[int] = []
+        if rec == "custom_weekly":
+            custom_weekdays = [
+                int(box.property("weekday"))
+                for box in self._weekday_boxes
+                if box.isChecked()
+            ]
         data = {
             "title": title,
             "trigger_at": _from_qdt(self.when.dateTime()),
-            "recurrence": self.recurrence.currentData(),
-            "custom_weekdays": [
-                box.property("weekday") for box in self._weekday_boxes if box.isChecked()
-            ],
+            "recurrence": rec,
+            "custom_weekdays": custom_weekdays,
         }
         if self._editing_id:
             data["id"] = self._editing_id

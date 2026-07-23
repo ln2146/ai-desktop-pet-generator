@@ -14,6 +14,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
+    QScrollArea,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -56,7 +57,7 @@ def _create_card_container(title: str, subtitle: str | None = None) -> tuple[QFr
     header = QLabel(title)
     h_font = QFont()
     h_font.setBold(True)
-    h_font.setPointSize(13)
+    h_font.setPointSize(14)
     header.setFont(h_font)
     header.setStyleSheet("color: #0f172a; border: none; background: transparent;")
     layout.addWidget(header)
@@ -73,6 +74,15 @@ def _create_field_label(text: str) -> QLabel:
     lbl = QLabel(text)
     lbl.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px; border: none; background: transparent;")
     return lbl
+
+
+def _wrap_tab_scroll(content_widget: QWidget) -> QScrollArea:
+    scroll = QScrollArea()
+    scroll.setWidgetResizable(True)
+    scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+    scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+    scroll.setWidget(content_widget)
+    return scroll
 
 
 class SettingsDialog(QDialog):
@@ -107,11 +117,11 @@ class SettingsDialog(QDialog):
         title_box.addWidget(subhead)
         root.addLayout(title_box)
 
-        # Tabs (Styled Segmented Control)
+        # Tabs (Styled Segmented Control) with ScrollArea wrappers
         tabs = QTabWidget()
-        tabs.addTab(self._build_ai_tab(), "🤖  AI 服务")
-        tabs.addTab(self._build_pet_tab(), "🐶  宠物行为")
-        tabs.addTab(self._build_about_tab(), "ℹ️  关于 PetGen")
+        tabs.addTab(_wrap_tab_scroll(self._build_ai_tab()), "🤖  AI 服务")
+        tabs.addTab(_wrap_tab_scroll(self._build_pet_tab()), "🐶  宠物行为")
+        tabs.addTab(_wrap_tab_scroll(self._build_about_tab()), "ℹ️  关于 PetGen")
         root.addWidget(tabs, 1)
 
         # Action Buttons Bottom Bar
@@ -148,7 +158,7 @@ class SettingsDialog(QDialog):
         w = QWidget()
         w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
-        layout.setContentsMargins(0, 14, 0, 0)
+        layout.setContentsMargins(0, 14, 12, 14)
         layout.setSpacing(14)
 
         # API Credentials Card
@@ -164,7 +174,7 @@ class SettingsDialog(QDialog):
 
         self._ai_eye = QPushButton("👁")
         self._ai_eye.setFixedWidth(38)
-        self._ai_eye.setFixedHeight(34)
+        self._ai_eye.setFixedHeight(36)
         self._ai_eye.setCheckable(True)
         self._ai_eye.setCursor(Qt.PointingHandCursor)
         self._ai_eye.setStyleSheet(
@@ -218,17 +228,19 @@ class SettingsDialog(QDialog):
         w = QWidget()
         w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
-        layout.setContentsMargins(0, 14, 0, 0)
+        layout.setContentsMargins(0, 14, 12, 14)
         layout.setSpacing(14)
 
         # Visual & Animation Card
         card1, c1_layout = _create_card_container("外观与动作", "调整桌宠在屏幕上的尺寸与动画显示")
         scale_row = QHBoxLayout()
+        scale_row.setSpacing(10)
         scale_row.addWidget(_create_field_label("宠物显示缩放倍率："))
         self.pet_scale = QDoubleSpinBox()
         self.pet_scale.setRange(0.5, 3.0)
         self.pet_scale.setSingleStep(0.25)
-        self.pet_scale.setFixedWidth(90)
+        self.pet_scale.setFixedWidth(100)
+        self.pet_scale.setFixedHeight(34)
         scale_row.addWidget(self.pet_scale)
         scale_row.addStretch(1)
         c1_layout.addLayout(scale_row)
@@ -236,15 +248,16 @@ class SettingsDialog(QDialog):
         self.pet_motion = QCheckBox("开启动画动作与呼吸效果")
         self.pet_sound = QCheckBox("开启音效反馈")
         self.pet_click_chat = QCheckBox("点击宠物时触发 AI 实时智能对话")
-        c1_layout.addWidget(self.pet_motion)
-        c1_layout.addWidget(self.pet_sound)
-        c1_layout.addWidget(self.pet_click_chat)
+        for cb in (self.pet_motion, self.pet_sound, self.pet_click_chat):
+            cb.setStyleSheet("font-size: 13px; font-weight: 500;")
+            c1_layout.addWidget(cb)
         layout.addWidget(card1)
 
         # Personality Card
         card2, c2_layout = _create_card_container("宠物性格模式", "影响互动时的回复语气与动作表现")
         c2_layout.addWidget(_create_field_label("当前性格特征："))
         self.pet_personality = QComboBox()
+        self.pet_personality.setFixedHeight(36)
         self._personality_keys: list[str] = []
         for key, p in PERSONALITIES.items():
             self._personality_keys.append(key)
@@ -256,6 +269,7 @@ class SettingsDialog(QDialog):
         card3, c3_layout = _create_card_container("语音包配置", "切换桌宠的说话音色与反馈音效")
         c3_layout.addWidget(_create_field_label("当前语音音色："))
         self.voice_pack = QComboBox()
+        self.voice_pack.setFixedHeight(36)
         self._voice_pack_keys: list[str] = []
         for key, pack in load_catalog().items():
             self._voice_pack_keys.append(key)
@@ -265,6 +279,7 @@ class SettingsDialog(QDialog):
         voice_row.setSpacing(8)
         voice_row.addWidget(self.voice_pack, 1)
         preview_voice = QPushButton("▶ 试听音色")
+        preview_voice.setFixedHeight(36)
         preview_voice.setCursor(Qt.PointingHandCursor)
         preview_voice.clicked.connect(self._preview_voice)
         voice_row.addWidget(preview_voice)
@@ -278,7 +293,7 @@ class SettingsDialog(QDialog):
         w = QWidget()
         w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
-        layout.setContentsMargins(0, 14, 0, 0)
+        layout.setContentsMargins(0, 14, 12, 14)
         layout.setSpacing(14)
 
         card, c_layout = _create_card_container(f"PetGen 桌宠小助手 v{__version__}", "AI 智能桌面灵动宠物构建平台")

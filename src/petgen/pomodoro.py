@@ -88,28 +88,44 @@ _PHASE_TEXT = {WORK: "🍅 专注中", BREAK: "☕ 休息中"}
 class PomodoroWindow(QDialog):
     def __init__(self, service: PomodoroService | None = None, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("番茄钟")
-        self.resize(280, 160)
+        from petgen.theme import apply_theme
+
+        self.setWindowTitle("番茄钟助手")
+        self.resize(320, 200)
+        self.setMinimumSize(280, 180)
+        apply_theme(self)
+
         self.service = service or PomodoroService()
 
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
+
         self.phase_label = QLabel(_PHASE_TEXT[self.service.phase])
         self.phase_label.setAlignment(Qt.AlignCenter)
-        self.phase_label.setStyleSheet("font-size: 16px; font-weight: 600;")
+        self.phase_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #4f46e5;")
         layout.addWidget(self.phase_label)
 
         self.time_label = QLabel(format_mmss(self.service.remaining))
         self.time_label.setAlignment(Qt.AlignCenter)
-        self.time_label.setStyleSheet("font-size: 34px; font-weight: 700;")
+        self.time_label.setStyleSheet("font-size: 38px; font-weight: 700; color: #0f172a;")
         layout.addWidget(self.time_label)
 
         row = QHBoxLayout()
+        row.setSpacing(8)
         self.start_btn = QPushButton("开始")
+        self.start_btn.setProperty("accent", "primary")
+        self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.clicked.connect(self._toggle)
+
         reset_btn = QPushButton("重置")
+        reset_btn.setCursor(Qt.PointingHandCursor)
         reset_btn.clicked.connect(self.service.reset)
+
         skip_btn = QPushButton("跳过")
+        skip_btn.setCursor(Qt.PointingHandCursor)
         skip_btn.clicked.connect(self.service.skip)
+
         for b in (self.start_btn, reset_btn, skip_btn):
             row.addWidget(b)
         layout.addLayout(row)
