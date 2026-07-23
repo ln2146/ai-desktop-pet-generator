@@ -594,19 +594,17 @@ def _column_alpha_counts(image: Image.Image, row_band: tuple[int, int]) -> list[
     return (alpha > 10).sum(axis=0).astype(int).tolist()
 
 
-def _segment_projection(
+def _merge_projection_bands(
     projection: list[int],
     *,
     active_threshold: int,
     min_length: int,
     merge_gap: int,
 ) -> list[tuple[int, int]]:
-    """Segment a 1D projection into bands, returning the merged result.
+    """Threshold a 1D projection into runs, drop short ones, merge close gaps.
 
-    Unlike :func:`_segment_projection_legacy`, this returns the merged bands even
-    when their count differs from the expected frame count. Column segmentation
-    uses this so that a count mismatch can be recovered by connected-component
-    valley splitting instead of silently collapsing to ``[]``.
+    Shared core of :func:`_segment_projection` and :func:`_segment_projection_legacy`;
+    returns the merged bands *as-is* (count may differ from any expected target).
     """
     bands: list[tuple[int, int]] = []
     start: int | None = None
@@ -630,8 +628,27 @@ def _segment_projection(
             merged[-1] = (merged[-1][0], band[1])
         else:
             merged.append(band)
-
     return merged
+
+
+def _segment_projection(
+    projection: list[int],
+    *,
+    active_threshold: int,
+    min_length: int,
+    merge_gap: int,
+) -> list[tuple[int, int]]:
+    """Merged bands even when their count differs from the expected frame count.
+
+    Column segmentation uses this so a count mismatch can be recovered by
+    connected-component valley splitting instead of silently collapsing to ``[]``.
+    """
+    return _merge_projection_bands(
+        projection,
+        active_threshold=active_threshold,
+        min_length=min_length,
+        merge_gap=merge_gap,
+    )
 
 
 def _segment_projection_legacy(
@@ -642,29 +659,17 @@ def _segment_projection_legacy(
     merge_gap: int,
     target_count: int,
 ) -> list[tuple[int, int]]:
-    bands: list[tuple[int, int]] = []
-    start: int | None = None
-    for index, count in enumerate(projection):
-        if count >= active_threshold:
-            if start is None:
-                start = index
-        elif start is not None:
-            bands.append((start, max(start, index - 1)))
-            start = None
-    if start is not None:
-        bands.append((start, len(projection) - 1))
+    """Merged bands forced to ``target_count`` by merging the closest pairs.
 
-    bands = [band for band in bands if band[1] - band[0] + 1 >= min_length]
-    if not bands:
-        return []
-
-    merged: list[tuple[int, int]] = []
-    for band in bands:
-        if merged and band[0] - merged[-1][1] - 1 <= merge_gap:
-            merged[-1] = (merged[-1][0], band[1])
-        else:
-            merged.append(band)
-
+    Returns ``[]`` unless the count can be reduced to exactly ``target_count``
+    (the conservative row-segmentation fallback).
+    """
+    merged = _merge_projection_bands(
+        projection,
+        active_threshold=active_threshold,
+        min_length=min_length,
+        merge_gap=merge_gap,
+    )
     while len(merged) > target_count:
         pair_index = min(
             range(len(merged) - 1),
