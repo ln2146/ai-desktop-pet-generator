@@ -14,6 +14,11 @@ class TextGenerationError(RuntimeError):
 
 ENRICH_MIN_DESCRIPTION_CHARS = 30
 
+# Hard cap on the enriched description: the system prompt asks for ~120 chars but
+# a misbehaving model could return a paragraph, which would bloat the image
+# prompt. Truncate (the enrichment is only a hint) rather than feed it verbatim.
+ENRICH_MAX_DESCRIPTION_CHARS = 240
+
 ENRICH_SYSTEM_PROMPT = """
 You enrich short pet character descriptions for a desktop-pet generator.
 
@@ -93,7 +98,10 @@ class OpenAITextClient:
         return self._extract_text(response)
 
     def enrich(self, description: str) -> str:
-        return self.complete(system=ENRICH_SYSTEM_PROMPT, user=description)
+        enriched = self.complete(system=ENRICH_SYSTEM_PROMPT, user=description)
+        if len(enriched) > ENRICH_MAX_DESCRIPTION_CHARS:
+            enriched = enriched[:ENRICH_MAX_DESCRIPTION_CHARS].rstrip()
+        return enriched
 
     def _json_headers(self) -> dict[str, str]:
         return {

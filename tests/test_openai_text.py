@@ -5,6 +5,7 @@ import os
 import pytest
 
 from petgen.openai_text import (
+    ENRICH_MAX_DESCRIPTION_CHARS,
     ENRICH_MIN_DESCRIPTION_CHARS,
     ENRICH_SYSTEM_PROMPT,
     OpenAITextClient,
@@ -77,6 +78,15 @@ def test_enrich_uses_enrich_system_prompt() -> None:
     system_message = session.calls[0][2]["json"]["messages"][0]
     assert system_message["content"] == ENRICH_SYSTEM_PROMPT
     assert "green screen" in ENRICH_SYSTEM_PROMPT
+
+
+def test_enrich_caps_overlong_model_output() -> None:
+    """A model that ignores the ~120-char instruction is truncated, not fed raw."""
+    session = FakeSession(
+        FakeResponse(200, {"choices": [{"message": {"content": "猫" * 500}}]})
+    )
+    result = _client(session).enrich("一只猫")
+    assert len(result) <= ENRICH_MAX_DESCRIPTION_CHARS
 
 
 def test_http_error_raises_text_generation_error() -> None:
