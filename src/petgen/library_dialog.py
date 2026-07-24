@@ -7,6 +7,7 @@ from pathlib import Path
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor, QFont, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
+    QComboBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
@@ -25,10 +26,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from petgen.personalities import PERSONALITIES
 from petgen.theme import apply_theme
+from petgen.voicepack import load_catalog
 
 _THUMB = 72
-_COLS = 6
+_COLS = 8
 
 
 def reveal_in_folder(path: str) -> None:
@@ -122,7 +125,7 @@ class _PetCard(QFrame):
         self._dir = record.dir_path
         self._name = record.display_name or record.id
         self.setFrameShape(QFrame.NoFrame)
-        self.setFixedSize(132, 150)
+        self.setFixedSize(106, 136)
         self.setCursor(Qt.PointingHandCursor)
 
         # Premium tile: vertical gradient + brand-colored ring when selected
@@ -130,14 +133,14 @@ class _PetCard(QFrame):
             self.setStyleSheet(
                 "QFrame {"
                 "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #eef2ff, stop:1 #e7ecff);"
-                "  border: 2px solid #6366f1; border-radius: 16px;"
+                "  border: 2px solid #6366f1; border-radius: 14px;"
                 "}"
             )
         else:
             self.setStyleSheet(
                 "QFrame {"
                 "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #ffffff, stop:1 #eef1f9);"
-                "  border: 1px solid #e7ecf3; border-radius: 16px;"
+                "  border: 1px solid #e7ecf3; border-radius: 14px;"
                 "}"
                 "QFrame:hover {"
                 "  background: qlineargradient(x1:0,y1:0,x2:0,y2:1, stop:0 #ffffff, stop:1 #e9edf7);"
@@ -147,23 +150,23 @@ class _PetCard(QFrame):
 
         # Soft elevation so cards read as objects on a surface, not flat cells
         shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(22 if selected else 16)
-        shadow.setOffset(0, 6 if selected else 4)
-        shadow.setColor(QColor(30, 41, 59, 52 if selected else 30))
+        shadow.setBlurRadius(20 if selected else 14)
+        shadow.setOffset(0, 5 if selected else 3)
+        shadow.setColor(QColor(30, 41, 59, 48 if selected else 26))
         self.setGraphicsEffect(shadow)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 9, 8, 8)
-        layout.setSpacing(5)
+        layout.setContentsMargins(6, 6, 6, 6)
+        layout.setSpacing(3)
 
         # Stage: a baked studio backdrop (radial gradient + ground shadow) behind the pet,
         # so light/white pets are no longer washed out by a flat white card.
         stage = QLabel()
-        stage.setFixedSize(116, 96)
+        stage.setFixedSize(94, 80)
         stage.setAlignment(Qt.AlignCenter)
         thumb_path = record.preview_path or record.sprite_path
         if thumb_path and Path(thumb_path).is_file():
-            stage.setPixmap(self._compose_stage(thumb_path, 116, 96))
+            stage.setPixmap(self._compose_stage(thumb_path, 94, 80))
             stage.setStyleSheet("background: transparent; border: none;")
         else:
             stage.setText("🐾")
@@ -310,12 +313,15 @@ class LibraryDialog(QDialog):
     create_requested = Signal(str, list)
     refresh_requested = Signal()
     scale_changed = Signal(float)
+    personality_changed = Signal(str)
+    voice_pack_changed = Signal(str)
+    preview_voice_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("PetGen 宠物管理")
-        self.resize(960, 680)
-        self.setMinimumSize(840, 580)
+        self.resize(1120, 780)
+        self.setMinimumSize(980, 660)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
@@ -324,22 +330,24 @@ class LibraryDialog(QDialog):
         self._selected_name: str = "未选择"
 
         root = QVBoxLayout(self)
-        root.setContentsMargins(22, 22, 22, 22)
-        root.setSpacing(14)
+        root.setContentsMargins(18, 16, 18, 16)
+        root.setSpacing(10)
 
         # Header Title (Matches Image 2 header structure)
         title_box = QHBoxLayout()
         title_text = QVBoxLayout()
+        title_text.setSpacing(2)
 
         head_row = QHBoxLayout()
+        head_row.setSpacing(6)
         icon_lbl = QLabel("✨")
         i_font = QFont()
-        i_font.setPointSize(18)
+        i_font.setPointSize(16)
         icon_lbl.setFont(i_font)
 
         title = QLabel("宠物")
         t_font = QFont()
-        t_font.setPointSize(18)
+        t_font.setPointSize(16)
         t_font.setBold(True)
         title.setFont(t_font)
         title.setStyleSheet("color: #0f172a;")
@@ -350,7 +358,7 @@ class LibraryDialog(QDialog):
         title_text.addLayout(head_row)
 
         subtitle = QLabel("切换工作伙伴并调整悬浮行为")
-        subtitle.setStyleSheet("color: #64748b; font-size: 13px;")
+        subtitle.setStyleSheet("color: #64748b; font-size: 12px;")
         title_text.addWidget(subtitle)
 
         title_box.addLayout(title_text)
@@ -358,22 +366,27 @@ class LibraryDialog(QDialog):
 
         # Toolbar Buttons on Header Right
         toolbar = QHBoxLayout()
-        toolbar.setSpacing(8)
+        toolbar.setSpacing(6)
 
-        self._create_btn = QPushButton("✨ 创建新宠物…")
+        button_style = "QPushButton { padding: 4px 10px; font-size: 12px; }"
+
+        self._create_btn = QPushButton("✨ 创建新宠物")
         self._create_btn.setProperty("accent", "primary")
         self._create_btn.setCursor(Qt.PointingHandCursor)
-        self._create_btn.setStyleSheet("QPushButton { padding: 6px 14px; font-size: 13px; }")
+        self._create_btn.setFixedHeight(30)
+        self._create_btn.setStyleSheet(button_style)
         self._create_btn.clicked.connect(self._on_create)
 
-        import_btn = QPushButton("📥 导入宠物文件夹…")
+        import_btn = QPushButton("📥 导入文件夹")
         import_btn.setCursor(Qt.PointingHandCursor)
-        import_btn.setStyleSheet("QPushButton { padding: 6px 14px; font-size: 13px; }")
+        import_btn.setFixedHeight(30)
+        import_btn.setStyleSheet(button_style)
         import_btn.clicked.connect(self._on_import)
 
         refresh_btn = QPushButton("🔄 刷新")
         refresh_btn.setCursor(Qt.PointingHandCursor)
-        refresh_btn.setStyleSheet("QPushButton { padding: 6px 14px; font-size: 13px; }")
+        refresh_btn.setFixedHeight(30)
+        refresh_btn.setStyleSheet(button_style)
         refresh_btn.clicked.connect(lambda: self.refresh_requested.emit())
 
         toolbar.addWidget(self._create_btn)
@@ -385,25 +398,26 @@ class LibraryDialog(QDialog):
 
         self._progress = QLabel("")
         self._progress.setStyleSheet("color: #4f46e5; font-weight: 600; font-size: 13px; padding: 2px 0px;")
+        self._progress.setVisible(False)
         root.addWidget(self._progress)
 
         # Main Pet Grid Scroll Area (Matches Image 2 grid)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { border: 1px solid #e7ecf3; border-radius: 16px; background: #f4f6fc; }")
+        scroll.setStyleSheet("QScrollArea { border: 1px solid #e7ecf3; border-radius: 12px; background: #f4f6fc; }")
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         self._grid_layout = QGridLayout(container)
-        self._grid_layout.setContentsMargins(16, 16, 16, 16)
-        self._grid_layout.setSpacing(16)
+        self._grid_layout.setContentsMargins(12, 12, 12, 12)
+        self._grid_layout.setSpacing(12)
         self._grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         scroll.setWidget(container)
         root.addWidget(scroll, 1)
 
         # Current Selected Pet Info
         self._current_label = QLabel("当前形象：星糖熊猫")
-        self._current_label.setStyleSheet("color: #475569; font-size: 13px; padding: 4px 0px;")
+        self._current_label.setStyleSheet("color: #475569; font-size: 12px; padding: 1px 0px;")
         root.addWidget(self._current_label)
 
         # Separator Line
@@ -412,9 +426,60 @@ class LibraryDialog(QDialog):
         line.setStyleSheet("background-color: #e2e8f0; max-height: 1px;")
         root.addWidget(line)
 
+        # Pet interaction style: lives next to pet selection because it changes
+        # this companion's persona, not the AI/provider plumbing.
+        style_row = QHBoxLayout()
+        style_row.setSpacing(12)
+
+        personality_box = QVBoxLayout()
+        personality_box.setSpacing(4)
+        personality_title = QLabel("宠物性格")
+        personality_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
+        personality_sub = QLabel("决定点击互动时的回复语气")
+        personality_sub.setStyleSheet("color: #64748b; font-size: 12px;")
+        self._personality_combo = QComboBox()
+        self._personality_combo.setFixedHeight(32)
+        self._personality_keys: list[str] = []
+        for key, personality in PERSONALITIES.items():
+            self._personality_keys.append(key)
+            self._personality_combo.addItem(f"✨ {personality.label}", key)
+        self._personality_combo.currentIndexChanged.connect(self._on_personality_changed)
+        personality_box.addWidget(personality_title)
+        personality_box.addWidget(personality_sub)
+        personality_box.addWidget(self._personality_combo)
+
+        voice_box = QVBoxLayout()
+        voice_box.setSpacing(4)
+        voice_title = QLabel("语音包")
+        voice_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
+        voice_sub = QLabel("决定说话音色、事件台词和反馈音效")
+        voice_sub.setStyleSheet("color: #64748b; font-size: 12px;")
+        self._voice_pack_combo = QComboBox()
+        self._voice_pack_combo.setFixedHeight(32)
+        self._voice_pack_keys: list[str] = []
+        for key, pack in load_catalog().items():
+            self._voice_pack_keys.append(key)
+            self._voice_pack_combo.addItem(f"{pack.emoji} {pack.display_name}", key)
+        self._voice_pack_combo.currentIndexChanged.connect(self._on_voice_pack_changed)
+        voice_control_row = QHBoxLayout()
+        voice_control_row.setSpacing(6)
+        voice_control_row.addWidget(self._voice_pack_combo, 1)
+        preview_voice = QPushButton("▶ 试听")
+        preview_voice.setFixedHeight(32)
+        preview_voice.setCursor(Qt.PointingHandCursor)
+        preview_voice.clicked.connect(lambda: self.preview_voice_requested.emit())
+        voice_control_row.addWidget(preview_voice)
+        voice_box.addWidget(voice_title)
+        voice_box.addWidget(voice_sub)
+        voice_box.addLayout(voice_control_row)
+
+        style_row.addLayout(personality_box, 1)
+        style_row.addLayout(voice_box, 1)
+        root.addLayout(style_row)
+
         # Pet Scale Control Section (Matches Image 2 bottom slider)
         scale_box = QVBoxLayout()
-        scale_box.setSpacing(4)
+        scale_box.setSpacing(3)
 
         scale_title = QLabel("宠物大小")
         st_font = QFont()
@@ -430,7 +495,7 @@ class LibraryDialog(QDialog):
         scale_box.addWidget(scale_sub)
 
         slider_row = QHBoxLayout()
-        slider_row.setSpacing(12)
+        slider_row.setSpacing(10)
 
         lbl_min = QLabel("50%")
         lbl_min.setStyleSheet("color: #94a3b8; font-size: 12px;")
@@ -492,6 +557,7 @@ class LibraryDialog(QDialog):
 
     def set_progress(self, text: str) -> None:
         self._progress.setText(text)
+        self._progress.setVisible(bool(text))
         self._create_btn.setEnabled(not text)
 
     def set_scale_value(self, scale: float) -> None:
@@ -501,11 +567,33 @@ class LibraryDialog(QDialog):
         self._scale_val_lbl.setText(f"{val}%")
         self._scale_slider.blockSignals(False)
 
+    def set_personality_value(self, personality_key: str | None) -> None:
+        key = personality_key if personality_key in self._personality_keys else self._personality_keys[0]
+        self._personality_combo.blockSignals(True)
+        self._personality_combo.setCurrentIndex(self._personality_keys.index(key))
+        self._personality_combo.blockSignals(False)
+
+    def set_voice_pack_value(self, pack_key: str | None) -> None:
+        key = pack_key if pack_key in self._voice_pack_keys else self._voice_pack_keys[0]
+        self._voice_pack_combo.blockSignals(True)
+        self._voice_pack_combo.setCurrentIndex(self._voice_pack_keys.index(key))
+        self._voice_pack_combo.blockSignals(False)
+
     # --- helpers ------------------------------------------------------------
 
     def _on_slider_changed(self, val: int) -> None:
         self._scale_val_lbl.setText(f"{val}%")
         self.scale_changed.emit(float(val) / 100.0)
+
+    def _on_personality_changed(self) -> None:
+        key = self._personality_combo.currentData()
+        if key:
+            self.personality_changed.emit(str(key))
+
+    def _on_voice_pack_changed(self) -> None:
+        key = self._voice_pack_combo.currentData()
+        if key:
+            self.voice_pack_changed.emit(str(key))
 
     def _on_create(self) -> None:
         dlg = _CreatePetDialog(self)
