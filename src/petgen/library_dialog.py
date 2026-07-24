@@ -26,9 +26,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from petgen.personalities import PERSONALITIES
+from petgen.interaction_style import load_styles
 from petgen.theme import apply_theme
-from petgen.voicepack import load_catalog
 
 _THUMB = 72
 _COLS = 8
@@ -125,7 +124,7 @@ class _PetCard(QFrame):
         self._dir = record.dir_path
         self._name = record.display_name or record.id
         self.setFrameShape(QFrame.NoFrame)
-        self.setFixedSize(106, 136)
+        self.setFixedSize(104, 134)
         self.setCursor(Qt.PointingHandCursor)
 
         # Premium tile: vertical gradient + brand-colored ring when selected
@@ -162,11 +161,11 @@ class _PetCard(QFrame):
         # Stage: a baked studio backdrop (radial gradient + ground shadow) behind the pet,
         # so light/white pets are no longer washed out by a flat white card.
         stage = QLabel()
-        stage.setFixedSize(94, 80)
+        stage.setFixedSize(92, 78)
         stage.setAlignment(Qt.AlignCenter)
         thumb_path = record.preview_path or record.sprite_path
         if thumb_path and Path(thumb_path).is_file():
-            stage.setPixmap(self._compose_stage(thumb_path, 94, 80))
+            stage.setPixmap(self._compose_stage(thumb_path, 92, 78))
             stage.setStyleSheet("background: transparent; border: none;")
         else:
             stage.setText("🐾")
@@ -313,15 +312,14 @@ class LibraryDialog(QDialog):
     create_requested = Signal(str, list)
     refresh_requested = Signal()
     scale_changed = Signal(float)
-    personality_changed = Signal(str)
-    voice_pack_changed = Signal(str)
-    preview_voice_requested = Signal()
+    interaction_style_changed = Signal(str)
+    preview_style_requested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("PetGen 宠物管理")
-        self.resize(1120, 780)
-        self.setMinimumSize(980, 660)
+        self.resize(962, 700)
+        self.setMinimumSize(880, 600)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
@@ -426,56 +424,31 @@ class LibraryDialog(QDialog):
         line.setStyleSheet("background-color: #e2e8f0; max-height: 1px;")
         root.addWidget(line)
 
-        # Pet interaction style: lives next to pet selection because it changes
-        # this companion's persona, not the AI/provider plumbing.
-        style_row = QHBoxLayout()
-        style_row.setSpacing(12)
-
-        personality_box = QVBoxLayout()
-        personality_box.setSpacing(4)
-        personality_title = QLabel("宠物性格")
-        personality_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
-        personality_sub = QLabel("决定点击互动时的回复语气")
-        personality_sub.setStyleSheet("color: #64748b; font-size: 12px;")
-        self._personality_combo = QComboBox()
-        self._personality_combo.setFixedHeight(32)
-        self._personality_keys: list[str] = []
-        for key, personality in PERSONALITIES.items():
-            self._personality_keys.append(key)
-            self._personality_combo.addItem(f"✨ {personality.label}", key)
-        self._personality_combo.currentIndexChanged.connect(self._on_personality_changed)
-        personality_box.addWidget(personality_title)
-        personality_box.addWidget(personality_sub)
-        personality_box.addWidget(self._personality_combo)
-
-        voice_box = QVBoxLayout()
-        voice_box.setSpacing(4)
-        voice_title = QLabel("语音包")
-        voice_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
-        voice_sub = QLabel("决定说话音色、事件台词和反馈音效")
-        voice_sub.setStyleSheet("color: #64748b; font-size: 12px;")
-        self._voice_pack_combo = QComboBox()
-        self._voice_pack_combo.setFixedHeight(32)
-        self._voice_pack_keys: list[str] = []
-        for key, pack in load_catalog().items():
-            self._voice_pack_keys.append(key)
-            self._voice_pack_combo.addItem(f"{pack.emoji} {pack.display_name}", key)
-        self._voice_pack_combo.currentIndexChanged.connect(self._on_voice_pack_changed)
-        voice_control_row = QHBoxLayout()
-        voice_control_row.setSpacing(6)
-        voice_control_row.addWidget(self._voice_pack_combo, 1)
-        preview_voice = QPushButton("▶ 试听")
-        preview_voice.setFixedHeight(32)
-        preview_voice.setCursor(Qt.PointingHandCursor)
-        preview_voice.clicked.connect(lambda: self.preview_voice_requested.emit())
-        voice_control_row.addWidget(preview_voice)
-        voice_box.addWidget(voice_title)
-        voice_box.addWidget(voice_sub)
-        voice_box.addLayout(voice_control_row)
-
-        style_row.addLayout(personality_box, 1)
-        style_row.addLayout(voice_box, 1)
-        root.addLayout(style_row)
+        style_box = QVBoxLayout()
+        style_box.setSpacing(4)
+        style_title = QLabel("互动风格")
+        style_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
+        style_sub = QLabel("绑定气泡台词、说话音色、语速语调和反馈音效")
+        style_sub.setStyleSheet("color: #64748b; font-size: 12px;")
+        self._interaction_style_combo = QComboBox()
+        self._interaction_style_combo.setFixedHeight(32)
+        self._interaction_style_keys: list[str] = []
+        for key, style in load_styles().items():
+            self._interaction_style_keys.append(key)
+            self._interaction_style_combo.addItem(f"{style.emoji} {style.display_name} · {style.description}", key)
+        self._interaction_style_combo.currentIndexChanged.connect(self._on_interaction_style_changed)
+        style_control_row = QHBoxLayout()
+        style_control_row.setSpacing(6)
+        style_control_row.addWidget(self._interaction_style_combo, 1)
+        preview_style = QPushButton("▶ 试听")
+        preview_style.setFixedHeight(32)
+        preview_style.setCursor(Qt.PointingHandCursor)
+        preview_style.clicked.connect(lambda: self.preview_style_requested.emit())
+        style_control_row.addWidget(preview_style)
+        style_box.addWidget(style_title)
+        style_box.addWidget(style_sub)
+        style_box.addLayout(style_control_row)
+        root.addLayout(style_box)
 
         # Pet Scale Control Section (Matches Image 2 bottom slider)
         scale_box = QVBoxLayout()
@@ -567,17 +540,11 @@ class LibraryDialog(QDialog):
         self._scale_val_lbl.setText(f"{val}%")
         self._scale_slider.blockSignals(False)
 
-    def set_personality_value(self, personality_key: str | None) -> None:
-        key = personality_key if personality_key in self._personality_keys else self._personality_keys[0]
-        self._personality_combo.blockSignals(True)
-        self._personality_combo.setCurrentIndex(self._personality_keys.index(key))
-        self._personality_combo.blockSignals(False)
-
-    def set_voice_pack_value(self, pack_key: str | None) -> None:
-        key = pack_key if pack_key in self._voice_pack_keys else self._voice_pack_keys[0]
-        self._voice_pack_combo.blockSignals(True)
-        self._voice_pack_combo.setCurrentIndex(self._voice_pack_keys.index(key))
-        self._voice_pack_combo.blockSignals(False)
+    def set_interaction_style_value(self, style_key: str | None) -> None:
+        key = style_key if style_key in self._interaction_style_keys else self._interaction_style_keys[0]
+        self._interaction_style_combo.blockSignals(True)
+        self._interaction_style_combo.setCurrentIndex(self._interaction_style_keys.index(key))
+        self._interaction_style_combo.blockSignals(False)
 
     # --- helpers ------------------------------------------------------------
 
@@ -585,15 +552,10 @@ class LibraryDialog(QDialog):
         self._scale_val_lbl.setText(f"{val}%")
         self.scale_changed.emit(float(val) / 100.0)
 
-    def _on_personality_changed(self) -> None:
-        key = self._personality_combo.currentData()
+    def _on_interaction_style_changed(self) -> None:
+        key = self._interaction_style_combo.currentData()
         if key:
-            self.personality_changed.emit(str(key))
-
-    def _on_voice_pack_changed(self) -> None:
-        key = self._voice_pack_combo.currentData()
-        if key:
-            self.voice_pack_changed.emit(str(key))
+            self.interaction_style_changed.emit(str(key))
 
     def _on_create(self) -> None:
         dlg = _CreatePetDialog(self)
