@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from datetime import timedelta
+from typing import Callable
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -8,13 +11,14 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
-from petgen.reminder import parse_dt
+from petgen.reminder import parse_dt, to_iso, utcnow
 from petgen.theme import apply_theme
 
 _RECURRENCE_LABEL = {
@@ -25,6 +29,8 @@ _RECURRENCE_LABEL = {
     "monthly": "每月",
     "custom_weekly": "自定义",
 }
+
+ParseFunc = Callable[[str], tuple[str, str] | None]
 
 
 def _format_when(iso: str) -> str:
@@ -108,16 +114,18 @@ class _ReminderCard(QFrame):
 
 class ReminderListDialog(QDialog):
     new_requested = Signal()
+    quick_created = Signal(dict)
     complete_requested = Signal(str)
     snooze_requested = Signal(str)
     edit_requested = Signal(str)
     delete_requested = Signal(str)
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parser: ParseFunc | None = None, parent=None) -> None:
         super().__init__(parent)
+        self._parser = parser
         self.setWindowTitle("提醒事项中心")
-        self.resize(560, 520)
-        self.setMinimumSize(480, 440)
+        self.resize(580, 560)
+        self.setMinimumSize(500, 460)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
@@ -130,6 +138,7 @@ class ReminderListDialog(QDialog):
         # Header Title
         title_box = QHBoxLayout()
         title_text = QVBoxLayout()
+        title_text.setSpacing(2)
         title = QLabel("📋 提醒事项中心")
         t_font = QFont()
         t_font.setPointSize(16)
@@ -137,21 +146,50 @@ class ReminderListDialog(QDialog):
         title.setFont(t_font)
         title.setStyleSheet("color: #0f172a;")
 
-        subtitle = QLabel("查看与管理桌面宠物提醒列表")
+        subtitle = QLabel("到点桌宠将弹窗提醒互动，支持自然语言快捷新建")
         subtitle.setStyleSheet("color: #64748b; font-size: 12px;")
         title_text.addWidget(title)
         title_text.addWidget(subtitle)
         title_box.addLayout(title_text)
         title_box.addStretch(1)
 
-        new_btn = QPushButton("＋ 新建提醒")
-        new_btn.setProperty("accent", "primary")
-        new_btn.setCursor(Qt.PointingHandCursor)
-        new_btn.setStyleSheet("QPushButton { padding: 7px 16px; font-size: 13px; }")
-        new_btn.clicked.connect(self.new_requested.emit)
-        title_box.addWidget(new_btn)
+        edit_btn = QPushButton("⚙️ 高级新建")
+        edit_btn.setCursor(Qt.PointingHandCursor)
+        edit_btn.setStyleSheet("QPushButton { padding: 6px 12px; font-size: 12px; }")
+        edit_btn.clicked.connect(self.new_requested.emit)
+        title_box.addWidget(edit_btn)
         root.addLayout(title_box)
 
+        # Inline Quick Capture Bar
+        quick_card = QFrame()
+        quick_card.setStyleSheet(
+            "QFrame {"
+            "  background-color: #ffffff;"
+            "  border: 1px solid #cbd5e1;"
+            "  border-radius: 12px;"
+            "}"
+            "QFrame:focus-within { border-color: #6366f1; }"
+        )
+        qc_layout = QHBoxLayout(quick_card)
+        qc_layout.setContentsMargins(10, 8, 10, 8)
+        qc_layout.setSpacing(8)
+
+        self.quick_input = QLineEdit()
+        self.quick_input.setPlaceholderText("一句话新建提醒，例如「半小时后 喝水」或「每天 18:00 下班」…")
+        self.quick_input.setStyleSheet("QLineEdit { border: none; background: transparent; padding: 4px; font-size: 13px; }")
+        self.quick_input.returnPressed.connect(self._submit_quick)
+
+        add_btn = QPushButton("✨ 添加")
+        add_btn.setProperty("accent", "primary")
+        add_btn.setCursor(Qt.PointingHandCursor)
+        add_btn.setStyleSheet("QPushButton { padding: 6px 16px; font-size: 13px; }")
+        add_btn.clicked.connect(self._submit_quick)
+
+        qc_layout.addWidget(self.quick_input, 1)
+        qc_layout.addWidget(add_btn)
+        root.addWidget(quick_card)
+
+        # Active Reminders Scroll Area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -164,6 +202,24 @@ class ReminderListDialog(QDialog):
         self._grid.setAlignment(Qt.AlignTop)
         scroll.setWidget(container)
         root.addWidget(scroll, 1)
+
+    def focus_quick_input(self) -> None:
+        self.quick_input.setFocus()
+        self.quick_input.selectAll()
+
+    def _submit_quick(self) -> None:
+        text = self.quick_input.text().strip()
+        if not text:
+            return
+        parsed = self._parser(text) if self._parser else None
+        if parsed is not None:
+            title, trigger_at = parsed
+        else:
+            title, trigger_at = text, to_iso(utcnow() + timedelta(hours=1))
+        if not title:
+            title = text
+        self.quick_created.emit({"title": title, "trigger_at": trigger_at})
+        self.quick_input.clear()
 
     def refresh(self, reminders) -> None:
         while self._grid.count():

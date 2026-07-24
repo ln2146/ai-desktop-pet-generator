@@ -10,9 +10,9 @@ from PySide6.QtWidgets import QApplication
 from petgen.bubble import BubbleWindow
 from petgen.datadir import data_dir
 from petgen.eventbus import EventBus, expression_for_kind
+from petgen.interaction_style import normalize_style_id
 from petgen.library import PetLibrary
 from petgen.library_dialog import LibraryDialog
-from petgen.personalities import get_personality
 from petgen.pet_manifest import FrameAtlas, load_manifest
 from petgen.settings_dialog import SettingsDialog
 from petgen.store import AiEventStore, PetRegistry, SettingsStore
@@ -194,9 +194,10 @@ class AppCoordinator(QObject):
         from petgen.speak import VoicePackService
 
         self.voice = VoicePackService(enabled=bool(self.settings.get("pet.sound_enabled", True)))
-        saved_pack = self.settings.get("pet.voice_pack")
-        if saved_pack:
-            self.voice.set_pack(saved_pack)
+        style_id = self._current_interaction_style_id()
+        if self.settings.get("pet.interaction_style") != style_id:
+            self.settings.set("pet.interaction_style", style_id)
+        self.voice.set_style(style_id)
 
         self.pet_window = None
         self.library_dialog: LibraryDialog | None = None
@@ -343,7 +344,7 @@ class AppCoordinator(QObject):
         self.bubble.show_message(event.display_message())
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())
-        # voice packs map ai_* / task_completed -> their alert/happy/busy/error sounds+lines
+        # interaction styles map ai_* / task_completed -> their alert/happy/busy/error sounds+lines
         self.voice.react(expression_for_kind(event.kind))
 
     def _on_pet_clicked(self) -> None:
@@ -351,19 +352,12 @@ class AppCoordinator(QObject):
             return
         if self.pet_window is not None:
             self.pet_window.set_expression("attentive")
-        # keep the bubble text in sync with what the voice pack speaks (its "tap" line)
-        pack_line = self.voice.pack.line_for("tap")
-        if pack_line:
-            line = pack_line
-        else:
-            personality = get_personality(self.settings.get("pet.personality"))
-            import random
-
-            line = random.choice(personality.click_lines)
+        # keep the bubble text in sync with what the interaction style speaks.
+        line = self.voice.pack.line_for("tap") or "我在。"
         self.bubble.show_message(line)
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())
-        self.voice.react("tap")
+        self.voice.react("tap", line)
 
     # --- dialogs ------------------------------------------------------------
 
@@ -377,9 +371,8 @@ class AppCoordinator(QObject):
             self.library_dialog.create_requested.connect(self._create_pet)
             self.library_dialog.refresh_requested.connect(self._refresh_library)
             self.library_dialog.scale_changed.connect(self._on_library_scale_changed)
-            self.library_dialog.personality_changed.connect(self._on_library_personality_changed)
-            self.library_dialog.voice_pack_changed.connect(self._on_library_voice_pack_changed)
-            self.library_dialog.preview_voice_requested.connect(self._preview_voice_pack)
+            self.library_dialog.interaction_style_changed.connect(self._on_library_interaction_style_changed)
+            self.library_dialog.preview_style_requested.connect(self._preview_interaction_style)
         self._refresh_library()
         self.library_dialog.show()
         self.library_dialog.raise_()
@@ -389,39 +382,45 @@ class AppCoordinator(QObject):
             self.library_dialog.refresh(self.library.list_pets(), self._selected_id())
             scale = float(self.settings.get("pet.scale", 1.5))
             self.library_dialog.set_scale_value(scale)
-            self.library_dialog.set_personality_value(self.settings.get("pet.personality", "warm"))
-            self.library_dialog.set_voice_pack_value(self.settings.get("pet.voice_pack", self.voice.pack.id))
+            self.library_dialog.set_interaction_style_value(self._current_interaction_style_id())
 
     def _on_library_scale_changed(self, scale: float) -> None:
         self.settings.set("pet.scale", float(scale))
         if self.pet_window is not None:
             self.pet_window.set_scale(float(scale))
 
-    def _on_library_personality_changed(self, personality_key: str) -> None:
-        self.settings.set("pet.personality", personality_key)
+    def _current_interaction_style_id(self) -> str:
+        saved = self.settings.get("pet.interaction_style")
+        if saved:
+            return normalize_style_id(saved)
+        legacy_pack = self.settings.get("pet.voice_pack")
+        if legacy_pack:
+            return normalize_style_id(legacy_pack)
+        return normalize_style_id(self.settings.get("pet.personality"))
 
-    def _on_library_voice_pack_changed(self, pack_key: str) -> None:
-        if pack_key not in self.voice.catalog:
-            self.bubble.show_message(f"未知语音包：{pack_key}")
+    def _on_library_interaction_style_changed(self, style_id: str) -> None:
+        style_id = normalize_style_id(style_id)
+        if style_id not in self.voice.styles:
+            self.bubble.show_message(f"未知互动风格：{style_id}")
             return
-        self.settings.set("pet.voice_pack", pack_key)
-        self.voice.set_pack(pack_key)
+        self.settings.set("pet.interaction_style", style_id)
+        self.voice.set_style(style_id)
 
-    def _preview_voice_pack(self) -> None:
+    def _preview_interaction_style(self) -> None:
         try:
             from petgen.speak import VoicePackService
 
-            pack_id = self.settings.get("pet.voice_pack", self.voice.pack.id)
-            pack = self.voice.catalog.get(pack_id)
-            if pack is None:
-                self.bubble.show_message(f"未知语音包：{pack_id}")
+            style_id = self._current_interaction_style_id()
+            style = self.voice.styles.get(style_id)
+            if style is None:
+                self.bubble.show_message(f"未知互动风格：{style_id}")
                 return
             svc = getattr(self, "_preview_voice_svc", None)
             if svc is None:
-                svc = VoicePackService(pack, enabled=True)
+                svc = VoicePackService(style, enabled=True)
                 self._preview_voice_svc = svc
             else:
-                svc.set_pack(pack.id)
+                svc.set_style(style.id)
             svc.set_enabled(True)
             svc.preview()
         except Exception as exc:  # noqa: BLE001 - keep the UI alive and surface the failure
@@ -525,7 +524,7 @@ class AppCoordinator(QObject):
     def _apply_settings(self) -> None:
         # scale lives in the fixed-size window, so any settings save rebuilds the pet
         self._reload_pet()
-        self.voice.set_pack(self.settings.get("pet.voice_pack") or self.voice.pack.id)
+        self.voice.set_style(self._current_interaction_style_id())
         sound_on = bool(self.settings.get("pet.sound_enabled", True)) and not self._quiet
         self.voice.set_enabled(sound_on)
 
@@ -542,13 +541,10 @@ class AppCoordinator(QObject):
     # --- reminders + pomodoro ----------------------------------------------
 
     def _open_quick_capture(self) -> None:
-        from petgen.reminder_nl import parse_reminder_text
-        from petgen.reminder_quick import QuickCaptureDialog
-
-        self.quick_capture_dialog = QuickCaptureDialog(parser=parse_reminder_text)
-        self.quick_capture_dialog.quick_created.connect(self._create_reminder)
-        self.quick_capture_dialog.show()
-        self.quick_capture_dialog.raise_()
+        self._open_reminder_list()
+        if self.reminder_list_dialog is not None:
+            self.quick_capture_dialog = self.reminder_list_dialog
+            self.reminder_list_dialog.focus_quick_input()
 
     def _create_reminder(self, data: dict) -> None:
         try:
@@ -567,10 +563,12 @@ class AppCoordinator(QObject):
 
     def _open_reminder_list(self) -> None:
         from petgen.reminder_list import ReminderListDialog
+        from petgen.reminder_nl import parse_reminder_text
 
         if self.reminder_list_dialog is None:
-            self.reminder_list_dialog = ReminderListDialog()
+            self.reminder_list_dialog = ReminderListDialog(parser=parse_reminder_text)
             self.reminder_list_dialog.new_requested.connect(self._open_reminder_editor)
+            self.reminder_list_dialog.quick_created.connect(self._create_reminder)
             self.reminder_list_dialog.complete_requested.connect(self._complete_reminder)
             self.reminder_list_dialog.snooze_requested.connect(self._snooze_reminder)
             self.reminder_list_dialog.edit_requested.connect(self._edit_reminder)
