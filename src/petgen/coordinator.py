@@ -180,6 +180,7 @@ class AppCoordinator(QObject):
         self._scale_override = scale
         self._passthrough = passthrough
         self._quiet = False
+        self._pet_visible_requested = True
         self._worker: GenerationWorker | None = None
 
         self.settings = SettingsStore()
@@ -246,7 +247,7 @@ class AppCoordinator(QObject):
 
     def _wire_tray(self) -> None:
         t = self.tray
-        t.show_pet_requested.connect(self._toggle_pet_visible)
+        t.show_pet_requested.connect(self._set_pet_visible)
         t.library_requested.connect(self._open_library)
         t.settings_requested.connect(self._open_settings)
         t.about_requested.connect(self._open_settings)
@@ -269,6 +270,7 @@ class AppCoordinator(QObject):
             self.pet_window.close()
             self.pet_window = None
         if record is None:
+            self.tray.set_pet_visible(False)
             return
         try:
             manifest = load_manifest(record.manifest_path)
@@ -279,6 +281,7 @@ class AppCoordinator(QObject):
                 file=sys.stderr,
             )
             self.settings.set("pet.selected_id", None)
+            self.tray.set_pet_visible(False)
             if self.bubble is not None:
                 try:
                     self.bubble.show_message(f"宠物素材损坏，已跳过：{exc}")
@@ -300,18 +303,23 @@ class AppCoordinator(QObject):
         window.scale_changed.connect(lambda s: self.settings.set("pet.scale", float(s)))
         self.pet_window = window
         self.tray.set_icon_from_preview(record.preview_path)
-        window.show()
+        if self._pet_visible_requested:
+            window.show()
+        self.tray.set_pet_visible(self._pet_visible_requested)
 
-    def _toggle_pet_visible(self) -> None:
+    def _set_pet_visible(self, visible: bool) -> None:
+        self._pet_visible_requested = bool(visible)
         if self.pet_window is None:
-            self._open_library()
-            return
-        if self.pet_window.isVisible():
-            self.pet_window.hide()
             self.tray.set_pet_visible(False)
-        else:
+            if visible:
+                self._open_library()
+            return
+        if visible:
             self.pet_window.show()
             self.tray.set_pet_visible(True)
+        else:
+            self.pet_window.hide()
+            self.tray.set_pet_visible(False)
 
     # --- events / interaction ----------------------------------------------
 

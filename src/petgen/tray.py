@@ -95,7 +95,7 @@ def _make_tray_icon(pixmap: QPixmap, target_pt: int = _TRAY_ICON_TARGET_PT) -> Q
 
 
 class TrayController(QObject):
-    show_pet_requested = Signal()
+    show_pet_requested = Signal(bool)
     library_requested = Signal()
     settings_requested = Signal()
     about_requested = Signal()
@@ -158,7 +158,7 @@ class TrayController(QObject):
         self._show_action = menu.addAction("显示宠物")
         self._show_action.setCheckable(True)
         self._show_action.setChecked(True)
-        self._show_action.triggered.connect(lambda checked: self.show_pet_requested.emit())
+        self._show_action.triggered.connect(lambda checked: self.show_pet_requested.emit(bool(checked)))
         menu.addAction("宠物中心").triggered.connect(lambda: self.library_requested.emit())
         menu.addSeparator()
         menu.addAction("快速记提醒").triggered.connect(lambda: self.quick_capture_requested.emit())
@@ -176,4 +176,4 @@ class TrayController(QObject):
 
     def _on_activated(self, reason) -> None:
         if reason == QSystemTrayIcon.Trigger:
-            self.show_pet_requested.emit()
+            self.show_pet_requested.emit(True)

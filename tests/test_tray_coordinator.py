@@ -9,7 +9,7 @@ import pytest  # noqa: E402
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon  # noqa: E402
 
 from petgen.tray import TrayController  # noqa: E402
 
@@ -42,6 +42,64 @@ def test_tray_quiet_and_show_actions_toggle(qapp) -> None:
     quiet_action = next(a for a in tray.menu().actions() if a.text() == "安静模式")
     quiet_action.trigger()
     assert quiets == [True]
+
+
+def test_show_action_emits_requested_visibility(qapp) -> None:
+    tray = TrayController()
+    requests: list[bool] = []
+    tray.show_pet_requested.connect(requests.append)
+    show_action = next(a for a in tray.menu().actions() if a.text() == "显示宠物")
+
+    show_action.trigger()
+    show_action.trigger()
+
+    assert requests == [False, True]
+
+
+def test_tray_icon_activation_requests_show_not_toggle(qapp) -> None:
+    tray = TrayController()
+    requests: list[bool] = []
+    tray.show_pet_requested.connect(requests.append)
+
+    tray._on_activated(QSystemTrayIcon.Trigger)  # noqa: SLF001
+    tray._on_activated(QSystemTrayIcon.Trigger)  # noqa: SLF001
+
+    assert requests == [True, True]
+
+
+def test_coordinator_visibility_request_is_idempotent(qapp, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    from petgen.coordinator import AppCoordinator
+
+    class FakePetWindow:
+        def __init__(self) -> None:
+            self.visible = True
+            self.shows = 0
+            self.hides = 0
+
+        def show(self) -> None:
+            self.visible = True
+            self.shows += 1
+
+        def hide(self) -> None:
+            self.visible = False
+            self.hides += 1
+
+    coord = AppCoordinator()
+    try:
+        fake = FakePetWindow()
+        coord.pet_window = fake
+
+        coord._set_pet_visible(True)  # noqa: SLF001
+        coord._set_pet_visible(True)  # noqa: SLF001
+        coord._set_pet_visible(False)  # noqa: SLF001
+        coord._set_pet_visible(False)  # noqa: SLF001
+
+        assert fake.shows == 2
+        assert fake.hides == 2
+        assert fake.visible is False
+    finally:
+        coord.bus.stop()
 
 
 def test_coordinator_bootstrap_does_not_crash(qapp, tmp_path: Path, monkeypatch) -> None:
