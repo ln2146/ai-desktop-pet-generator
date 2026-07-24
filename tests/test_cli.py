@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -13,6 +14,8 @@ from petgen.cli import (
     _maybe_enrich_description,
     _register_generated_pet,
     _resolve_description,
+    _run_antigravity_hook,
+    _run_claude_hook,
     _run_codex_notify,
     _run_event,
     main,
@@ -276,13 +279,18 @@ def test_run_codex_notify_json_arg(
     monkeypatch.setattr(
         "petgen.integrations.chain_original_notify", lambda args, **kw: chained.append(list(args))
     )
-    payload = '{"type": "agent-turn-complete"}'
+    payload = (
+        '{"type": "task_complete", "last_agent_message": "已完成 UI 调整", '
+        '"duration_ms": 3000, "cwd": "/Users/loge/A_project/ai-desktop-pet-generator"}'
+    )
     args = _build_parser().parse_args(["codex-notify", payload])
     assert _run_codex_notify(args) == 0
     event = _last_event(tmp_path)
     assert event is not None
     assert event.kind == "task_completed"
     assert event.source == "codex"
+    assert event.title == "ai-desktop-pet-generator 已完成：已完成 UI 调整"
+    assert event.detail == "耗时 3 秒"
     assert chained == [[payload]]  # Codex args passed through to the original notify
 
 
@@ -305,7 +313,73 @@ def test_run_codex_notify_unknown_type_maps_responding(
     _run_codex_notify(args)
     event = _last_event(tmp_path)
     assert event.kind == "ai_responding"
-    assert event.title == "Codex 进行中"
+    assert event.title == "需要处理：permission-request"
+
+
+def test_run_claude_hook_reads_stdin_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    transcript = tmp_path / "claude.jsonl"
+    transcript.write_text(
+        json.dumps(
+            {"message": {"role": "user", "content": [{"type": "text", "text": "修复完成提示"}]}},
+            ensure_ascii=False,
+        )
+        + "\n"
+        + json.dumps(
+            {"message": {"role": "assistant", "content": [{"type": "text", "text": "已完成并验证。"}]}},
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    monkeypatch.setattr(
+        "sys.stdin.read",
+        lambda: json.dumps(
+            {
+                "hook_event_name": "Stop",
+                "transcript_path": str(transcript),
+                "cwd": "/Users/loge/A_project/ai-desktop-pet-generator",
+            }
+        ),
+    )
+
+    args = _build_parser().parse_args(["claude-hook", "Stop", "Claude 任务完成", "claude_code"])
+    assert _run_claude_hook(args) == 0
+    event = _last_event(tmp_path)
+    assert event.kind == "task_completed"
+    assert event.title == "ai-desktop-pet-generator 已完成：修复完成提示"
+    assert event.detail == "回复：已完成并验证。"
+    assert event.source == "claude_code"
+
+
+def test_run_antigravity_hook_reads_stdin_payload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    monkeypatch.setattr(
+        "sys.stdin.read",
+        lambda: json.dumps(
+            {
+                "hook_event_name": "Stop",
+                "cwd": "/Users/loge/A_project/ai-desktop-pet-generator",
+                "summary": "已标出项目并优化完成提示。",
+                "duration_ms": 3000,
+            },
+            ensure_ascii=False,
+        ),
+    )
+
+    args = _build_parser().parse_args(["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"])
+    assert _run_antigravity_hook(args) == 0
+    event = _last_event(tmp_path)
+    assert event.kind == "task_completed"
+    assert event.title == "ai-desktop-pet-generator 已完成：已标出项目并优化完成提示。"
+    assert event.detail == "耗时 3 秒"
+    assert event.source == "antigravity"
 
 
 def test_tools_status_command(

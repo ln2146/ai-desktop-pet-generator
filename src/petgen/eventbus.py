@@ -53,7 +53,7 @@ class TaskEvent:
         prefix = f"[{label}] " if label else ""
         body = self.title or self.kind
         if self.detail:
-            body = f"{body}：{self.detail}"
+            body = f"{body}\n{self.detail}"
         return f"{prefix}{body}"
 
 

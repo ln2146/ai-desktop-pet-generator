@@ -87,8 +87,7 @@ def test_claude_connect_creates_hooks_and_backs_up(
         assert len(groups) == 1
         parts = shlex.split(groups[0]["hooks"][0]["command"])
         assert parts[0] == str(fake_petgen_exe)
-        assert parts[1:4] == ["event", "task_completed", title]
-        assert parts[4] == "" and parts[5] == "claude_code"
+        assert parts[1:5] == ["claude-hook", event, title, "claude_code"]
     assert list(settings.parent.glob("settings.json.bak.*"))
 
 
@@ -408,7 +407,7 @@ def test_antigravity_connect_preserves_other_keys(fake_petgen_exe: Path, tmp_pat
     data = json.loads(hooks.read_text(encoding="utf-8"))
     assert data["ai-pet-notify"] == {"Stop": []}
     parts = shlex.split(data["petgen-notify"]["Stop"][0]["hooks"][0]["command"])
-    assert parts[1:3] == ["event", "task_completed"]
+    assert parts[1:5] == ["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"]
     assert parts[-1] == "antigravity"
 
     # idempotent
@@ -496,7 +495,41 @@ def test_antigravity_legacy_entry_upgraded_by_connect(
     assert state.status == ToolStatus.CONNECTED
     data = json.loads(hooks.read_text(encoding="utf-8"))
     parts = shlex.split(data["petgen-notify"]["Stop"][0]["hooks"][0]["command"])
-    assert parts[0] == str(fake_petgen_exe) and parts[-1] == "antigravity"
+    assert parts[0] == str(fake_petgen_exe)
+    assert parts[1:5] == ["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"]
+
+
+def test_antigravity_old_petgen_event_marked_stale(fake_petgen_exe: Path, tmp_path: Path) -> None:
+    home = _make_home(tmp_path)
+    hooks = home / ".gemini" / "config" / "hooks.json"
+    hooks.parent.mkdir(parents=True)
+    hooks.write_text(
+        json.dumps(
+            {
+                "petgen-notify": {
+                    "Stop": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": (
+                                        f"{fake_petgen_exe} event task_completed "
+                                        "'Antigravity 任务完成' '' antigravity"
+                                    ),
+                                }
+                            ]
+                        }
+                    ]
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    state = integrations.status("antigravity", home=home)
+    assert state.status == ToolStatus.STALE
+    assert "旧版" in state.detail
 
 
 # --- TOML helpers -------------------------------------------------------------------

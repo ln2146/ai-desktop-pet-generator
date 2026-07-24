@@ -26,7 +26,7 @@ DEFAULT_IMAGE_ONLY_DESCRIPTION = "把参考图中的形象原样转成可爱桌�
 #: Subcommands used as hook targets — they must never exit non-zero for usage
 #: errors, because Claude Code interprets exit code 2 from a Stop hook as
 #: "block the stop". Usage problems therefore degrade to a silent success.
-_HOOK_COMMANDS = ("event", "codex-notify")
+_HOOK_COMMANDS = ("event", "codex-notify", "claude-hook", "antigravity-hook")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -51,6 +51,10 @@ def main(argv: list[str] | None = None) -> int:
             return _run_event(args)
         if args.command == "codex-notify":
             return _run_codex_notify(args)
+        if args.command == "claude-hook":
+            return _run_claude_hook(args)
+        if args.command == "antigravity-hook":
+            return _run_antigravity_hook(args)
         if args.command == "tools":
             return _run_tools(args)
     except (ImageGenerationError, TextGenerationError, SpriteBuildError, OSError, ValueError) as exc:
@@ -266,6 +270,24 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     codex_notify.add_argument("notify_args", nargs="*", default=[], help="arguments Codex passes (ignored here)")
 
+    claude_hook = sub.add_parser(
+        "claude-hook",
+        help="Claude Code hook target: read hook JSON from stdin, then emit a pet event",
+    )
+    claude_hook.add_argument("event_name", nargs="?", default="Stop", help="Claude hook event name, e.g. Stop")
+    claude_hook.add_argument("fallback_title", nargs="?", default="Claude 任务完成", help="fallback bubble title")
+    claude_hook.add_argument("source", nargs="?", default="claude_code", help="event source")
+
+    antigravity_hook = sub.add_parser(
+        "antigravity-hook",
+        help="Antigravity hook target: read hook JSON from stdin, then emit a pet event",
+    )
+    antigravity_hook.add_argument("event_name", nargs="?", default="Stop", help="Antigravity hook event name")
+    antigravity_hook.add_argument(
+        "fallback_title", nargs="?", default="Antigravity 任务完成", help="fallback bubble title"
+    )
+    antigravity_hook.add_argument("source", nargs="?", default="antigravity", help="event source")
+
     tools = sub.add_parser("tools", help="inspect / wire / unwire AI tool notification hooks")
     tools_sub = tools.add_subparsers(dest="tools_action")
     for action in ("status", "connect", "disconnect"):
@@ -324,37 +346,69 @@ def _run_codex_notify(args: argparse.Namespace) -> int:
     carry a literal type string — both shapes are tolerated.
     """
     from petgen import integrations
+    from petgen.hook_context import codex_event_from_notify_args
 
     extra = list(args.notify_args)
-    event_type: object = None
-    for arg in extra:
-        try:
-            payload = json.loads(arg)
-        except ValueError:
-            continue
-        if isinstance(payload, dict):
-            event_type = payload.get("type")
-            break
-    if event_type is None:
-        for arg in extra:  # legacy fallback: first non-JSON arg is the type string
-            try:
-                json.loads(arg)
-            except ValueError:
-                event_type = arg
-                break
-    done_types = (None, "", "agent-turn-complete", "turn-ended", "completed")
-    kind = "task_completed" if event_type in done_types else "ai_responding"
-    title = "Codex 任务完成" if kind == "task_completed" else "Codex 进行中"
+    kind, title, detail = codex_event_from_notify_args(extra)
 
     try:
         integrations.chain_original_notify(extra)
     except Exception as exc:  # best-effort chaining must never break the hook
         print(f"warning: notify chain failed: {exc}", file=sys.stderr)
     try:
-        integrations.append_event(kind, title, None, "codex")
+        integrations.append_event(kind, title, detail, "codex")
     except Exception as exc:  # noqa: BLE001 — hook target: never fail the calling tool
         print(f"warning: failed to append task event: {exc}", file=sys.stderr)
     return 0
+
+
+def _run_claude_hook(args: argparse.Namespace) -> int:
+    from petgen import integrations
+    from petgen.hook_context import claude_event_from_hook_input
+
+    payload = _read_hook_payload("Claude")
+    kind, title, detail = claude_event_from_hook_input(
+        payload,
+        event_name=args.event_name,
+        fallback_title=args.fallback_title,
+    )
+    try:
+        integrations.append_event(kind, title, detail, args.source)
+    except Exception as exc:  # noqa: BLE001 — hook target: never fail the calling tool
+        print(f"warning: failed to append task event: {exc}", file=sys.stderr)
+    return 0
+
+
+def _run_antigravity_hook(args: argparse.Namespace) -> int:
+    from petgen import integrations
+    from petgen.hook_context import antigravity_event_from_hook_input
+
+    payload = _read_hook_payload("Antigravity")
+    kind, title, detail = antigravity_event_from_hook_input(
+        payload,
+        event_name=args.event_name,
+        fallback_title=args.fallback_title,
+    )
+    try:
+        integrations.append_event(kind, title, detail, args.source)
+    except Exception as exc:  # noqa: BLE001 — hook target: never fail the calling tool
+        print(f"warning: failed to append task event: {exc}", file=sys.stderr)
+    return 0
+
+
+def _read_hook_payload(tool_name: str) -> dict | None:
+    try:
+        if sys.stdin.isatty():
+            return None
+        raw = sys.stdin.read()
+        if not raw.strip():
+            return None
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception as exc:  # noqa: BLE001 — hook payload is optional context
+        print(f"warning: failed to parse {tool_name} hook payload: {exc}", file=sys.stderr)
+    return None
 
 
 def _run_tools(args: argparse.Namespace) -> int:

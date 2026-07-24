@@ -56,7 +56,7 @@ def test_show_action_emits_requested_visibility(qapp) -> None:
     assert requests == [False, True]
 
 
-def test_tray_icon_activation_requests_show_not_toggle(qapp) -> None:
+def test_tray_icon_activation_does_not_change_pet_visibility(qapp) -> None:
     tray = TrayController()
     requests: list[bool] = []
     tray.show_pet_requested.connect(requests.append)
@@ -64,7 +64,7 @@ def test_tray_icon_activation_requests_show_not_toggle(qapp) -> None:
     tray._on_activated(QSystemTrayIcon.Trigger)  # noqa: SLF001
     tray._on_activated(QSystemTrayIcon.Trigger)  # noqa: SLF001
 
-    assert requests == [True, True]
+    assert requests == []
 
 
 def test_coordinator_visibility_request_is_idempotent(qapp, tmp_path: Path, monkeypatch) -> None:
@@ -98,6 +98,22 @@ def test_coordinator_visibility_request_is_idempotent(qapp, tmp_path: Path, monk
         assert fake.shows == 2
         assert fake.hides == 2
         assert fake.visible is False
+    finally:
+        coord.bus.stop()
+
+
+def test_coordinator_library_style_changes_persist_immediately(qapp, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    from petgen.coordinator import AppCoordinator
+
+    coord = AppCoordinator()
+    try:
+        coord._on_library_personality_changed("tsundere")  # noqa: SLF001
+        coord._on_library_voice_pack_changed("calm-butler")  # noqa: SLF001
+
+        assert coord.settings.get("pet.personality") == "tsundere"
+        assert coord.settings.get("pet.voice_pack") == "calm-butler"
+        assert coord.voice.pack.id == "calm-butler"
     finally:
         coord.bus.stop()
 

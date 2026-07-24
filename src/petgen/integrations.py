@@ -137,8 +137,13 @@ def petgen_argv() -> list[str]:
     return [sys.executable, "-m", "petgen"]
 
 
-def _hook_command(source: str, title: str) -> str:
-    argv = [*petgen_argv(), "event", "task_completed", title, "", source]
+def _hook_command(source: str, title: str, event_name: str | None = None) -> str:
+    if source == TOOL_SOURCES["claude"]:
+        argv = [*petgen_argv(), "claude-hook", event_name or "Stop", title, source]
+    elif source == TOOL_SOURCES["antigravity"]:
+        argv = [*petgen_argv(), "antigravity-hook", event_name or "Stop", title, source]
+    else:
+        argv = [*petgen_argv(), "event", "task_completed", title, "", source]
     return shlex.join(argv)
 
 
@@ -451,6 +456,8 @@ def _claude_status(home: Path) -> ToolState:
     if not commands:
         return ToolState("claude", ToolStatus.NOT_CONNECTED)
     if all(_command_entry_exists(command) for command in commands):
+        if not all("claude-hook" in command for command in commands):
+            return ToolState("claude", ToolStatus.STALE, "接线命令是旧版，请重连以显示具体任务摘要")
         entry = shlex.split(commands[0])[0]
         return ToolState("claude", ToolStatus.CONNECTED, f"接通于 {entry}")
     return ToolState("claude", ToolStatus.STALE, "接线命令已失效（petgen 迁移过？），请重连")
@@ -486,7 +493,7 @@ def _claude_connect(home: Path) -> ToolState:
                 "hooks": [
                     {
                         "type": "command",
-                        "command": _hook_command(TOOL_SOURCES["claude"], titles[event]),
+                        "command": _hook_command(TOOL_SOURCES["claude"], titles[event], event),
                     }
                 ]
             }
@@ -650,6 +657,8 @@ def _antigravity_status(home: Path) -> ToolState:
     if not command or not _is_petgen_command(command, TOOL_SOURCES["antigravity"]):
         return ToolState("antigravity", ToolStatus.NOT_CONNECTED, "petgen-notify 键由旧版配置占用，接通时自动升级")
     if _command_entry_exists(command):
+        if "antigravity-hook" not in command:
+            return ToolState("antigravity", ToolStatus.STALE, "接线命令是旧版，请重连以显示具体任务摘要")
         return ToolState("antigravity", ToolStatus.CONNECTED, "真机触发待验证")
     return ToolState("antigravity", ToolStatus.STALE, "接线命令已失效（petgen 迁移过？），请重连")
 

@@ -175,5 +175,5 @@ class TrayController(QObject):
         return menu
 
     def _on_activated(self, reason) -> None:
-        if reason == QSystemTrayIcon.Trigger:
-            self.show_pet_requested.emit(True)
+        # Keep tray-icon clicks from overriding the user's explicit "显示宠物" choice.
+        del reason

@@ -6,7 +6,6 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
-    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFrame,
@@ -24,9 +23,7 @@ from PySide6.QtWidgets import (
 from petgen import __version__, integrations
 from petgen.datadir import data_dir
 from petgen.envfile import load_env_file
-from petgen.personalities import PERSONALITIES
 from petgen.theme import apply_theme
-from petgen.voicepack import load_catalog
 
 _AI_FIELDS = {
     "ai_api_key": "ai.api_key",
@@ -106,14 +103,14 @@ class SettingsDialog(QDialog):
         # Header Title Area
         title_box = QVBoxLayout()
         title_box.setSpacing(4)
-        head = QLabel("⚙️ 全局设置与偏好配置")
+        head = QLabel("⚙️ PetGen 偏好配置")
         h_font = QFont()
         h_font.setPointSize(16)
         h_font.setBold(True)
         head.setFont(h_font)
         head.setStyleSheet("color: #0f172a; border: none;")
 
-        subhead = QLabel("配置大模型 API 秘钥、自定义接口地址与桌面宠物交互动作")
+        subhead = QLabel("配置模型服务、生成参数与桌面宠物交互偏好")
         subhead.setStyleSheet("color: #64748b; font-size: 13px; border: none;")
 
         title_box.addWidget(head)
@@ -122,8 +119,7 @@ class SettingsDialog(QDialog):
 
         # Tabs (Styled Segmented Control) with ScrollArea wrappers
         tabs = QTabWidget()
-        tabs.addTab(_wrap_tab_scroll(self._build_ai_tab()), "🤖  AI 服务")
-        tabs.addTab(_wrap_tab_scroll(self._build_pet_tab()), "🐶  宠物行为")
+        tabs.addTab(_wrap_tab_scroll(self._build_pet_tab()), "⚙️  偏好配置")
         tabs.addTab(_wrap_tab_scroll(self._build_tools_tab()), "🔌  工具接入")
         tabs.addTab(_wrap_tab_scroll(self._build_about_tab()), "ℹ️  关于 PetGen")
         root.addWidget(tabs, 1)
@@ -158,7 +154,7 @@ class SettingsDialog(QDialog):
 
     # --- tabs ---------------------------------------------------------------
 
-    def _build_ai_tab(self) -> QWidget:
+    def _build_pet_tab(self) -> QWidget:
         w = QWidget()
         w.setStyleSheet("background: transparent;")
         layout = QVBoxLayout(w)
@@ -225,18 +221,8 @@ class SettingsDialog(QDialog):
         c2_layout.addLayout(grid)
         layout.addWidget(card2)
 
-        layout.addStretch(1)
-        return w
-
-    def _build_pet_tab(self) -> QWidget:
-        w = QWidget()
-        w.setStyleSheet("background: transparent;")
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(0, 14, 12, 14)
-        layout.setSpacing(14)
-
         # Visual & Animation Card
-        card1, c1_layout = _create_card_container("外观与动作", "调整桌宠动画显示与悬浮互动行为")
+        card3, c3_layout = _create_card_container("外观与动作", "调整桌宠动画显示与悬浮互动行为")
         self.pet_scale = QDoubleSpinBox()
         self.pet_scale.setRange(0.5, 3.0)
         self.pet_scale.setSingleStep(0.25)
@@ -248,40 +234,7 @@ class SettingsDialog(QDialog):
         for cb in (self.pet_motion, self.pet_sound, self.pet_click_chat):
             cb.setCursor(Qt.PointingHandCursor)
             cb.setStyleSheet("font-size: 13px; font-weight: 500;")
-            c1_layout.addWidget(cb)
-        layout.addWidget(card1)
-
-        # Personality Card
-        card2, c2_layout = _create_card_container("宠物性格模式", "影响互动时的回复语气与动作表现")
-        c2_layout.addWidget(_create_field_label("当前性格特征："))
-        self.pet_personality = QComboBox()
-        self.pet_personality.setFixedHeight(36)
-        self._personality_keys: list[str] = []
-        for key, p in PERSONALITIES.items():
-            self._personality_keys.append(key)
-            self.pet_personality.addItem(f"✨ {p.label}", key)
-        c2_layout.addWidget(self.pet_personality)
-        layout.addWidget(card2)
-
-        # Voice Pack Card
-        card3, c3_layout = _create_card_container("语音包配置", "切换桌宠的说话音色与反馈音效")
-        c3_layout.addWidget(_create_field_label("当前语音音色："))
-        self.voice_pack = QComboBox()
-        self.voice_pack.setFixedHeight(36)
-        self._voice_pack_keys: list[str] = []
-        for key, pack in load_catalog().items():
-            self._voice_pack_keys.append(key)
-            self.voice_pack.addItem(f"{pack.emoji} {pack.display_name}", key)
-
-        voice_row = QHBoxLayout()
-        voice_row.setSpacing(8)
-        voice_row.addWidget(self.voice_pack, 1)
-        preview_voice = QPushButton("▶ 试听音色")
-        preview_voice.setFixedHeight(36)
-        preview_voice.setCursor(Qt.PointingHandCursor)
-        preview_voice.clicked.connect(self._preview_voice)
-        voice_row.addWidget(preview_voice)
-        c3_layout.addLayout(voice_row)
+            c3_layout.addWidget(cb)
         layout.addWidget(card3)
 
         layout.addStretch(1)
@@ -367,12 +320,6 @@ class SettingsDialog(QDialog):
         for widget_name, key in _PET_FIELDS_BOOL.items():
             getattr(self, widget_name).setChecked(bool(self._settings.get(key, widget_name == "pet_motion")))
         self.pet_scale.setValue(float(self._settings.get("pet.scale", 1.5)))
-        sel = self._settings.get("pet.personality", "warm")
-        idx = self._personality_keys.index(sel) if sel in self._personality_keys else 0
-        self.pet_personality.setCurrentIndex(idx)
-        vpack = self._settings.get("pet.voice_pack", "soft-meow")
-        vidx = self._voice_pack_keys.index(vpack) if vpack in self._voice_pack_keys else 0
-        self.voice_pack.setCurrentIndex(vidx)
         # Refresh the tool-wiring states (the dialog instance is reused across shows);
         # a failure here must never break the dialog itself.
         try:
@@ -391,8 +338,6 @@ class SettingsDialog(QDialog):
             _PET_FIELDS_BOOL["pet_sound"]: self.pet_sound.isChecked(),
             _PET_FIELDS_BOOL["pet_click_chat"]: self.pet_click_chat.isChecked(),
             "pet.scale": float(self.pet_scale.value()),
-            "pet.personality": self._personality_keys[self.pet_personality.currentIndex()],
-            "pet.voice_pack": self._voice_pack_keys[self.voice_pack.currentIndex()],
         }
         self._settings.set_many(values)
         return values
@@ -401,30 +346,6 @@ class SettingsDialog(QDialog):
         self.apply_values()
         self.applied.emit()
         self.accept()
-
-    def _preview_voice(self) -> None:
-        try:
-            from petgen.speak import VoicePackService
-
-            pack_id = self._voice_pack_keys[self.voice_pack.currentIndex()]
-            pack = load_catalog().get(pack_id)
-            if pack is None:
-                return
-            svc = getattr(self, "_preview_voice_svc", None)
-            if svc is None:
-                # Keep the service alive on the dialog (the coordinator reuses the
-                # dialog for its whole lifetime). TTS / SFX / edge playback are async,
-                # so a throwaway service gets GC'd before the sound actually plays.
-                svc = VoicePackService(pack, enabled=True)
-                self._preview_voice_svc = svc
-            else:
-                svc.set_pack(pack.id)
-            svc.set_enabled(True)  # preview ignores mute / do-not-disturb
-            svc.preview()
-        except Exception:
-            import logging
-
-            logging.getLogger(__name__).exception("voice preview failed")
 
     def _fill_from_env(self) -> None:
         load_env_file(None)

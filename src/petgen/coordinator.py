@@ -377,6 +377,9 @@ class AppCoordinator(QObject):
             self.library_dialog.create_requested.connect(self._create_pet)
             self.library_dialog.refresh_requested.connect(self._refresh_library)
             self.library_dialog.scale_changed.connect(self._on_library_scale_changed)
+            self.library_dialog.personality_changed.connect(self._on_library_personality_changed)
+            self.library_dialog.voice_pack_changed.connect(self._on_library_voice_pack_changed)
+            self.library_dialog.preview_voice_requested.connect(self._preview_voice_pack)
         self._refresh_library()
         self.library_dialog.show()
         self.library_dialog.raise_()
@@ -386,11 +389,43 @@ class AppCoordinator(QObject):
             self.library_dialog.refresh(self.library.list_pets(), self._selected_id())
             scale = float(self.settings.get("pet.scale", 1.5))
             self.library_dialog.set_scale_value(scale)
+            self.library_dialog.set_personality_value(self.settings.get("pet.personality", "warm"))
+            self.library_dialog.set_voice_pack_value(self.settings.get("pet.voice_pack", self.voice.pack.id))
 
     def _on_library_scale_changed(self, scale: float) -> None:
         self.settings.set("pet.scale", float(scale))
         if self.pet_window is not None:
             self.pet_window.set_scale(float(scale))
+
+    def _on_library_personality_changed(self, personality_key: str) -> None:
+        self.settings.set("pet.personality", personality_key)
+
+    def _on_library_voice_pack_changed(self, pack_key: str) -> None:
+        if pack_key not in self.voice.catalog:
+            self.bubble.show_message(f"未知语音包：{pack_key}")
+            return
+        self.settings.set("pet.voice_pack", pack_key)
+        self.voice.set_pack(pack_key)
+
+    def _preview_voice_pack(self) -> None:
+        try:
+            from petgen.speak import VoicePackService
+
+            pack_id = self.settings.get("pet.voice_pack", self.voice.pack.id)
+            pack = self.voice.catalog.get(pack_id)
+            if pack is None:
+                self.bubble.show_message(f"未知语音包：{pack_id}")
+                return
+            svc = getattr(self, "_preview_voice_svc", None)
+            if svc is None:
+                svc = VoicePackService(pack, enabled=True)
+                self._preview_voice_svc = svc
+            else:
+                svc.set_pack(pack.id)
+            svc.set_enabled(True)
+            svc.preview()
+        except Exception as exc:  # noqa: BLE001 - keep the UI alive and surface the failure
+            self.bubble.show_message(f"试听失败：{exc}")
 
     def _select_pet(self, pet_id: str) -> None:
         self.library.select(self.settings, pet_id)

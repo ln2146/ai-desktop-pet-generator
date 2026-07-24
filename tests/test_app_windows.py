@@ -81,7 +81,6 @@ def test_settings_dialog_round_trip(qapp, tmp_path: Path) -> None:
         dlg.pet_motion.setChecked(False)
         dlg.pet_sound.setChecked(True)
         dlg.pet_click_chat.setChecked(True)
-        dlg.pet_personality.setCurrentIndex(dlg._personality_keys.index("tsundere"))  # noqa: SLF001
         dlg.apply_values()
 
         dlg2 = SettingsDialog(store)
@@ -93,7 +92,6 @@ def test_settings_dialog_round_trip(qapp, tmp_path: Path) -> None:
         assert dlg2.pet_motion.isChecked() is False
         assert dlg2.pet_sound.isChecked() is True
         assert dlg2.pet_click_chat.isChecked() is True
-        assert dlg2._personality_keys[dlg2.pet_personality.currentIndex()] == "tsundere"  # noqa: SLF001
     finally:
         store.close()
 
@@ -171,28 +169,33 @@ def test_library_dialog_set_progress_toggles_create(qapp) -> None:
     assert dlg._create_btn.isEnabled()  # noqa: SLF001
 
 
-def test_settings_dialog_voice_pack_round_trip(qapp, tmp_path: Path) -> None:
+def test_library_dialog_style_controls_emit_values(qapp) -> None:
+    from petgen.personalities import PERSONALITIES
     from petgen.voicepack import load_catalog
 
-    store = SettingsStore(tmp_path / "db.sqlite")
-    try:
-        dlg = SettingsDialog(store)
-        keys = dlg._voice_pack_keys  # noqa: SLF001
-        assert set(keys) == set(load_catalog())
-        target = [k for k in keys if k != keys[0]][0]
-        dlg.voice_pack.setCurrentIndex(keys.index(target))
-        dlg.apply_values()
+    dlg = LibraryDialog()
+    assert set(dlg._personality_keys) == set(PERSONALITIES)  # noqa: SLF001
+    assert set(dlg._voice_pack_keys) == set(load_catalog())  # noqa: SLF001
 
-        dlg2 = SettingsDialog(store)
-        assert dlg2._voice_pack_keys[dlg2.voice_pack.currentIndex()] == target  # noqa: SLF001
-    finally:
-        store.close()
+    personalities: list[str] = []
+    voices: list[str] = []
+    previews: list[bool] = []
+    dlg.personality_changed.connect(personalities.append)
+    dlg.voice_pack_changed.connect(voices.append)
+    dlg.preview_voice_requested.connect(lambda: previews.append(True))
 
+    dlg.set_personality_value("tsundere")
+    dlg.set_voice_pack_value("calm-butler")
+    assert dlg._personality_combo.currentData() == "tsundere"  # noqa: SLF001
+    assert dlg._voice_pack_combo.currentData() == "calm-butler"  # noqa: SLF001
+    assert personalities == []
+    assert voices == []
 
-def test_settings_dialog_preview_voice_does_not_crash(qapp, tmp_path: Path) -> None:
-    store = SettingsStore(tmp_path / "db.sqlite")
-    try:
-        dlg = SettingsDialog(store)
-        dlg._preview_voice()  # noqa: SLF001 - offscreen: TTS/audio may no-op, must not raise
-    finally:
-        store.close()
+    dlg._personality_combo.setCurrentIndex(dlg._personality_keys.index("warm"))  # noqa: SLF001
+    dlg._voice_pack_combo.setCurrentIndex(dlg._voice_pack_keys.index("soft-meow"))  # noqa: SLF001
+    preview_btn = next(b for b in dlg.findChildren(QPushButton) if b.text() == "▶ 试听")
+    QTest.mouseClick(preview_btn, Qt.LeftButton, Qt.NoModifier)
+
+    assert personalities == ["warm"]
+    assert voices == ["soft-meow"]
+    assert previews == [True]

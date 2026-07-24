@@ -63,7 +63,9 @@ def test_display_message_with_and_without_source() -> None:
     ev = TaskEvent("id", "task_completed", "搞定", None, "claude_code", "t")
     assert ev.display_message() == "[Claude Code] 搞定"
     ev2 = TaskEvent("id", "ai_error", "出错", "详情", "manual", "t")
-    assert ev2.display_message() == "出错：详情"
+    assert ev2.display_message() == "出错\n详情"
+    ev3 = TaskEvent("id", "task_completed", "已完成：这样：", "耗时 4 秒", "codex", "t")
+    assert ev3.display_message() == "[Codex] 已完成：这样：\n耗时 4 秒"
 
 
 # --- Qt poller (offscreen) --------------------------------------------------

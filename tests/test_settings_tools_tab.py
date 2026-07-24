@@ -58,13 +58,16 @@ def _make_dialog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SettingsDia
     return SettingsDialog(SettingsStore(tmp_path / "db.sqlite"))
 
 
-def test_tools_tab_exists_with_four_tabs(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_tools_tab_exists_after_ai_settings_move_to_preferences_tab(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _install(monkeypatch, _FakeWiring(_all(integrations.ToolStatus.NOT_CONNECTED)))
     dlg = _make_dialog(tmp_path, monkeypatch)
     tabs = dlg.findChild(QTabWidget)
     assert tabs is not None
-    assert tabs.count() == 4
+    assert tabs.count() == 3
+    assert any("偏好配置" in tabs.tabText(i) for i in range(tabs.count()))
+    assert not any("宠物行为" in tabs.tabText(i) for i in range(tabs.count()))
     assert any("工具接入" in tabs.tabText(i) for i in range(tabs.count()))
+    assert not any("AI 服务" in tabs.tabText(i) for i in range(tabs.count()))
 
 
 def test_rows_reflect_all_four_states(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
