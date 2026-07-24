@@ -21,6 +21,7 @@ dev = [
 ]
 desktop = [
   "PySide6>=6.5",
+  "edge-tts>=6.1",
 ]
 
 [project.scripts]
@@ -30,7 +31,7 @@ petgen = "petgen.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-petgen = ["resources/_sfx/*.wav", "resources/_sfx/*.txt"]
+petgen = ["resources/_sfx/*.wav", "resources/_sfx/*.txt", "resources/*.svg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -47,11 +48,3 @@ extend-exclude = ["outputs", "scripts"]
 
 [tool.ruff.lint]
 select = ["F", "E9", "I"]
-
-# TODO: temporary. These files carry in-flight codex-integration work (committed
-# separately, with its own tests); ignore them until that change lands and is
-# linted, then delete this block so the gate covers them too.
-[tool.ruff.lint.per-file-ignores]
-"src/petgen/cli.py" = ["F", "I"]
-"src/petgen/settings_dialog.py" = ["F", "I"]
-"tests/test_cli.py" = ["F", "I"]

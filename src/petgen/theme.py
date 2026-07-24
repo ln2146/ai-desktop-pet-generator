@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from PySide6.QtWidgets import QApplication, QWidget
 
 # Color Tokens
@@ -14,6 +16,13 @@ COLOR_BORDER = "#e2e8f0"
 COLOR_BORDER_FOCUS = "#818cf8"
 COLOR_DANGER = "#ef4444"
 COLOR_DANGER_BG = "#fef2f2"
+
+# Icon assets shipped alongside this module. Qt's QSS url() cannot load data: URIs
+# and cannot draw CSS border-triangles, so the check mark and the combo-box arrow
+# are real svg files referenced by absolute path (injected in apply_theme).
+_RES_DIR = Path(__file__).resolve().parent / "resources"
+_CHECK_SVG_TOKEN = "__PETGEN_CHECK_SVG__"
+_CHEVRON_SVG_TOKEN = "__PETGEN_CHEVRON_SVG__"
 
 MAIN_STYLESHEET = """
 QWidget {
@@ -93,10 +102,9 @@ QComboBox::drop-down {
 }
 
 QComboBox::down-arrow {
-    image: none;
-    border-left: 4px solid transparent;
-    border-right: 4px solid transparent;
-    border-top: 5px solid #64748b;
+    image: url("__PETGEN_CHEVRON_SVG__");
+    width: 12px;
+    height: 12px;
     margin-right: 8px;
 }
 
@@ -178,7 +186,7 @@ QCheckBox::indicator:hover {
 QCheckBox::indicator:checked {
     background-color: #4f46e5;
     border-color: #4f46e5;
-    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'></polyline></svg>");
+    image: url("__PETGEN_CHECK_SVG__");
 }
 
 /* Scroll Area & ScrollBars */
@@ -241,4 +249,7 @@ QMenu::separator {
 
 def apply_theme(target: QWidget | QApplication) -> None:
     """Apply global theme QSS to a widget or application instance."""
-    target.setStyleSheet(MAIN_STYLESHEET)
+    qss = MAIN_STYLESHEET.replace(_CHECK_SVG_TOKEN, str(_RES_DIR / "check.svg")).replace(
+        _CHEVRON_SVG_TOKEN, str(_RES_DIR / "chevron_down.svg")
+    )
+    target.setStyleSheet(qss)

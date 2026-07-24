@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 from datetime import datetime, timezone
 
 from petgen.reminder import parse_dt
@@ -61,12 +62,25 @@ def test_no_time_returns_none() -> None:
     assert _parse("") is None
 
 
-def test_dateparser_fallback_for_relative_duration() -> None:
-    # "1小时后" is not in our Chinese grammar but dateparser handles it
+def test_relative_duration_is_native_without_dateparser(monkeypatch) -> None:
+    original_import = builtins.__import__
+
+    def blocked_import(name, *args, **kwargs):
+        if name == "dateparser":
+            raise ImportError("dateparser intentionally unavailable")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", blocked_import)
     result = _parse("1小时后 吃药")
-    # dateparser may or may not be installed / may parse; if it parses, title is 吃药
-    if result is not None:
-        title, trigger, rec, _ = result
-        assert title == "吃药"
-        assert rec == "none"
-        assert parse_dt(trigger) > NOW
+    assert result is not None
+    title, trigger, rec, _ = result
+    assert title == "吃药"
+    assert rec == "none"
+    assert parse_dt(trigger) == datetime(2026, 3, 1, 10, 0, tzinfo=timezone.utc)
+
+
+def test_relative_duration_supports_half_hour() -> None:
+    title, trigger, rec, _ = _parse("半小时后 休息")
+    assert title == "休息"
+    assert rec == "none"
+    assert parse_dt(trigger) == datetime(2026, 3, 1, 9, 30, tzinfo=timezone.utc)

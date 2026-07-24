@@ -117,6 +117,28 @@ def _fallback_parse(s: str, now: datetime) -> datetime | None:
     return dt
 
 
+def _parse_relative_duration(s: str, now: datetime) -> datetime | None:
+    m = re.fullmatch(
+        r"\s*(半|[0-9零〇一二两三四五六七八九十]+)\s*(分钟?|分|小时|钟头|天|日|周|星期)\s*后\s*",
+        s,
+    )
+    if not m:
+        return None
+    raw_amount, unit = m.group(1), m.group(2)
+    amount = 0.5 if raw_amount == "半" else _num(raw_amount)
+    if amount is None:
+        return None
+    if unit in ("分", "分钟"):
+        return now + timedelta(minutes=amount)
+    if unit in ("小时", "钟头"):
+        return now + timedelta(hours=amount)
+    if unit in ("天", "日"):
+        return now + timedelta(days=amount)
+    if unit in ("周", "星期"):
+        return now + timedelta(weeks=amount)
+    return None
+
+
 def parse_reminder_text(
     text: str, now: datetime | None = None
 ) -> tuple[str, str, str, list[int]] | None:
@@ -157,6 +179,8 @@ def parse_reminder_text(
     for i in range(1, min(3, len(parts)) + 1):
         head = " ".join(parts[:i])
         dt = _parse_chinese_datetime(head, now)
+        if dt is None:
+            dt = _parse_relative_duration(head, now)
         # Only let dateparser answer heads WITHOUT chinese date/time markers, so a
         # bare word like "今天"/"周一" (which dateparser resolves to a time-less date)
         # cannot pre-empt a longer head that carries an explicit time.
@@ -167,7 +191,7 @@ def parse_reminder_text(
             return (title or text, to_iso(dt), "none", [])
 
     if not _has_cn_date_marker(text):
-        dt = _fallback_parse(text, now)
+        dt = _parse_relative_duration(text, now) or _fallback_parse(text, now)
         if dt is not None:
             return (text, to_iso(dt), "none", [])
     return None

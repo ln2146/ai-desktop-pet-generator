@@ -23,6 +23,7 @@ _SOURCE_LABELS = {
     "claude_code": "Claude Code",
     "codex": "Codex",
     "copilot": "Copilot",
+    "antigravity": "Antigravity",
     "glm": "GLM",
     "manual": "",
 }

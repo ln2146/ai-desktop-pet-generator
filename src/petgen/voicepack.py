@@ -19,6 +19,10 @@ class VoicePack:
     voice: str = ""  # preferred installed voice name; "" = locale default
     lines: dict[str, tuple[str, ...]] = field(default_factory=dict)
     sounds: dict[str, str] = field(default_factory=dict)  # kind -> synth key or a wav filename
+    # edge-tts (free online neural voice); empty string = use the system TTS fallback
+    edge_voice: str = ""
+    edge_rate: str = ""  # prosody rate e.g. +10% / -8%; empty = omit
+    edge_pitch: str = ""  # prosody pitch e.g. +5%; empty = omit
 
     def line_for(self, kind: str) -> str | None:
         import random
@@ -58,6 +62,9 @@ _BUILTIN: list[VoicePack] = [
             "idle": ("……喵。", "呼噜噜喵。"),
         },
         sounds={"tap": "pop", "happy": "chime_up", "alert": "chime_soft", "busy": "tick", "error": "buzz"},
+        edge_voice="zh-CN-XiaoyiNeural",
+        edge_rate="-5%",
+        edge_pitch="+5%",
     ),
     VoicePack(
         id="energetic-zap",
@@ -74,6 +81,9 @@ _BUILTIN: list[VoicePack] = [
             "idle": ("待机中喵！", "充电完毕喵～"),
         },
         sounds={"tap": "pop", "happy": "tada", "alert": "chime_up", "busy": "tick", "error": "buzz"},
+        edge_voice="zh-CN-XiaoxiaoNeural",
+        edge_rate="+10%",
+        edge_pitch="+3%",
     ),
     VoicePack(
         id="calm-butler",
@@ -90,6 +100,9 @@ _BUILTIN: list[VoicePack] = [
             "idle": ("……", "静候吩咐。"),
         },
         sounds={"tap": "chime_soft", "happy": "chime_up", "alert": "tick", "busy": "tick", "error": "buzz"},
+        edge_voice="zh-CN-YunxiNeural",
+        edge_rate="-8%",
+        edge_pitch="-2%",
     ),
 ]
 

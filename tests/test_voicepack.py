@@ -80,6 +80,22 @@ def test_ensure_sfx_is_idempotent() -> None:
     assert (d2 / "pop.wav").stat().st_mtime == mtime  # not regenerated
 
 
+def test_ensure_sfx_generates_runtime_cache_when_package_has_no_wavs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    package_sfx = tmp_path / "package" / "_sfx"
+    package_sfx.mkdir(parents=True)
+    runtime_root = tmp_path / "data"
+    monkeypatch.setattr(sound_mod, "_sfx_path", lambda: package_sfx)
+    monkeypatch.setattr(sound_mod, "data_dir", lambda: runtime_root)
+
+    out = sound_mod.ensure_sfx()
+
+    assert out == runtime_root / "sfx"
+    assert all((out / f"{name}.wav").is_file() for name in SYNTH_SFX)
+    assert not any((package_sfx / f"{name}.wav").exists() for name in SYNTH_SFX)
+
+
 def test_resolve_sfx_finds_synth_and_rejects_unknown() -> None:
     ensure_sfx()
     pop = _resolve_sfx("pop")

@@ -1,22 +1,43 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 import uuid
 from pathlib import Path
 
 from petgen.envfile import load_env_file
-from petgen.openai_image import ImageGenerationError, ImageRequestConfig, OpenAIImageClient
-from petgen.openai_text import OpenAITextClient, TextGenerationError, TextRequestConfig, should_enrich
+from petgen.openai_image import (
+    ImageGenerationError,
+    ImageRequestConfig,
+    OpenAIImageClient,
+)
+from petgen.openai_text import (
+    OpenAITextClient,
+    TextGenerationError,
+    TextRequestConfig,
+    should_enrich,
+)
 from petgen.prompt import build_pet_prompt
 from petgen.spritesheet import SpriteBuildError, build_pet_assets
 
 DEFAULT_IMAGE_ONLY_DESCRIPTION = "把参考图中的形象原样转成可爱桌面宠物，保留原本的颜色、轮廓、标志性配饰和性格特征"
 
+#: Subcommands used as hook targets — they must never exit non-zero for usage
+#: errors, because Claude Code interprets exit code 2 from a Stop hook as
+#: "block the stop". Usage problems therefore degrade to a silent success.
+_HOOK_COMMANDS = ("event", "codex-notify")
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
-    args = parser.parse_args(argv)
+    effective = sys.argv[1:] if argv is None else argv
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit:
+        if effective and effective[0] in _HOOK_COMMANDS:
+            return 0
+        raise
     try:
         if args.command == "generate":
             return _run_generate(args)
@@ -26,6 +47,12 @@ def main(argv: list[str] | None = None) -> int:
             return _run_desktop(args)
         if args.command == "app":
             return _run_app(args)
+        if args.command == "event":
+            return _run_event(args)
+        if args.command == "codex-notify":
+            return _run_codex_notify(args)
+        if args.command == "tools":
+            return _run_tools(args)
     except (ImageGenerationError, TextGenerationError, SpriteBuildError, OSError, ValueError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -224,6 +251,27 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     app.add_argument("--data-dir", default=None, help="override the data directory (also $PETGEN_DATA_DIR)")
 
+    event = sub.add_parser(
+        "event",
+        help="append one task event to the pet inbox (hook target for AI tools)",
+    )
+    event.add_argument("kind", help="e.g. ai_thinking | ai_responding | task_completed | ai_error | custom")
+    event.add_argument("title", help="short message shown in the pet bubble")
+    event.add_argument("detail", nargs="?", default=None, help="optional extra detail")
+    event.add_argument("source", nargs="?", default="manual", help="event source, e.g. claude_code | codex")
+
+    codex_notify = sub.add_parser(
+        "codex-notify",
+        help="Codex notify target: chain the previous notify, then emit a pet event",
+    )
+    codex_notify.add_argument("notify_args", nargs="*", default=[], help="arguments Codex passes (ignored here)")
+
+    tools = sub.add_parser("tools", help="inspect / wire / unwire AI tool notification hooks")
+    tools_sub = tools.add_subparsers(dest="tools_action")
+    for action in ("status", "connect", "disconnect"):
+        action_parser = tools_sub.add_parser(action, help=f"{action} the notification hook")
+        action_parser.add_argument("tool", choices=["claude", "codex", "antigravity", "all"])
+
     return parser
 
 
@@ -256,6 +304,84 @@ def _run_app(args: argparse.Namespace) -> int:
         scale=args.scale, passthrough=not args.no_passthrough
     )
     return coordinator.run()
+
+
+def _run_event(args: argparse.Namespace) -> int:
+    from petgen.integrations import append_event
+
+    try:
+        append_event(args.kind, args.title, args.detail, args.source)
+    except Exception as exc:  # noqa: BLE001 — hook target: never fail the calling AI tool
+        print(f"warning: failed to append task event: {exc}", file=sys.stderr)
+    return 0
+
+
+def _run_codex_notify(args: argparse.Namespace) -> int:
+    """Codex `notify` target: chain the previous notify, then emit a pet event.
+
+    Codex passes the notify array elements as argv and appends one JSON payload
+    argument ({"type": "agent-turn-complete", ...}); older configs may instead
+    carry a literal type string — both shapes are tolerated.
+    """
+    from petgen import integrations
+
+    extra = list(args.notify_args)
+    event_type: object = None
+    for arg in extra:
+        try:
+            payload = json.loads(arg)
+        except ValueError:
+            continue
+        if isinstance(payload, dict):
+            event_type = payload.get("type")
+            break
+    if event_type is None:
+        for arg in extra:  # legacy fallback: first non-JSON arg is the type string
+            try:
+                json.loads(arg)
+            except ValueError:
+                event_type = arg
+                break
+    done_types = (None, "", "agent-turn-complete", "turn-ended", "completed")
+    kind = "task_completed" if event_type in done_types else "ai_responding"
+    title = "Codex 任务完成" if kind == "task_completed" else "Codex 进行中"
+
+    try:
+        integrations.chain_original_notify(extra)
+    except Exception as exc:  # best-effort chaining must never break the hook
+        print(f"warning: notify chain failed: {exc}", file=sys.stderr)
+    try:
+        integrations.append_event(kind, title, None, "codex")
+    except Exception as exc:  # noqa: BLE001 — hook target: never fail the calling tool
+        print(f"warning: failed to append task event: {exc}", file=sys.stderr)
+    return 0
+
+
+def _run_tools(args: argparse.Namespace) -> int:
+    from petgen import integrations
+
+    if not getattr(args, "tools_action", None):
+        print("usage: petgen tools {status|connect|disconnect} {claude|codex|antigravity|all}", file=sys.stderr)
+        return 2
+    tools = integrations.TOOLS if args.tool == "all" else (args.tool,)
+    exit_code = 0
+    for tool in tools:
+        try:
+            if args.tools_action == "status":
+                state = integrations.status(tool)
+            elif args.tools_action == "connect":
+                state = integrations.connect(tool)
+            else:
+                state = integrations.disconnect(tool)
+        except integrations.IntegrationsError as exc:
+            print(f"{integrations.TOOL_LABELS[tool]}: error: {exc}", file=sys.stderr)
+            exit_code = 1
+            continue
+        line = f"{integrations.TOOL_LABELS[tool]}: {state.status.value}"
+        if state.detail:
+            line += f" ({state.detail})"
+        print(line)
+    return exit_code
 
 
 def _add_common_args(parser: argparse.ArgumentParser) -> None:

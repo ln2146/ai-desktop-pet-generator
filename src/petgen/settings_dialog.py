@@ -65,6 +65,7 @@ def _create_card_container(title: str, subtitle: str | None = None) -> tuple[QFr
 
     if subtitle:
         sub = QLabel(subtitle)
+        sub.setWordWrap(True)  # long subtitles must wrap, else they widen the card and push right-aligned controls off-screen
         sub.setStyleSheet("color: #64748b; font-size: 12px; border: none; background: transparent;")
         layout.addWidget(sub)
 
@@ -299,7 +300,7 @@ class SettingsDialog(QDialog):
             "点击按钮即时生效（无需「保存设置」），配置文件改动前自动备份。",
         )
 
-        self._tool_rows: dict[str, tuple[QLabel, QPushButton]] = {}
+        self._tool_rows: dict[str, tuple[QLabel, QCheckBox]] = {}
         for tool in integrations.TOOLS:
             row = QHBoxLayout()
             row.setSpacing(10)
@@ -309,18 +310,18 @@ class SettingsDialog(QDialog):
             )
             chip = QLabel()
             chip.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; border: none; background: transparent;")
-            btn = QPushButton()
-            btn.setFixedHeight(32)
-            btn.setFixedWidth(92)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 12px; }")
-            btn.clicked.connect(lambda _checked=False, t=tool: self._toggle_tool(t))
+            # A real, globally-themed checkbox replaces the per-widget-styled button
+            # (that stylesheet was hiding the button). checked == connected; clicking
+            # toggles wiring and refresh_tool_rows reapplies the authoritative state.
+            toggle = QCheckBox()
+            toggle.setCursor(Qt.PointingHandCursor)
+            toggle.clicked.connect(lambda _checked=False, t=tool: self._toggle_tool(t))
             row.addWidget(name)
             row.addStretch(1)
             row.addWidget(chip)
-            row.addWidget(btn)
+            row.addWidget(toggle)
             c_layout.addLayout(row)
-            self._tool_rows[tool] = (chip, btn)
+            self._tool_rows[tool] = (chip, toggle)
 
         connect_all = QPushButton("⚡ 一键全部接通")
         connect_all.setProperty("accent", "primary")
@@ -449,7 +450,7 @@ class SettingsDialog(QDialog):
     }
 
     def refresh_tool_rows(self) -> None:
-        for tool, (chip, btn) in self._tool_rows.items():
+        for tool, (chip, toggle) in self._tool_rows.items():
             try:
                 state = integrations.status(tool)
             except Exception:
@@ -458,41 +459,36 @@ class SettingsDialog(QDialog):
                 chip.setStyleSheet(
                     "color: #94a3b8; font-size: 12px; font-weight: 600; border: none; background: transparent;"
                 )
-                btn.setEnabled(False)
-                btn.setText("接通")
+                toggle.blockSignals(True)
+                toggle.setChecked(False)
+                toggle.setEnabled(False)
+                toggle.blockSignals(False)
                 continue
             text, color = self._TOOL_CHIP_STYLE[state.status]
             chip.setText(text)
             chip.setStyleSheet(
                 f"color: {color}; font-size: 12px; font-weight: 600; border: none; background: transparent;"
             )
-            btn.setToolTip(state.detail)
+            toggle.setToolTip(state.detail)
+            # blockSignals so re-applying the authoritative state neither re-triggers
+            # _toggle_tool nor echoes a click's optimistic flip.
+            toggle.blockSignals(True)
             if state.status == integrations.ToolStatus.NOT_DETECTED:
-                btn.setEnabled(False)
-                btn.setText("接通")
-                self._set_btn_accent(btn, "primary")
-            elif state.status == integrations.ToolStatus.CONNECTED:
-                btn.setEnabled(True)
-                btn.setText("断开")
-                self._set_btn_accent(btn, "danger")
+                toggle.setEnabled(False)
+                toggle.setChecked(False)
             else:
-                btn.setEnabled(True)
-                btn.setText("重连" if state.status == integrations.ToolStatus.STALE else "接通")
-                self._set_btn_accent(btn, "primary")
-
-    @staticmethod
-    def _set_btn_accent(btn: QPushButton, accent: str) -> None:
-        # theme.py styles buttons via the [accent="..."] property selector;
-        # unpolish/polish is required for the style to re-apply on change.
-        btn.setProperty("accent", accent)
-        btn.style().unpolish(btn)
-        btn.style().polish(btn)
+                toggle.setEnabled(True)
+                toggle.setChecked(state.status == integrations.ToolStatus.CONNECTED)
+            toggle.blockSignals(False)
 
     def _toggle_tool(self, tool: str) -> None:
-        _chip, btn = self._tool_rows[tool]
+        _chip, toggle = self._tool_rows[tool]
+        toggle.blockSignals(True)
         try:
             state = integrations.status(tool)
-            btn.setEnabled(False)
+            # revert Qt's optimistic visual flip until the real outcome is known
+            toggle.setChecked(state.status == integrations.ToolStatus.CONNECTED)
+            toggle.setEnabled(False)
             if state.status == integrations.ToolStatus.CONNECTED:
                 integrations.disconnect(tool)
             else:
@@ -500,6 +496,7 @@ class SettingsDialog(QDialog):
         except (integrations.IntegrationsError, OSError, ValueError) as exc:
             QMessageBox.warning(self, "操作失败", str(exc))
         finally:
+            toggle.blockSignals(False)
             self.refresh_tool_rows()
 
     def _connect_all_tools(self) -> None:

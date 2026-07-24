@@ -5,6 +5,7 @@ import struct
 import wave
 from pathlib import Path
 
+from petgen.datadir import data_dir
 from petgen.voicepack import SYNTH_SFX, _sfx_path
 
 SAMPLE_RATE = 22050
@@ -118,10 +119,17 @@ def generate_sfx(target_dir: Path | None = None) -> Path:
     return out
 
 
+def _all_synth_sfx_exist(path: Path) -> bool:
+    return all((path / f"{n}.wav").is_file() for n in SYNTH_SFX)
+
+
 def ensure_sfx() -> Path:
     """Guarantee the synthesized SFX exist on disk; return their directory."""
-    out = _sfx_path()
-    if not all((out / f"{n}.wav").is_file() for n in SYNTH_SFX):
+    packaged = _sfx_path()
+    if _all_synth_sfx_exist(packaged):
+        return packaged
+    out = data_dir() / "sfx"
+    if not _all_synth_sfx_exist(out):
         generate_sfx(out)
     return out
 
@@ -185,10 +193,10 @@ class SoundService:
     def play(self, value: str | None) -> bool:
         if not self._enabled or not value or not self._ok:
             return False
-        path = _resolve_sfx(value)
-        if path is None:
-            return False
         try:
+            path = _resolve_sfx(value)
+            if path is None:
+                return False
             from PySide6.QtCore import QUrl
             from PySide6.QtMultimedia import QSoundEffect
 
