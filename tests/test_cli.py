@@ -10,6 +10,7 @@ import pytest
 
 from petgen.cli import (
     DEFAULT_IMAGE_ONLY_DESCRIPTION,
+    DEFAULT_LOCAL_BUILD_DESCRIPTION,
     _build_parser,
     _maybe_enrich_description,
     _register_generated_pet,
@@ -48,6 +49,17 @@ def test_resolve_description_falls_back_to_default_for_images_only() -> None:
     result = _resolve_description(None, None, reference_images=["ref.png"])
 
     assert result is DEFAULT_IMAGE_ONLY_DESCRIPTION
+
+
+def test_resolve_description_uses_explicit_default_for_local_build() -> None:
+    result = _resolve_description(
+        None,
+        None,
+        reference_images=[],
+        default_description=DEFAULT_LOCAL_BUILD_DESCRIPTION,
+    )
+
+    assert result is DEFAULT_LOCAL_BUILD_DESCRIPTION
 
 
 def test_resolve_description_requires_prompt_or_image() -> None:
@@ -195,6 +207,20 @@ def test_register_generated_pet_failure_only_warns(
     )
 
     assert "warning: failed to register pet in library" in capsys.readouterr().err
+
+
+def test_build_command_accepts_source_without_prompt(tmp_path: Path) -> None:
+    source = tmp_path / "source.png"
+    output = tmp_path / "built"
+    _make_source_sheet().save(source)
+
+    exit_code = main(["build", "--source", str(source), "--output", str(output)])
+
+    assert exit_code == 0
+    manifest = json.loads((output / "pet.json").read_text(encoding="utf-8"))
+    assert manifest["description"] == DEFAULT_LOCAL_BUILD_DESCRIPTION
+    assert (output / "sprite.png").is_file()
+    assert (output / "preview.png").is_file()
 
 
 def _make_source_sheet():

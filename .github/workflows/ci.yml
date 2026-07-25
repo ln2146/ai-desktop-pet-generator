@@ -40,3 +40,6 @@ jobs:
 
       - name: Test (pytest, offscreen)
         run: pytest
+
+      - name: Build wheel
+        run: python -m pip wheel . --no-deps -w /tmp/petgen-wheel

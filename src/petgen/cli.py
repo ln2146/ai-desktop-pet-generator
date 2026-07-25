@@ -22,6 +22,7 @@ from petgen.prompt import build_pet_prompt
 from petgen.spritesheet import SpriteBuildError, build_pet_assets
 
 DEFAULT_IMAGE_ONLY_DESCRIPTION = "把参考图中的形象原样转成可爱桌面宠物，保留原本的颜色、轮廓、标志性配饰和性格特征"
+DEFAULT_LOCAL_BUILD_DESCRIPTION = "由本地源图转换的桌面宠物"
 
 #: Subcommands used as hook targets — they must never exit non-zero for usage
 #: errors, because Claude Code interprets exit code 2 from a Stop hook as
@@ -139,7 +140,12 @@ def _register_generated_pet(
 def _run_build(args: argparse.Namespace) -> int:
     source_path = Path(args.source).expanduser().resolve()
     output_dir = Path(args.output).expanduser().resolve()
-    description = _resolve_description(args.prompt, args.prompt_file, reference_images=[])
+    description = _resolve_description(
+        args.prompt,
+        args.prompt_file,
+        reference_images=[],
+        default_description=DEFAULT_LOCAL_BUILD_DESCRIPTION,
+    )
     prompt = build_pet_prompt(description)
     paths = build_pet_assets(
         source_path,
@@ -159,6 +165,7 @@ def _resolve_description(
     prompt_file: str | None,
     *,
     reference_images: list[str],
+    default_description: str | None = None,
 ) -> str:
     if prompt:
         return prompt
@@ -166,6 +173,8 @@ def _resolve_description(
         return Path(prompt_file).expanduser().read_text(encoding="utf-8")
     if reference_images:
         return DEFAULT_IMAGE_ONLY_DESCRIPTION
+    if default_description:
+        return default_description
     raise ValueError("provide --prompt or --prompt-file, or pass at least one --image")
 
 

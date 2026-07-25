@@ -79,8 +79,11 @@ GitHub Actions 在 push 到 `main` 和 pull request 时运行：
 
 - `ruff check .`
 - `pytest`
+- `python -m pip wheel . --no-deps -w /tmp/petgen-wheel`
 
 CI 环境设置 `QT_QPA_PLATFORM=offscreen`，并安装 PySide6 所需的 Linux 系统库。
+
+CI 同时构建一次 wheel，确保打包配置和 package data 没有回归。
 
 ## 文档维护原则
 
