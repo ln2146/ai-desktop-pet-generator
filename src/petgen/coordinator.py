@@ -519,6 +519,13 @@ class AppCoordinator(QObject):
         if not description.strip():
             self.bubble.show_message("描述不能为空")
             return
+        # A previous generation is still running: reassigning self._worker would
+        # drop the last Python reference to a live QThread and abort the process
+        # ("QThread: Destroyed while thread is still running"). Ignore the new
+        # request and tell the user instead of racing the prior worker.
+        if self._worker is not None and self._worker.isRunning():
+            self.bubble.show_message("上一次生成还在进行中，请稍候…")
+            return
         pet_id = f"pet-{uuid.uuid4().hex[:12]}"
         work_dir = data_dir() / "workspace" / pet_id
         self._worker = GenerationWorker(
@@ -607,8 +614,15 @@ class AppCoordinator(QObject):
         from petgen.reminder_nl import parse_reminder_text
         from petgen.reminder_quick import QuickCaptureDialog
 
-        self.quick_capture_dialog = QuickCaptureDialog(parser=parse_reminder_text)
-        self.quick_capture_dialog.quick_created.connect(self._create_reminder)
+        # Reuse the existing dialog if it is still alive: previously every open
+        # built a fresh QDialog and dropped the reference to the prior one,
+        # orphaning it (and its signals) for the rest of the session.
+        if self.quick_capture_dialog is None:
+            self.quick_capture_dialog = QuickCaptureDialog(parser=parse_reminder_text)
+            self.quick_capture_dialog.quick_created.connect(self._create_reminder)
+        else:
+            # Reset the input so reopening feels like a fresh capture.
+            self.quick_capture_dialog.input.clear()
         self.quick_capture_dialog.show()
         self.quick_capture_dialog.raise_()
 
@@ -648,6 +662,15 @@ class AppCoordinator(QObject):
     def _open_reminder_editor(self, reminder=None) -> None:
         from petgen.reminder_editor import ReminderEditorDialog
 
+        # The editor carries per-open state (which reminder is being edited, via
+        # _editing_id), so we cannot just raise the old one. But we must not
+        # leak it either: close + deleteLater the previous dialog before opening
+        # a new one, otherwise each edit accumulates an orphaned QDialog.
+        if self.reminder_editor_dialog is not None:
+            old = self.reminder_editor_dialog
+            self.reminder_editor_dialog = None
+            old.close()
+            old.deleteLater()
         self.reminder_editor_dialog = ReminderEditorDialog(reminder)
         self.reminder_editor_dialog.reminder_saved.connect(self._save_reminder)
         self.reminder_editor_dialog.show()
@@ -711,7 +734,11 @@ class AppCoordinator(QObject):
     def _open_pomodoro(self) -> None:
         from petgen.pomodoro import PomodoroWindow
 
-        self.pomodoro_window = PomodoroWindow(self.pomodoro)
+        # Reuse the live window: PomodoroWindow binds to the shared service, and
+        # rebuilding it each open orphans the previous QDialog (and re-connects
+        # its signals to the service, doubling tick handlers).
+        if self.pomodoro_window is None:
+            self.pomodoro_window = PomodoroWindow(self.pomodoro)
         self.pomodoro_window.show()
         self.pomodoro_window.raise_()
 
