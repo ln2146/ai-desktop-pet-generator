@@ -83,7 +83,7 @@ class BubbleWindow(QWidget):
         self._rebuild_actions(action_items)
         has_actions = bool(action_items)
         self._button_bar.setVisible(has_actions)
-        self._close_button.setVisible(has_actions)
+        self._close_button.setVisible(False)
         self.adjustSize()
         self.show()
         self.raise_()
@@ -116,8 +116,8 @@ class BubbleWindow(QWidget):
             button = QPushButton(label)
             button.setCursor(Qt.PointingHandCursor)
             button.setStyleSheet(
-                "QPushButton { border: 1px solid #c7d2fe; background: #eef2ff; color: #4f46e5; border-radius: 12px; padding: 4px 10px; font-weight: 600; font-size: 12px; }"
-                "QPushButton:hover { background: #e0e7ff; color: #4338ca; border-color: #a5b4fc; }"
+                "QPushButton { border: 1px solid #fecaca; background: #fff7ed; color: #ea580c; border-radius: 14px; padding: 5px 12px; font-weight: 700; font-size: 12px; }"
+                "QPushButton:hover { background: #ffedd5; color: #c2410c; border-color: #fdba74; }"
             )
             button.clicked.connect(lambda _checked=False, cb=callback: self._run_action(cb))
             self._action_box.addWidget(button)

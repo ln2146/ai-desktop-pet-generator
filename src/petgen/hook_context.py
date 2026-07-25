@@ -65,20 +65,23 @@ def claude_event_from_hook_input(
     event_name: str,
     fallback_title: str,
 ) -> tuple[str, str, str | None]:
-    event = str(payload.get("hook_event_name") or event_name) if payload else event_name
+    payload = payload or {}
+    event = str(_payload_get(payload, "hook_event_name", "event_name", "event", "type") or event_name)
     kind = "task_completed" if event in {"Stop", "SubagentStop", "completed"} else "custom"
     if kind != "task_completed":
         return kind, fallback_title, None
 
-    transcript = _read_claude_transcript(Path(str(payload.get("transcript_path")))) if payload and payload.get("transcript_path") else {}
+    transcript_path = _payload_get(payload, "transcript_path", "transcriptPath")
+    transcript = _read_claude_transcript(Path(str(transcript_path))) if transcript_path else {}
     user_task = summarize_agent_message(transcript.get("last_user"), limit=70)
     final = summarize_agent_message(transcript.get("last_assistant"), limit=82)
     label = "子任务完成" if event == "SubagentStop" else "已完成"
-    project = _project_name(payload.get("cwd") if payload else None)
-    subject = f"{label}：{user_task}" if user_task else fallback_title
+    project = _project_name(_payload_get(payload, "cwd", "workspace", "workspacePaths"))
+    subject = f"{label}：{final}" if final else (f"{label}：{user_task}" if user_task else fallback_title)
     title = f"{project} {subject}" if project else subject
     detail = _detail_from_parts(
-        f"回复：{final}" if final else "",
+        f"任务：{user_task}" if user_task and final else "",
+        format_duration(_payload_get(payload, "duration_ms", "elapsed_ms", "durationMs", "elapsedMs")),
     )
     return kind, title, detail
 
@@ -89,25 +92,28 @@ def antigravity_event_from_hook_input(
     event_name: str,
     fallback_title: str,
 ) -> tuple[str, str, str | None]:
-    event = str(_payload_get(payload or {}, "hook_event_name", "event_name", "event", "type") or event_name)
+    payload = payload or {}
+    event = str(_payload_get(payload, "hook_event_name", "event_name", "event", "type") or event_name)
     kind = "task_completed" if event in {"Stop", "completed", "task_completed", "task_complete"} else "custom"
     if kind != "task_completed":
         return kind, fallback_title, None
 
-    final = summarize_agent_message(
-        _payload_get(
-            payload or {},
-            "last_agent_message",
-            "summary",
-            "message",
-            "result",
-            "response",
-            "text",
-        )
+    transcript = _read_antigravity_transcript(Path(str(payload["transcriptPath"]))) if payload.get("transcriptPath") else {}
+    raw_final = _payload_get(
+        payload,
+        "last_agent_message",
+        "summary",
+        "message",
+        "result",
+        "response",
+        "text",
     )
+    final = summarize_agent_message(raw_final or transcript.get("last_assistant"))
+    user_task = summarize_agent_message(transcript.get("last_user"), limit=70)
     project = _project_name(
         _payload_get(
-            payload or {},
+            payload,
+            "workspacePaths",
             "cwd",
             "workspace",
             "workspace_path",
@@ -115,10 +121,11 @@ def antigravity_event_from_hook_input(
             "project",
         )
     )
-    subject = f"已完成：{final}" if final else fallback_title
+    subject = f"已完成：{final}" if final else (f"已完成：{user_task}" if user_task else fallback_title)
     title = f"{project} {subject}" if project else subject
     detail = _detail_from_parts(
-        format_duration(_payload_get(payload or {}, "duration_ms", "elapsed_ms")),
+        format_duration(_payload_get(payload, "duration_ms", "elapsed_ms", "durationMs", "elapsedMs")),
+        _antigravity_stop_detail(payload),
     )
     return kind, title, detail
 
@@ -182,8 +189,78 @@ def _detail_from_parts(*parts: str) -> str | None:
 def _project_name(value: object) -> str:
     if not value:
         return ""
+    if isinstance(value, list):
+        value = next((item for item in value if item), "")
     name = Path(str(value)).name
     return name or ""
+
+
+def _antigravity_stop_detail(payload: dict[str, Any]) -> str:
+    reason = compact_text(_payload_get(payload, "terminationReason", "termination_reason"), limit=36)
+    error = compact_text(_payload_get(payload, "error"), limit=70)
+    parts: list[str] = []
+    if reason and reason != "model_stop":
+        parts.append(f"停止原因：{reason}")
+    if error:
+        parts.append(f"错误：{error}")
+    return "；".join(parts)
+
+
+def _read_antigravity_transcript(path: Path) -> dict[str, str]:
+    try:
+        with path.open("rb") as handle:
+            handle.seek(0, 2)
+            size = handle.tell()
+            handle.seek(max(0, size - 1024 * 1024))
+            raw_lines = handle.read().decode("utf-8", errors="replace").splitlines()
+    except OSError:
+        return {}
+
+    last_user = ""
+    assistant_replies: list[str] = []
+    for line in raw_lines[-500:]:
+        try:
+            item = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(item, dict):
+            continue
+        text = str(item.get("content") or "")
+        if not text:
+            continue
+        source = item.get("source")
+        item_type = item.get("type")
+        if source == "USER_EXPLICIT" and item_type == "USER_INPUT":
+            last_user = _antigravity_user_request(text)
+        elif source == "MODEL" and item_type == "PLANNER_RESPONSE":
+            assistant_replies.append(text)
+    return {"last_user": last_user, "last_assistant": _best_agent_reply(assistant_replies)}
+
+
+def _antigravity_user_request(text: str) -> str:
+    match = re.search(r"<USER_REQUEST>\s*(.*?)\s*</USER_REQUEST>", text, flags=re.S)
+    return match.group(1).strip() if match else text.strip()
+
+
+def _best_agent_reply(replies: list[str]) -> str:
+    for reply in reversed(replies):
+        if not _is_low_signal_agent_reply(reply):
+            return reply
+    return replies[-1] if replies else ""
+
+
+def _is_low_signal_agent_reply(text: str) -> bool:
+    compact = compact_text(text, limit=160)
+    if not compact:
+        return True
+    low_signal_markers = (
+        "随时告诉我",
+        "如果您后续",
+        "后续在使用中",
+        "后台正常运行中",
+        "平稳运行中",
+    )
+    return any(marker in compact for marker in low_signal_markers)
 
 
 def _read_claude_transcript(path: Path) -> dict[str, str]:
@@ -197,7 +274,7 @@ def _read_claude_transcript(path: Path) -> dict[str, str]:
         return {}
 
     last_user = ""
-    last_assistant = ""
+    assistant_replies: list[str] = []
     for line in raw_lines[-300:]:
         try:
             item = json.loads(line)
@@ -210,8 +287,8 @@ def _read_claude_transcript(path: Path) -> dict[str, str]:
         if role == "user" and item.get("isSidechain") is not True:
             last_user = text
         elif role == "assistant":
-            last_assistant = text
-    return {"last_user": last_user, "last_assistant": last_assistant}
+            assistant_replies.append(text)
+    return {"last_user": last_user, "last_assistant": _best_agent_reply(assistant_replies)}
 
 
 def _latest_codex_completion(home: Path | None = None) -> dict[str, Any]:

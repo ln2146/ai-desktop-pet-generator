@@ -698,11 +698,12 @@ class AppCoordinator(QObject):
             self.pet_window.set_expression("alert")
         self.voice.react("alert")
         actions = [
-            ("完成", lambda rid=reminder.id: self._complete_reminder(rid)),
-            ("稍后", lambda rid=reminder.id: self._snooze_reminder(rid)),
+            ("完成啦", lambda rid=reminder.id: self._complete_reminder(rid)),
+            ("等会儿", lambda rid=reminder.id: self._snooze_reminder(rid)),
+            ("知道啦", lambda: None),
         ]
         self.bubble.show_message(
-            f"⏰ 提醒：{reminder.title}", actions=actions, timeout_ms=0
+            f"叮咚~ {reminder.title} 时间到啦 ✨", actions=actions, timeout_ms=0
         )
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())

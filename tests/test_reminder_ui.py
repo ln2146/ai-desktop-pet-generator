@@ -9,7 +9,7 @@ import pytest  # noqa: E402
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtCore import Qt  # noqa: E402
+from PySide6.QtCore import QDate, Qt, QTime  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialogButtonBox, QPushButton  # noqa: E402
 
@@ -57,6 +57,25 @@ def test_editor_prefills_and_emits_on_save(qapp) -> None:
     assert saved[0]["title"] == "喝水"
     assert saved[0]["recurrence"] == "daily"
     assert saved[0]["id"] == "r1"
+
+
+def test_editor_uses_calendar_and_time_picker(qapp) -> None:
+    from petgen.reminder import parse_dt
+
+    dlg = ReminderEditorDialog()
+    dlg.show()
+    QApplication.processEvents()
+    saved: list = []
+    dlg.reminder_saved.connect(saved.append)
+    dlg.title.setText("吃饭")
+    dlg.calendar.setSelectedDate(QDate(2026, 8, 2))  # noqa: SLF001
+    dlg.time_edit.setTime(QTime(18, 30))  # noqa: SLF001
+
+    QTest.mouseClick(_dialog_button(dlg, QDialogButtonBox.Save), Qt.LeftButton, Qt.NoModifier)
+
+    assert len(saved) == 1
+    local = parse_dt(saved[0]["trigger_at"]).astimezone()
+    assert (local.year, local.month, local.day, local.hour, local.minute) == (2026, 8, 2, 18, 30)
 
 
 def test_editor_empty_title_does_not_save(qapp) -> None:

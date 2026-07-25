@@ -2,17 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import QDateTime, Qt, Signal
+from PySide6.QtCore import QDate, QDateTime, Qt, QTime, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QCalendarWidget,
     QCheckBox,
     QComboBox,
-    QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QTimeEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -43,6 +44,11 @@ def _from_qdt(qdt: QDateTime) -> str:
     return to_iso(local_dt)
 
 
+def _from_date_time(date: QDate, time: QTime) -> str:
+    local_dt = datetime(date.year(), date.month(), date.day(), time.hour(), time.minute(), time.second()).astimezone()
+    return to_iso(local_dt)
+
+
 class ReminderEditorDialog(QDialog):
     """Create/edit a reminder; emits a plain dict the coordinator turns into a Reminder."""
 
@@ -52,8 +58,8 @@ class ReminderEditorDialog(QDialog):
         super().__init__(parent)
         self._editing_id = reminder.id if reminder else None
         self.setWindowTitle("编辑提醒" if reminder else "新建提醒")
-        self.resize(480, 420)
-        self.setMinimumSize(440, 360)
+        self.resize(540, 720)
+        self.setMinimumSize(500, 680)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
@@ -88,17 +94,37 @@ class ReminderEditorDialog(QDialog):
         self.title.setFixedHeight(38)
         layout.addWidget(self.title)
 
-        # DateTime Field
-        lbl2 = QLabel("提醒时间 (支持选择具体日期与时间)")
+        # Date + Time Field
+        lbl2 = QLabel("提醒时间")
         lbl2.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl2)
-        self.when = QDateTimeEdit()
-        self.when.setCalendarPopup(True)
-        self.when.setDisplayFormat("yyyy-MM-dd  HH:mm")
-        self.when.setFixedHeight(38)
-        # Default to current local time + 30 minutes for new reminders
-        self.when.setDateTime(QDateTime.currentDateTime().addSecs(1800))
-        layout.addWidget(self.when)
+
+        self.calendar = QCalendarWidget()
+        self.calendar.setGridVisible(False)
+        self.calendar.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
+        self.calendar.setMinimumDate(QDate.currentDate())
+        self.calendar.setSelectedDate(QDate.currentDate())
+        self.calendar.setFixedHeight(360)
+        self.calendar.setStyleSheet(
+            "QCalendarWidget { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; }"
+            "QCalendarWidget QWidget#qt_calendar_navigationbar { background: #fff7ed; border-top-left-radius: 14px; border-top-right-radius: 14px; }"
+            "QCalendarWidget QToolButton { color: #c2410c; background: transparent; border: none; border-radius: 8px; padding: 4px 8px; font-weight: 700; }"
+            "QCalendarWidget QToolButton:hover { background: #fed7aa; }"
+            "QCalendarWidget QAbstractItemView { color: #334155; selection-background-color: #fb923c; selection-color: #ffffff; outline: 0; }"
+        )
+        layout.addWidget(self.calendar)
+
+        time_row = QHBoxLayout()
+        time_row.setSpacing(10)
+        time_label = QLabel("具体时间")
+        time_label.setStyleSheet("color: #475569; font-weight: 600; font-size: 12px;")
+        self.time_edit = QTimeEdit()
+        self.time_edit.setDisplayFormat("HH:mm")
+        self.time_edit.setFixedHeight(38)
+        self.time_edit.setTime(QDateTime.currentDateTime().addSecs(1800).time())
+        time_row.addWidget(time_label)
+        time_row.addWidget(self.time_edit, 1)
+        layout.addLayout(time_row)
 
         # Recurrence Field
         lbl3 = QLabel("重复模式")
@@ -147,7 +173,9 @@ class ReminderEditorDialog(QDialog):
 
     def _load(self, reminder: Reminder) -> None:
         self.title.setText(reminder.title)
-        self.when.setDateTime(_to_qdt(reminder.trigger_at))
+        qdt = _to_qdt(reminder.trigger_at)
+        self.calendar.setSelectedDate(qdt.date())
+        self.time_edit.setTime(qdt.time())
         rec = reminder.recurrence or "none"
         idx = self.recurrence.findData(rec)
         if idx >= 0:
@@ -171,7 +199,7 @@ class ReminderEditorDialog(QDialog):
             ]
         data = {
             "title": title,
-            "trigger_at": _from_qdt(self.when.dateTime()),
+            "trigger_at": _from_date_time(self.calendar.selectedDate(), self.time_edit.time()),
             "recurrence": rec,
             "custom_weekdays": custom_weekdays,
         }

@@ -53,7 +53,7 @@ def test_bubble_actions_show_button_row(qapp) -> None:
     bubble.show_message("提醒", actions=[("完成", lambda: None)])
     bubble.show()
     QApplication.processEvents()
-    assert bubble._close_button.isVisible()  # noqa: SLF001
+    assert not bubble._close_button.isVisible()  # noqa: SLF001
     assert bubble._button_bar.isVisible()  # noqa: SLF001
     bubble.hide_now()
 

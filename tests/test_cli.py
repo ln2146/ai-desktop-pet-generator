@@ -350,8 +350,8 @@ def test_run_claude_hook_reads_stdin_payload(
     assert _run_claude_hook(args) == 0
     event = _last_event(tmp_path)
     assert event.kind == "task_completed"
-    assert event.title == "ai-desktop-pet-generator 已完成：修复完成提示"
-    assert event.detail == "回复：已完成并验证。"
+    assert event.title == "ai-desktop-pet-generator 已完成：已完成并验证。"
+    assert event.detail == "任务：修复完成提示"
     assert event.source == "claude_code"
 
 
