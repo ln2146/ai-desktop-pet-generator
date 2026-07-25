@@ -125,8 +125,14 @@ class BubbleWindow(QWidget):
     def _run_action(self, callback: object) -> None:
         try:
             callback()  # type: ignore[misc]
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - bubble is best-effort but must not hide bugs
+            # Surface the failure instead of swallowing it silently: the action
+            # callbacks drive reminder complete/snooze/create, and a quiet bug
+            # here is otherwise impossible to diagnose. Logged to stderr to
+            # match the rest of the app's warning channel.
+            import sys
+
+            print(f"petgen: bubble action failed: {exc}", file=sys.stderr)
         self.hide_now()
 
     def paintEvent(self, event) -> None:  # noqa: N802 - Qt naming
