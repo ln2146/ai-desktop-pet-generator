@@ -62,40 +62,50 @@ class ReminderEditorDialog(QDialog):
         layout.setSpacing(14)
 
         # Header
-        head = QLabel("编辑提醒事项" if reminder else "新建提醒事项")
+        title_box = QVBoxLayout()
+        title_box.setSpacing(3)
+
+        head = QLabel("📝 编辑提醒事项" if reminder else "📝 新建提醒事项")
         h_font = QFont()
-        h_font.setPointSize(15)
+        h_font.setPointSize(17)
         h_font.setBold(True)
         head.setFont(h_font)
-        layout.addWidget(head)
+        head.setStyleSheet("color: #0f172a; border: none;")
+
+        subhead = QLabel("自定义提醒名称、目标触发时间与循环周期")
+        subhead.setStyleSheet("color: #64748b; font-size: 12px; border: none;")
+
+        title_box.addWidget(head)
+        title_box.addWidget(subhead)
+        layout.addLayout(title_box)
 
         # Title Field
         lbl1 = QLabel("提醒内容")
-        lbl1.setStyleSheet("font-weight: 600; color: #334155;")
+        lbl1.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl1)
         self.title = QLineEdit()
         self.title.setPlaceholderText("例如：喝水 / 吃饭 / 开会 / 休息一下")
-        self.title.setFixedHeight(36)
+        self.title.setFixedHeight(38)
         layout.addWidget(self.title)
 
         # DateTime Field
         lbl2 = QLabel("提醒时间 (支持选择具体日期与时间)")
-        lbl2.setStyleSheet("font-weight: 600; color: #334155;")
+        lbl2.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl2)
         self.when = QDateTimeEdit()
         self.when.setCalendarPopup(True)
         self.when.setDisplayFormat("yyyy-MM-dd  HH:mm")
-        self.when.setFixedHeight(36)
+        self.when.setFixedHeight(38)
         # Default to current local time + 30 minutes for new reminders
         self.when.setDateTime(QDateTime.currentDateTime().addSecs(1800))
         layout.addWidget(self.when)
 
         # Recurrence Field
         lbl3 = QLabel("重复模式")
-        lbl3.setStyleSheet("font-weight: 600; color: #334155;")
+        lbl3.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl3)
         self.recurrence = QComboBox()
-        self.recurrence.setFixedHeight(36)
+        self.recurrence.setFixedHeight(38)
         for key, label in _RECURRENCE_OPTIONS:
             self.recurrence.addItem(label, key)
         self.recurrence.currentIndexChanged.connect(self._on_recurrence_changed)

@@ -76,8 +76,8 @@ QTabBar::tab:hover:!selected {
     background-color: rgba(255, 255, 255, 0.4);
 }
 
-/* LineEdit, TextEdit, SpinBox, ComboBox */
-QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
+/* LineEdit, TextEdit, SpinBox, ComboBox, DateTimeEdit */
+QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateTimeEdit {
     background-color: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
@@ -87,22 +87,22 @@ QLineEdit, QTextEdit, QSpinBox, QDoubleSpinBox, QComboBox {
     selection-background-color: #818cf8;
 }
 
-QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus {
+QLineEdit:focus, QTextEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QDateTimeEdit:focus {
     border: 2px solid #6366f1;
     padding: 5px 11px;
 }
 
-QLineEdit:hover, QTextEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover {
+QLineEdit:hover, QTextEdit:hover, QSpinBox:hover, QDoubleSpinBox:hover, QComboBox:hover, QDateTimeEdit:hover {
     border-color: #94a3b8;
 }
 
-QComboBox::drop-down {
+QComboBox::drop-down, QDateTimeEdit::drop-down {
     border: none;
     width: 24px;
 }
 
-QComboBox::down-arrow {
-    image: url("__PETGEN_CHEVRON_SVG__");
+QComboBox::down-arrow, QDateTimeEdit::down-arrow {
+    image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'></polyline></svg>");
     width: 12px;
     height: 12px;
     margin-right: 8px;
