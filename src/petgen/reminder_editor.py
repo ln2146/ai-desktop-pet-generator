@@ -23,10 +23,10 @@ from petgen.theme import apply_theme
 _RECURRENCE_OPTIONS = [
     ("none", "不重复"),
     ("daily", "每天"),
-    ("weekdays", "工作日"),
+    ("weekdays", "工作日 (周一至周五)"),
     ("weekly", "每周"),
     ("monthly", "每月"),
-    ("custom_weekly", "自定义星期…"),
+    ("custom_weekly", "指定星期 (选周一至周日)"),
 ]
 _WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"]
 

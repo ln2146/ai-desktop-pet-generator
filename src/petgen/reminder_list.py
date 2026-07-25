@@ -23,7 +23,7 @@ _RECURRENCE_LABEL = {
     "weekdays": "工作日",
     "weekly": "每周",
     "monthly": "每月",
-    "custom_weekly": "自定义",
+    "custom_weekly": "指定星期",
 }
 
 
