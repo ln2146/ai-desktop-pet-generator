@@ -26,7 +26,7 @@ _RECURRENCE_OPTIONS = [
     ("weekdays", "工作日 (周一至周五)"),
     ("weekly", "每周"),
     ("monthly", "每月"),
-    ("custom_weekly", "指定星期 (选周一至周日)"),
+    ("custom_weekly", "自定义"),
 ]
 _WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"]
 
