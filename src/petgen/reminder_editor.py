@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QDateTime, Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
@@ -31,17 +31,16 @@ _RECURRENCE_OPTIONS = [
 _WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"]
 
 
-def _to_qdt(iso: str):
-    from PySide6.QtCore import QDateTime
-
-    dt = parse_dt(iso)
+def _to_qdt(iso: str) -> QDateTime:
+    dt = parse_dt(iso).astimezone()
     return QDateTime(dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second)
 
 
-def _from_qdt(qdt) -> str:
+def _from_qdt(qdt: QDateTime) -> str:
     d = qdt.date()
     t = qdt.time()
-    return to_iso(datetime(d.year(), d.month(), d.day(), t.hour(), t.minute(), t.second()))
+    local_dt = datetime(d.year(), d.month(), d.day(), t.hour(), t.minute(), t.second()).astimezone()
+    return to_iso(local_dt)
 
 
 class ReminderEditorDialog(QDialog):
@@ -55,6 +54,7 @@ class ReminderEditorDialog(QDialog):
         self.setWindowTitle("编辑提醒" if reminder else "新建提醒")
         self.resize(480, 420)
         self.setMinimumSize(440, 360)
+        self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
         apply_theme(self)
 
         layout = QVBoxLayout(self)
@@ -74,18 +74,20 @@ class ReminderEditorDialog(QDialog):
         lbl1.setStyleSheet("font-weight: 600; color: #334155;")
         layout.addWidget(lbl1)
         self.title = QLineEdit()
-        self.title.setPlaceholderText("例如：喝水 / 开会 / 站起来活动")
+        self.title.setPlaceholderText("例如：喝水 / 吃饭 / 开会 / 休息一下")
         self.title.setFixedHeight(36)
         layout.addWidget(self.title)
 
         # DateTime Field
-        lbl2 = QLabel("提醒时间")
+        lbl2 = QLabel("提醒时间 (支持选择具体日期与时间)")
         lbl2.setStyleSheet("font-weight: 600; color: #334155;")
         layout.addWidget(lbl2)
         self.when = QDateTimeEdit()
         self.when.setCalendarPopup(True)
         self.when.setDisplayFormat("yyyy-MM-dd  HH:mm")
         self.when.setFixedHeight(36)
+        # Default to current local time + 30 minutes for new reminders
+        self.when.setDateTime(QDateTime.currentDateTime().addSecs(1800))
         layout.addWidget(self.when)
 
         # Recurrence Field

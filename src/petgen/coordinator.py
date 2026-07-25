@@ -193,7 +193,12 @@ class AppCoordinator(QObject):
 
         from petgen.speak import VoicePackService
 
-        self.voice = VoicePackService(enabled=bool(self.settings.get("pet.sound_enabled", True)))
+        self.voice = VoicePackService(
+            enabled=bool(self.settings.get("pet.sound_enabled", True)),
+            voice_provider=self._voice_provider(),
+            fish_api_key=self._fish_api_key(),
+            fish_reference_ids=self._fish_reference_ids(),
+        )
         style_id = self._current_interaction_style_id()
         if self.settings.get("pet.interaction_style") != style_id:
             self.settings.set("pet.interaction_style", style_id)
@@ -373,6 +378,9 @@ class AppCoordinator(QObject):
             self.library_dialog.scale_changed.connect(self._on_library_scale_changed)
             self.library_dialog.interaction_style_changed.connect(self._on_library_interaction_style_changed)
             self.library_dialog.preview_style_requested.connect(self._preview_interaction_style)
+            self.library_dialog.voice_provider_changed.connect(self._on_voice_provider_changed)
+            self.library_dialog.fish_api_key_changed.connect(self._on_fish_api_key_changed)
+            self.library_dialog.fish_reference_id_changed.connect(self._on_fish_reference_id_changed)
         self._refresh_library()
         self.library_dialog.show()
         self.library_dialog.raise_()
@@ -383,6 +391,11 @@ class AppCoordinator(QObject):
             scale = float(self.settings.get("pet.scale", 1.5))
             self.library_dialog.set_scale_value(scale)
             self.library_dialog.set_interaction_style_value(self._current_interaction_style_id())
+            self.library_dialog.set_voice_config(
+                provider=self._voice_provider(),
+                fish_api_key=self._fish_api_key(),
+                fish_reference_ids=self._fish_reference_ids(),
+            )
 
     def _on_library_scale_changed(self, scale: float) -> None:
         self.settings.set("pet.scale", float(scale))
@@ -406,6 +419,44 @@ class AppCoordinator(QObject):
         self.settings.set("pet.interaction_style", style_id)
         self.voice.set_style(style_id)
 
+    def _voice_provider(self) -> str:
+        return "fish" if self.settings.get("voice.provider") == "fish" else "edge"
+
+    def _fish_api_key(self) -> str:
+        return str(self.settings.get("voice.fish_api_key") or "")
+
+    def _fish_reference_ids(self) -> dict[str, str]:
+        raw = self.settings.get("voice.fish_reference_ids", {})
+        if not isinstance(raw, dict):
+            return {}
+        return {str(k): str(v).strip() for k, v in raw.items() if str(v).strip()}
+
+    def _apply_voice_config(self) -> None:
+        self.voice.configure_voice(
+            voice_provider=self._voice_provider(),
+            fish_api_key=self._fish_api_key(),
+            fish_reference_ids=self._fish_reference_ids(),
+        )
+
+    def _on_voice_provider_changed(self, provider: str) -> None:
+        self.settings.set("voice.provider", "fish" if provider == "fish" else "edge")
+        self._apply_voice_config()
+
+    def _on_fish_api_key_changed(self, api_key: str) -> None:
+        self.settings.set("voice.fish_api_key", api_key.strip())
+        self._apply_voice_config()
+
+    def _on_fish_reference_id_changed(self, style_id: str, reference_id: str) -> None:
+        refs = self._fish_reference_ids()
+        clean_id = normalize_style_id(style_id)
+        clean_reference = reference_id.strip()
+        if clean_reference:
+            refs[clean_id] = clean_reference
+        else:
+            refs.pop(clean_id, None)
+        self.settings.set("voice.fish_reference_ids", refs)
+        self._apply_voice_config()
+
     def _preview_interaction_style(self) -> None:
         try:
             from petgen.speak import VoicePackService
@@ -417,9 +468,20 @@ class AppCoordinator(QObject):
                 return
             svc = getattr(self, "_preview_voice_svc", None)
             if svc is None:
-                svc = VoicePackService(style, enabled=True)
+                svc = VoicePackService(
+                    style,
+                    enabled=True,
+                    voice_provider=self._voice_provider(),
+                    fish_api_key=self._fish_api_key(),
+                    fish_reference_ids=self._fish_reference_ids(),
+                )
                 self._preview_voice_svc = svc
             else:
+                svc.configure_voice(
+                    voice_provider=self._voice_provider(),
+                    fish_api_key=self._fish_api_key(),
+                    fish_reference_ids=self._fish_reference_ids(),
+                )
                 svc.set_style(style.id)
             svc.set_enabled(True)
             svc.preview()
@@ -524,6 +586,7 @@ class AppCoordinator(QObject):
     def _apply_settings(self) -> None:
         # scale lives in the fixed-size window, so any settings save rebuilds the pet
         self._reload_pet()
+        self._apply_voice_config()
         self.voice.set_style(self._current_interaction_style_id())
         sound_on = bool(self.settings.get("pet.sound_enabled", True)) and not self._quiet
         self.voice.set_enabled(sound_on)
@@ -541,10 +604,13 @@ class AppCoordinator(QObject):
     # --- reminders + pomodoro ----------------------------------------------
 
     def _open_quick_capture(self) -> None:
-        self._open_reminder_list()
-        if self.reminder_list_dialog is not None:
-            self.quick_capture_dialog = self.reminder_list_dialog
-            self.reminder_list_dialog.focus_quick_input()
+        from petgen.reminder_nl import parse_reminder_text
+        from petgen.reminder_quick import QuickCaptureDialog
+
+        self.quick_capture_dialog = QuickCaptureDialog(parser=parse_reminder_text)
+        self.quick_capture_dialog.quick_created.connect(self._create_reminder)
+        self.quick_capture_dialog.show()
+        self.quick_capture_dialog.raise_()
 
     def _create_reminder(self, data: dict) -> None:
         try:
@@ -563,12 +629,10 @@ class AppCoordinator(QObject):
 
     def _open_reminder_list(self) -> None:
         from petgen.reminder_list import ReminderListDialog
-        from petgen.reminder_nl import parse_reminder_text
 
         if self.reminder_list_dialog is None:
-            self.reminder_list_dialog = ReminderListDialog(parser=parse_reminder_text)
+            self.reminder_list_dialog = ReminderListDialog()
             self.reminder_list_dialog.new_requested.connect(self._open_reminder_editor)
-            self.reminder_list_dialog.quick_created.connect(self._create_reminder)
             self.reminder_list_dialog.complete_requested.connect(self._complete_reminder)
             self.reminder_list_dialog.snooze_requested.connect(self._snooze_reminder)
             self.reminder_list_dialog.edit_requested.connect(self._edit_reminder)
