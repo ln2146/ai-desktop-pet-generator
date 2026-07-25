@@ -161,7 +161,6 @@ class TrayController(QObject):
         self._show_action.triggered.connect(lambda checked: self.show_pet_requested.emit(bool(checked)))
         menu.addAction("宠物中心").triggered.connect(lambda: self.library_requested.emit())
         menu.addSeparator()
-        menu.addAction("快速记提醒").triggered.connect(lambda: self.quick_capture_requested.emit())
         menu.addAction("提醒列表").triggered.connect(lambda: self.reminder_list_requested.emit())
         menu.addAction("番茄钟").triggered.connect(lambda: self.pomodoro_requested.emit())
         menu.addSeparator()
