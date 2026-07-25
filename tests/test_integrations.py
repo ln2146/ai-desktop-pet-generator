@@ -406,7 +406,7 @@ def test_antigravity_connect_preserves_other_keys(fake_petgen_exe: Path, tmp_pat
     assert state.status == ToolStatus.CONNECTED
     data = json.loads(hooks.read_text(encoding="utf-8"))
     assert data["ai-pet-notify"] == {"Stop": []}
-    parts = shlex.split(data["petgen-notify"]["Stop"][0]["hooks"][0]["command"])
+    parts = shlex.split(data["petgen-notify"]["Stop"][0]["command"])
     assert parts[1:5] == ["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"]
     assert parts[-1] == "antigravity"
 
@@ -494,12 +494,12 @@ def test_antigravity_legacy_entry_upgraded_by_connect(
     state = integrations.connect("antigravity", home=home)
     assert state.status == ToolStatus.CONNECTED
     data = json.loads(hooks.read_text(encoding="utf-8"))
-    parts = shlex.split(data["petgen-notify"]["Stop"][0]["hooks"][0]["command"])
+    parts = shlex.split(data["petgen-notify"]["Stop"][0]["command"])
     assert parts[0] == str(fake_petgen_exe)
     assert parts[1:5] == ["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"]
 
 
-def test_antigravity_old_petgen_event_marked_stale(fake_petgen_exe: Path, tmp_path: Path) -> None:
+def test_antigravity_grouped_petgen_entry_marked_stale(fake_petgen_exe: Path, tmp_path: Path) -> None:
     home = _make_home(tmp_path)
     hooks = home / ".gemini" / "config" / "hooks.json"
     hooks.parent.mkdir(parents=True)
@@ -513,11 +513,40 @@ def test_antigravity_old_petgen_event_marked_stale(fake_petgen_exe: Path, tmp_pa
                                 {
                                     "type": "command",
                                     "command": (
-                                        f"{fake_petgen_exe} event task_completed "
-                                        "'Antigravity 任务完成' '' antigravity"
+                                        f"{fake_petgen_exe} antigravity-hook Stop "
+                                        "'Antigravity 任务完成' antigravity"
                                     ),
                                 }
                             ]
+                        }
+                    ]
+                }
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    state = integrations.status("antigravity", home=home)
+    assert state.status == ToolStatus.STALE
+    assert "格式" in state.detail
+
+
+def test_antigravity_old_petgen_event_marked_stale(fake_petgen_exe: Path, tmp_path: Path) -> None:
+    home = _make_home(tmp_path)
+    hooks = home / ".gemini" / "config" / "hooks.json"
+    hooks.parent.mkdir(parents=True)
+    hooks.write_text(
+        json.dumps(
+            {
+                "petgen-notify": {
+                    "Stop": [
+                        {
+                            "type": "command",
+                            "command": (
+                                f"{fake_petgen_exe} event task_completed "
+                                "'Antigravity 任务完成' '' antigravity"
+                            ),
                         }
                     ]
                 }

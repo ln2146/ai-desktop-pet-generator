@@ -621,20 +621,27 @@ def _codex_disconnect(home: Path) -> ToolState:
 # --- Antigravity --------------------------------------------------------------
 
 
-def _first_antigravity_command(entry: object) -> str | None:
+def _antigravity_command_info(entry: object) -> tuple[str | None, bool]:
     if not isinstance(entry, dict):
-        return None
+        return None, False
     stops = entry.get("Stop")
     if not isinstance(stops, list):
-        return None
-    for group in stops:
-        if not isinstance(group, dict):
+        return None, False
+    for item in stops:
+        if not isinstance(item, dict):
             continue
-        for hook in group.get("hooks") or []:
+        command = item.get("command")
+        if isinstance(command, str):
+            return command, True
+        for hook in item.get("hooks") or []:
             command = hook.get("command") if isinstance(hook, dict) else None
             if isinstance(command, str):
-                return command
-    return None
+                return command, False
+    return None, False
+
+
+def _first_antigravity_command(entry: object) -> str | None:
+    return _antigravity_command_info(entry)[0]
 
 
 def _antigravity_status(home: Path) -> ToolState:
@@ -650,12 +657,14 @@ def _antigravity_status(home: Path) -> ToolState:
     entry = data.get("petgen-notify")
     if entry is None:
         return ToolState("antigravity", ToolStatus.NOT_CONNECTED)
-    command = _first_antigravity_command(entry)
+    command, direct_handler = _antigravity_command_info(entry)
     # Ownership marker (same rule as Claude/Codex): the command must reference
     # petgen. Legacy bash-era entries under this key lack the marker, report
     # not_connected, and get upgraded in place by the next connect.
     if not command or not _is_petgen_command(command, TOOL_SOURCES["antigravity"]):
         return ToolState("antigravity", ToolStatus.NOT_CONNECTED, "petgen-notify 键由旧版配置占用，接通时自动升级")
+    if not direct_handler:
+        return ToolState("antigravity", ToolStatus.STALE, "接线格式是旧版，请重连以适配 Antigravity Stop hook")
     if _command_entry_exists(command):
         if "antigravity-hook" not in command:
             return ToolState("antigravity", ToolStatus.STALE, "接线命令是旧版，请重连以显示具体任务摘要")
@@ -675,12 +684,8 @@ def _antigravity_connect(home: Path) -> ToolState:
     data["petgen-notify"] = {
         "Stop": [
             {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": _hook_command(TOOL_SOURCES["antigravity"], TOOL_TITLES["antigravity"]),
-                    }
-                ]
+                "type": "command",
+                "command": _hook_command(TOOL_SOURCES["antigravity"], TOOL_TITLES["antigravity"]),
             }
         ]
     }

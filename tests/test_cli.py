@@ -356,7 +356,7 @@ def test_run_claude_hook_reads_stdin_payload(
 
 
 def test_run_antigravity_hook_reads_stdin_payload(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
     monkeypatch.setattr("sys.stdin.isatty", lambda: False)
@@ -380,6 +380,7 @@ def test_run_antigravity_hook_reads_stdin_payload(
     assert event.title == "ai-desktop-pet-generator 已完成：已标出项目并优化完成提示。"
     assert event.detail == "耗时 3 秒"
     assert event.source == "antigravity"
+    assert json.loads(capsys.readouterr().out)["decision"] == ""
 
 
 def test_tools_status_command(

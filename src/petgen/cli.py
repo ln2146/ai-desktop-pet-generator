@@ -393,6 +393,7 @@ def _run_antigravity_hook(args: argparse.Namespace) -> int:
         integrations.append_event(kind, title, detail, args.source)
     except Exception as exc:  # noqa: BLE001 — hook target: never fail the calling tool
         print(f"warning: failed to append task event: {exc}", file=sys.stderr)
+    print(json.dumps({"decision": ""}))
     return 0
 
 
