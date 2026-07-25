@@ -24,16 +24,27 @@ from petgen.voicepack import (  # noqa: E402
 )
 
 
-def test_catalog_has_three_packs_with_required_kinds() -> None:
+def test_catalog_has_bound_interaction_styles_with_required_kinds() -> None:
     catalog = load_catalog()
-    assert len(catalog) >= 3
+    assert {"moe-pet", "moe-girl", "elegant-senior", "butler", "tsundere"} <= set(catalog)
     assert default_pack().id in catalog
     for pack in catalog.values():
-        assert pack.display_name and pack.emoji
+        assert pack.display_name and pack.emoji and pack.description
         assert "tap" in pack.lines and pack.lines["tap"]
         # every declared sound value is a known synth key or a filename
         for value in pack.sounds.values():
             assert value  # non-empty
+
+
+def test_interaction_styles_use_distinct_valid_edge_prosody() -> None:
+    catalog = load_catalog()
+    signatures = {(pack.edge_voice, pack.edge_rate, pack.edge_pitch) for pack in catalog.values()}
+    assert len(signatures) == len(catalog)
+    for pack in catalog.values():
+        assert pack.edge_voice
+        assert pack.edge_rate.endswith("%")
+        assert not pack.edge_pitch.endswith("%")
+        assert pack.edge_pitch.endswith("Hz")
 
 
 def test_line_for_falls_back_to_tap() -> None:
@@ -118,7 +129,8 @@ def qapp():
     return QApplication.instance() or QApplication(["test-voicepack"])
 
 
-def test_voice_pack_service_constructs_and_reacts(qapp) -> None:
+def test_voice_pack_service_constructs_and_reacts(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("petgen.speak.Speaker.speak", lambda _self, text: bool(text))
     svc = VoicePackService(default_pack(), enabled=True)
     result = svc.react("happy")
     assert set(result) == {"sfx", "speech"}
@@ -126,7 +138,8 @@ def test_voice_pack_service_constructs_and_reacts(qapp) -> None:
     assert isinstance(result["sfx"], bool) and isinstance(result["speech"], bool)
 
 
-def test_voice_pack_service_disabled_silences(qapp) -> None:
+def test_voice_pack_service_disabled_silences(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("petgen.speak.Speaker.speak", lambda _self, text: bool(text))
     svc = VoicePackService(default_pack(), enabled=False)
     assert svc.react("tap") == {"sfx": False, "speech": False}
 
@@ -139,7 +152,44 @@ def test_voice_pack_service_set_pack_switches(qapp) -> None:
     assert svc.pack.id == other_id == new.id
 
 
-def test_all_clip_kinds_do_not_crash(qapp) -> None:
+def test_voice_pack_preview_speaks_without_sfx(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
+    played: list[str | None] = []
+    spoken: list[str | None] = []
+    monkeypatch.setattr("petgen.sound.SoundService.play", lambda _self, value: played.append(value) or True)
+    monkeypatch.setattr("petgen.speak.Speaker.speak", lambda _self, text: spoken.append(text) or bool(text))
+
+    svc = VoicePackService(default_pack())
+    result = svc.preview()
+
+    assert result == {"sfx": False, "speech": True}
+    assert played == []
+    assert spoken and spoken[0]
+
+
+def test_voice_pack_service_applies_fish_reference_ids(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
+    spoken: list[tuple[str, str]] = []
+    fallback: list[str | None] = []
+    monkeypatch.setattr(
+        "petgen.speak._FishSpeaker.speak",
+        lambda _self, text, reference_id: spoken.append((text, reference_id)) or True,
+    )
+    monkeypatch.setattr("petgen.speak.Speaker._speak_edge_or_system", lambda _self, text: fallback.append(text) or True)
+
+    svc = VoicePackService(
+        default_pack(),
+        voice_provider="fish",
+        fish_api_key="fish-key",
+        fish_reference_ids={default_pack().id: "fish-voice-id"},
+    )
+    result = svc.preview()
+
+    assert result["speech"] is True
+    assert spoken and spoken[0][1] == "fish-voice-id"
+    assert fallback == []
+
+
+def test_all_clip_kinds_do_not_crash(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("petgen.speak.Speaker.speak", lambda _self, text: bool(text))
     svc = VoicePackService(default_pack())
     for kind in VOICE_CLIP_KINDS:
         svc.react(kind)  # must not raise under any TTS/audio backend state

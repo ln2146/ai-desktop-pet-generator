@@ -51,9 +51,10 @@ class TaskEvent:
     def display_message(self) -> str:
         label = _SOURCE_LABELS.get(self.source or "", "")
         prefix = f"[{label}] " if label else ""
-        body = self.title or self.kind
-        if self.detail:
-            body = f"{body}\n{self.detail}"
+        body = (self.title or self.kind).strip()
+        detail = self.detail.strip() if self.detail else ""
+        if detail:
+            body = f"{body}\n{detail}"
         return f"{prefix}{body}"
 
 
@@ -80,11 +81,13 @@ def parse_event_line(line: str) -> TaskEvent | None:
     title = raw.get("title")
     detail = raw.get("detail")
     source = raw.get("source")
+    clean_title = str(title).strip() if title is not None else ""
+    clean_detail = str(detail).strip() if detail is not None else ""
     return TaskEvent(
         id=event_id,
         kind=kind,
-        title=str(title) if title is not None else "",
-        detail=str(detail) if detail is not None else None,
+        title=clean_title,
+        detail=clean_detail or None,
         source=str(source) if source is not None else None,
         created_at=created_at,
     )

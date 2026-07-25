@@ -42,6 +42,17 @@ def test_parse_event_line_valid() -> None:
     assert event.source == "manual"
 
 
+def test_parse_event_line_strips_title_and_blank_detail() -> None:
+    event = parse_event_line(
+        '{"id":"x1","kind":"task_completed","title":" 已完成\\n","detail":" \\n ","source":"codex","createdAt":"2026-01-01T00:00:00Z"}'
+    )
+
+    assert event is not None
+    assert event.title == "已完成"
+    assert event.detail is None
+    assert event.display_message() == "[Codex] 已完成"
+
+
 def test_parse_event_line_fills_missing_id_and_time() -> None:
     event = parse_event_line('{"kind":"ai_thinking","title":"t"}')
     assert event is not None
@@ -66,6 +77,8 @@ def test_display_message_with_and_without_source() -> None:
     assert ev2.display_message() == "出错\n详情"
     ev3 = TaskEvent("id", "task_completed", "已完成：这样：", "耗时 4 秒", "codex", "t")
     assert ev3.display_message() == "[Codex] 已完成：这样：\n耗时 4 秒"
+    ev4 = TaskEvent("id", "task_completed", "已完成\n", "耗时 4 秒\n\n", "codex", "t")
+    assert ev4.display_message() == "[Codex] 已完成\n耗时 4 秒"
 
 
 # --- Qt poller (offscreen) --------------------------------------------------

@@ -38,12 +38,23 @@ def test_bubble_short_message_has_no_close_button(qapp) -> None:
     bubble.hide_now()
 
 
-def test_bubble_long_message_shows_close_button(qapp) -> None:
+def test_bubble_long_message_has_no_button_row(qapp) -> None:
     bubble = BubbleWindow()
     bubble.show_message("这是一段足够长的消息，用来验证超过阈值时关闭按钮会显示出来，应该够长了。")
     bubble.show()
     QApplication.processEvents()
+    assert not bubble._close_button.isVisible()  # noqa: SLF001
+    assert not bubble._button_bar.isVisible()  # noqa: SLF001
+    bubble.hide_now()
+
+
+def test_bubble_actions_show_button_row(qapp) -> None:
+    bubble = BubbleWindow()
+    bubble.show_message("提醒", actions=[("完成", lambda: None)])
+    bubble.show()
+    QApplication.processEvents()
     assert bubble._close_button.isVisible()  # noqa: SLF001
+    assert bubble._button_bar.isVisible()  # noqa: SLF001
     bubble.hide_now()
 
 
@@ -170,32 +181,49 @@ def test_library_dialog_set_progress_toggles_create(qapp) -> None:
 
 
 def test_library_dialog_style_controls_emit_values(qapp) -> None:
-    from petgen.personalities import PERSONALITIES
-    from petgen.voicepack import load_catalog
+    from petgen.interaction_style import load_styles
 
     dlg = LibraryDialog()
-    assert set(dlg._personality_keys) == set(PERSONALITIES)  # noqa: SLF001
-    assert set(dlg._voice_pack_keys) == set(load_catalog())  # noqa: SLF001
+    assert set(dlg._interaction_style_keys) == set(load_styles())  # noqa: SLF001
 
-    personalities: list[str] = []
-    voices: list[str] = []
+    styles: list[str] = []
     previews: list[bool] = []
-    dlg.personality_changed.connect(personalities.append)
-    dlg.voice_pack_changed.connect(voices.append)
-    dlg.preview_voice_requested.connect(lambda: previews.append(True))
+    dlg.interaction_style_changed.connect(styles.append)
+    dlg.preview_style_requested.connect(lambda: previews.append(True))
 
-    dlg.set_personality_value("tsundere")
-    dlg.set_voice_pack_value("calm-butler")
-    assert dlg._personality_combo.currentData() == "tsundere"  # noqa: SLF001
-    assert dlg._voice_pack_combo.currentData() == "calm-butler"  # noqa: SLF001
-    assert personalities == []
-    assert voices == []
+    dlg.set_interaction_style_value("tsundere")
+    assert dlg._interaction_style_combo.currentData() == "tsundere"  # noqa: SLF001
+    assert styles == []
 
-    dlg._personality_combo.setCurrentIndex(dlg._personality_keys.index("warm"))  # noqa: SLF001
-    dlg._voice_pack_combo.setCurrentIndex(dlg._voice_pack_keys.index("soft-meow"))  # noqa: SLF001
+    dlg._interaction_style_combo.setCurrentIndex(dlg._interaction_style_keys.index("moe-pet"))  # noqa: SLF001
     preview_btn = next(b for b in dlg.findChildren(QPushButton) if b.text() == "▶ 试听")
     QTest.mouseClick(preview_btn, Qt.LeftButton, Qt.NoModifier)
 
-    assert personalities == ["warm"]
-    assert voices == ["soft-meow"]
+    assert styles == ["moe-pet"]
     assert previews == [True]
+
+
+def test_library_dialog_voice_config_tracks_current_style(qapp) -> None:
+    dlg = LibraryDialog()
+    providers: list[str] = []
+    refs: list[tuple[str, str]] = []
+    dlg.voice_provider_changed.connect(providers.append)
+    dlg.fish_reference_id_changed.connect(lambda style_id, ref_id: refs.append((style_id, ref_id)))
+
+    dlg.set_voice_config(
+        provider="fish",
+        fish_api_key="fish-key",
+        fish_reference_ids={"moe-pet": "pet-voice", "tsundere": "tsun-voice"},
+    )
+    assert dlg._voice_provider_combo.currentData() == "fish"  # noqa: SLF001
+    assert dlg._fish_api_key.text() == "fish-key"  # noqa: SLF001
+
+    dlg.set_interaction_style_value("tsundere")
+    assert dlg._fish_reference_id.text() == "tsun-voice"  # noqa: SLF001
+
+    dlg._fish_reference_id.setText("updated")  # noqa: SLF001
+    dlg._on_fish_reference_id_changed()  # noqa: SLF001
+
+    dlg._voice_provider_combo.setCurrentIndex(0)  # noqa: SLF001
+    assert providers == ["edge"]
+    assert refs == [("tsundere", "updated")]

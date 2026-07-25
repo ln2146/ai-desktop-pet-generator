@@ -108,12 +108,26 @@ def test_coordinator_library_style_changes_persist_immediately(qapp, tmp_path: P
 
     coord = AppCoordinator()
     try:
-        coord._on_library_personality_changed("tsundere")  # noqa: SLF001
-        coord._on_library_voice_pack_changed("calm-butler")  # noqa: SLF001
+        coord._on_library_interaction_style_changed("tsundere")  # noqa: SLF001
 
-        assert coord.settings.get("pet.personality") == "tsundere"
-        assert coord.settings.get("pet.voice_pack") == "calm-butler"
-        assert coord.voice.pack.id == "calm-butler"
+        assert coord.settings.get("pet.interaction_style") == "tsundere"
+        assert coord.voice.pack.id == "tsundere"
+    finally:
+        coord.bus.stop()
+
+
+def test_coordinator_migrates_legacy_style_settings(qapp, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    from petgen.coordinator import AppCoordinator
+    from petgen.store import SettingsStore
+
+    settings = SettingsStore()
+    settings.set("pet.voice_pack", "calm-butler")
+
+    coord = AppCoordinator()
+    try:
+        assert coord.settings.get("pet.interaction_style") == "butler"
+        assert coord.voice.pack.id == "butler"
     finally:
         coord.bus.stop()
 

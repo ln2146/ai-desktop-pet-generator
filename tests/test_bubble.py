@@ -31,3 +31,10 @@ def test_bubble_renders_html_markup_literally(qapp) -> None:
     bubble.show_message(markup)
     # With PlainText the raw markup is shown verbatim, not parsed into rich text.
     assert bubble._label.text() == markup  # noqa: SLF001
+
+
+def test_bubble_strips_outer_blank_lines(qapp) -> None:
+    bubble = BubbleWindow()
+    bubble.show_message("\n[Codex] 完成\n\n")
+    assert bubble._label.text() == "[Codex] 完成"  # noqa: SLF001
+    assert not bubble._button_bar.isVisible()  # noqa: SLF001

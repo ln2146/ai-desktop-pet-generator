@@ -5,7 +5,6 @@ from PySide6.QtGui import QBrush, QColor, QFont, QGuiApplication, QPainter, QPai
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 _DEFAULT_TIMEOUT_MS = 12_000
-_LONG_TEXT_THRESHOLD = 24  # Chinese is dense; ~24 chars already wraps to multiple lines
 _MAX_WIDTH = 400
 
 
@@ -43,7 +42,11 @@ class BubbleWindow(QWidget):
         self._label.setStyleSheet("color: #0f172a; background: transparent; line-height: 1.4;")
         self._layout.addWidget(self._label)
 
-        self._button_row = QHBoxLayout()
+        self._button_bar = QWidget()
+        self._button_bar.setStyleSheet("background: transparent;")
+        self._button_bar.setVisible(False)
+        self._button_row = QHBoxLayout(self._button_bar)
+        self._button_row.setContentsMargins(0, 0, 0, 0)
         self._button_row.setSpacing(6)
         self._close_button = QPushButton("✕")
         self._close_button.setFixedWidth(24)
@@ -60,7 +63,7 @@ class BubbleWindow(QWidget):
         self._action_box = QHBoxLayout()
         self._action_box.setSpacing(6)
         self._button_row.addLayout(self._action_box)
-        self._layout.addLayout(self._button_row)
+        self._layout.addWidget(self._button_bar)
 
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
@@ -74,10 +77,13 @@ class BubbleWindow(QWidget):
         actions: list[tuple[str, object]] | None = None,
         long_text: bool | None = None,
     ) -> None:
-        self._label.setText(text)
-        self._rebuild_actions(actions or [])
-        is_long = (len(text) > _LONG_TEXT_THRESHOLD or "\n" in text) if long_text is None else long_text
-        self._close_button.setVisible(bool(is_long or actions))
+        clean_text = str(text).strip()
+        action_items = actions or []
+        self._label.setText(clean_text)
+        self._rebuild_actions(action_items)
+        has_actions = bool(action_items)
+        self._button_bar.setVisible(has_actions)
+        self._close_button.setVisible(has_actions)
         self.adjustSize()
         self.show()
         self.raise_()
