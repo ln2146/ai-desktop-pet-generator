@@ -18,6 +18,7 @@ equivalent this supersedes for pip-installed users):
   first and writes atomically (tmp + ``os.replace``, original mode preserved;
   Codex config forced to 0600). Corrupted JSON is refused, never overwritten.
 """
+
 from __future__ import annotations
 
 import enum
@@ -197,7 +198,9 @@ def _read_json_dict(path: Path) -> dict:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except ValueError as exc:
-        raise IntegrationsError(f"{path} 已损坏（{exc}）；请手动修复或用 *.bak.* 备份还原后再试") from exc
+        raise IntegrationsError(
+            f"{path} 已损坏（{exc}）；请手动修复或用 *.bak.* 备份还原后再试"
+        ) from exc
     if not isinstance(data, dict):
         raise IntegrationsError(f"{path} 不是 JSON 对象；请手动修复或用 *.bak.* 备份还原后再试")
     return data
@@ -279,7 +282,7 @@ def _parse_toml_string_array(line: str) -> list[str] | None:
 
 def _parse_toml_array_fallback(line: str) -> list[str] | None:
     """3.10-compatible mini parser for `notify = ["...", "..."]` (string items only)."""
-    match = re.match(r'\s*notify\s*=\s*\[(.*)\]\s*(?:#.*)?$', line)
+    match = re.match(r"\s*notify\s*=\s*\[(.*)\]\s*(?:#.*)?$", line)
     if not match:
         return None
     body = match.group(1)
@@ -662,12 +665,20 @@ def _antigravity_status(home: Path) -> ToolState:
     # petgen. Legacy bash-era entries under this key lack the marker, report
     # not_connected, and get upgraded in place by the next connect.
     if not command or not _is_petgen_command(command, TOOL_SOURCES["antigravity"]):
-        return ToolState("antigravity", ToolStatus.NOT_CONNECTED, "petgen-notify 键由旧版配置占用，接通时自动升级")
+        return ToolState(
+            "antigravity",
+            ToolStatus.NOT_CONNECTED,
+            "petgen-notify 键由旧版配置占用，接通时自动升级",
+        )
     if not direct_handler:
-        return ToolState("antigravity", ToolStatus.STALE, "接线格式是旧版，请重连以适配 Antigravity Stop hook")
+        return ToolState(
+            "antigravity", ToolStatus.STALE, "接线格式是旧版，请重连以适配 Antigravity Stop hook"
+        )
     if _command_entry_exists(command):
         if "antigravity-hook" not in command:
-            return ToolState("antigravity", ToolStatus.STALE, "接线命令是旧版，请重连以显示具体任务摘要")
+            return ToolState(
+                "antigravity", ToolStatus.STALE, "接线命令是旧版，请重连以显示具体任务摘要"
+            )
         return ToolState("antigravity", ToolStatus.CONNECTED, "真机触发待验证")
     return ToolState("antigravity", ToolStatus.STALE, "接线命令已失效（petgen 迁移过？），请重连")
 
@@ -710,8 +721,16 @@ def _antigravity_disconnect(home: Path) -> ToolState:
 # --- public facade -------------------------------------------------------------
 
 _STATUS_FN = {"claude": _claude_status, "codex": _codex_status, "antigravity": _antigravity_status}
-_CONNECT_FN = {"claude": _claude_connect, "codex": _codex_connect, "antigravity": _antigravity_connect}
-_DISCONNECT_FN = {"claude": _claude_disconnect, "codex": _codex_disconnect, "antigravity": _antigravity_disconnect}
+_CONNECT_FN = {
+    "claude": _claude_connect,
+    "codex": _codex_connect,
+    "antigravity": _antigravity_connect,
+}
+_DISCONNECT_FN = {
+    "claude": _claude_disconnect,
+    "codex": _codex_disconnect,
+    "antigravity": _antigravity_disconnect,
+}
 
 
 def status(tool: str, home: Path | None = None) -> ToolState:

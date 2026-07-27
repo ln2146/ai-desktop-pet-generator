@@ -68,7 +68,8 @@ def test_image_retries_on_503_then_succeeds(monkeypatch) -> None:
         ]
     )
     client = OpenAIImageClient(
-        ImageRequestConfig(api_key="test", max_attempts=3), session=session  # type: ignore[arg-type]
+        ImageRequestConfig(api_key="test", max_attempts=3),
+        session=session,  # type: ignore[arg-type]
     )
     assert client.generate("pet") == b"ok"
     assert session.posts == 3
@@ -81,7 +82,8 @@ def test_image_retry_exhausted_raises(monkeypatch) -> None:
     monkeypatch.setattr(oc, "_retry_sleep", lambda _s: None)
     session = _QueuedSession([FakeResponse(500, {"error": "boom"})] * 3)
     client = OpenAIImageClient(
-        ImageRequestConfig(api_key="test", max_attempts=3), session=session  # type: ignore[arg-type]
+        ImageRequestConfig(api_key="test", max_attempts=3),
+        session=session,  # type: ignore[arg-type]
     )
     with pytest.raises(oi.ImageGenerationError):
         client.generate("pet")

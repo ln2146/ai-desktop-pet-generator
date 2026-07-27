@@ -53,7 +53,12 @@ DEFAULT_ANIMATIONS = {
     "attentive": {"frames": [24, 25, 26, 27], "fps": 3.0, "loop": False, "fallback": "idle"},
     "busy": {"frames": [56, 57, 58, 59, 60, 61], "fps": 5.0, "loop": True, "fallback": "idle"},
     "alert": {"frames": [48, 49, 50, 51, 52, 53], "fps": 4.0, "loop": False, "fallback": "idle"},
-    "error": {"frames": [40, 41, 42, 43, 44, 45, 46, 47], "fps": 4.0, "loop": False, "fallback": "idle"},
+    "error": {
+        "frames": [40, 41, 42, 43, 44, 45, 46, 47],
+        "fps": 4.0,
+        "loop": False,
+        "fallback": "idle",
+    },
 }
 
 
@@ -118,7 +123,9 @@ def build_pet_assets(
     return {"sprite": sprite_path, "manifest": manifest_path, "preview": preview_path}
 
 
-def crop_premium_action_rows(image: Image.Image, spec: SpriteSpec = SpriteSpec()) -> list[list[Image.Image]]:
+def crop_premium_action_rows(
+    image: Image.Image, spec: SpriteSpec = SpriteSpec()
+) -> list[list[Image.Image]]:
     cutout = remove_chroma_background(image)
     row_bands = _segment_projection(
         _row_alpha_counts(cutout),
@@ -149,14 +156,20 @@ def crop_premium_action_rows(image: Image.Image, spec: SpriteSpec = SpriteSpec()
     return rows
 
 
-def compose_sprite_sheet(source_rows: list[list[Image.Image]], spec: SpriteSpec = SpriteSpec()) -> Image.Image:
+def compose_sprite_sheet(
+    source_rows: list[list[Image.Image]], spec: SpriteSpec = SpriteSpec()
+) -> Image.Image:
     if len(source_rows) != len(spec.source_row_counts):
-        raise SpriteBuildError(f"expected {len(spec.source_row_counts)} rows, got {len(source_rows)}")
+        raise SpriteBuildError(
+            f"expected {len(spec.source_row_counts)} rows, got {len(source_rows)}"
+        )
     for row, expected_count in zip(source_rows, spec.source_row_counts):
         if len(row) != expected_count:
             raise SpriteBuildError(f"expected row with {expected_count} frames, got {len(row)}")
 
-    sprite = Image.new("RGBA", (spec.frame_width * spec.columns, spec.frame_height * spec.rows), (0, 0, 0, 0))
+    sprite = Image.new(
+        "RGBA", (spec.frame_width * spec.columns, spec.frame_height * spec.rows), (0, 0, 0, 0)
+    )
     output_rows = [
         (0, 1.00, 0.0),
         (0, 0.99, 0.3),
@@ -185,7 +198,9 @@ def compose_sprite_sheet(source_rows: list[list[Image.Image]], spec: SpriteSpec 
     return sprite
 
 
-def remove_chroma_background(image: Image.Image, *, key: tuple[int, int, int] = (0, 255, 0)) -> Image.Image:
+def remove_chroma_background(
+    image: Image.Image, *, key: tuple[int, int, int] = (0, 255, 0)
+) -> Image.Image:
     """Remove the chroma-key background (vectorised with numpy).
 
     Rule, per pixel with alpha > 0:
@@ -223,12 +238,7 @@ def remove_chroma_background(image: Image.Image, *, key: tuple[int, int, int] = 
     opaque = alpha > 0
 
     hard = opaque & (distance <= _CHROMA_TRANSPARENT_DISTANCE)
-    soft = (
-        opaque
-        & ~hard
-        & green_dominant
-        & (distance < _CHROMA_SOFT_DISTANCE)
-    )
+    soft = opaque & ~hard & green_dominant & (distance < _CHROMA_SOFT_DISTANCE)
 
     new_alpha = alpha.copy()
     new_alpha[hard] = 0
@@ -287,7 +297,10 @@ def _despill_light_subject_edges(rgba: Image.Image) -> None:
             ir //= n
             ig //= n
             ib //= n
-            if ig > ir + _DESPILL_INTERIOR_GREEN_MARGIN and ig > ib + _DESPILL_INTERIOR_GREEN_MARGIN:
+            if (
+                ig > ir + _DESPILL_INTERIOR_GREEN_MARGIN
+                and ig > ib + _DESPILL_INTERIOR_GREEN_MARGIN
+            ):
                 continue  # 本体为绿色角色，保留其边缘
             ng = max(r, b) + _DESPILL_GREEN_REPLACEMENT_MARGIN
             if g <= ng:
@@ -328,7 +341,9 @@ def make_preview(sprite: Image.Image, spec: SpriteSpec = SpriteSpec()) -> Image.
     return first.crop(padded)
 
 
-def _crop_row_frames(image: Image.Image, row_band: tuple[int, int], expected_count: int) -> list[Image.Image]:
+def _crop_row_frames(
+    image: Image.Image, row_band: tuple[int, int], expected_count: int
+) -> list[Image.Image]:
     # Prefer 2D connected components: they ignore 1-3px star/spark noise (filtered
     # by area) and keep near-touching poses separate, which the old 1D column
     # projection + large merge_gap could not (it fused thin real gaps and then
@@ -597,7 +612,9 @@ def _crop_visible_content(
     return image.crop((left, top, right, bottom))
 
 
-def _transform_frame(image: Image.Image, scale: float, rotation: float, spec: SpriteSpec) -> Image.Image:
+def _transform_frame(
+    image: Image.Image, scale: float, rotation: float, spec: SpriteSpec
+) -> Image.Image:
     scaled = image.resize(
         (max(1, int(image.width * scale)), max(1, int(image.height * scale))),
         Image.Resampling.LANCZOS,

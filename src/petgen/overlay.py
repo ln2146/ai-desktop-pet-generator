@@ -81,18 +81,26 @@ def _draw_hearts(painter, rect) -> None:
     for fx, fy, fs in offsets:
         w = rect.width() * fs
         h = rect.height() * fs
-        box = QRectF(rect.x() + rect.width() * fx - w / 2, rect.y() + rect.height() * fy - h / 2, w, h)
+        box = QRectF(
+            rect.x() + rect.width() * fx - w / 2, rect.y() + rect.height() * fy - h / 2, w, h
+        )
         path = QPainterPath()
         path.moveTo(box.center().x(), box.bottom())
         path.cubicTo(
-            box.left() - w * 0.1, box.top() + h * 0.2,
-            box.left() + w * 0.2, box.top() - h * 0.1,
-            box.center().x(), box.top() + h * 0.35,
+            box.left() - w * 0.1,
+            box.top() + h * 0.2,
+            box.left() + w * 0.2,
+            box.top() - h * 0.1,
+            box.center().x(),
+            box.top() + h * 0.35,
         )
         path.cubicTo(
-            box.right() - w * 0.2, box.top() - h * 0.1,
-            box.right() + w * 0.1, box.top() + h * 0.2,
-            box.center().x(), box.bottom(),
+            box.right() - w * 0.2,
+            box.top() - h * 0.1,
+            box.right() + w * 0.1,
+            box.top() + h * 0.2,
+            box.center().x(),
+            box.bottom(),
         )
         painter.drawPath(path)
 

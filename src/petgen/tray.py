@@ -30,7 +30,9 @@ def _placeholder_icon(size: int = 22) -> QIcon:
     painter.setPen(Qt.NoPen)
     painter.setBrush(QBrush(QColor(120, 130, 150)))
     cx = cy = size / 2
-    painter.drawEllipse(int(cx - size * 0.22), int(cy - size * 0.12), int(size * 0.44), int(size * 0.4))
+    painter.drawEllipse(
+        int(cx - size * 0.22), int(cy - size * 0.12), int(size * 0.44), int(size * 0.4)
+    )
     for fx, fy in [(0.3, 0.28), (0.5, 0.22), (0.7, 0.28), (0.22, 0.5)]:
         painter.drawEllipse(int(size * fx - 2), int(size * fy - 2), 4, 4)
     painter.end()
@@ -158,7 +160,9 @@ class TrayController(QObject):
         self._show_action = menu.addAction("显示宠物")
         self._show_action.setCheckable(True)
         self._show_action.setChecked(True)
-        self._show_action.triggered.connect(lambda checked: self.show_pet_requested.emit(bool(checked)))
+        self._show_action.triggered.connect(
+            lambda checked: self.show_pet_requested.emit(bool(checked))
+        )
         menu.addAction("宠物中心").triggered.connect(lambda: self.library_requested.emit())
         menu.addSeparator()
         menu.addAction("提醒列表").triggered.connect(lambda: self.reminder_list_requested.emit())

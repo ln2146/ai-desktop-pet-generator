@@ -45,7 +45,9 @@ def _from_qdt(qdt: QDateTime) -> str:
 
 
 def _from_date_time(date: QDate, time: QTime) -> str:
-    local_dt = datetime(date.year(), date.month(), date.day(), time.hour(), time.minute(), time.second()).astimezone()
+    local_dt = datetime(
+        date.year(), date.month(), date.day(), time.hour(), time.minute(), time.second()
+    ).astimezone()
     return to_iso(local_dt)
 
 
@@ -193,9 +195,7 @@ class ReminderEditorDialog(QDialog):
         custom_weekdays: list[int] = []
         if rec == "custom_weekly":
             custom_weekdays = [
-                int(box.property("weekday"))
-                for box in self._weekday_boxes
-                if box.isChecked()
+                int(box.property("weekday")) for box in self._weekday_boxes if box.isChecked()
             ]
         data = {
             "title": title,

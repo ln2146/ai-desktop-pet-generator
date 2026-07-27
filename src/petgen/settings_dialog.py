@@ -62,7 +62,9 @@ def _create_card_container(title: str, subtitle: str | None = None) -> tuple[QFr
 
     if subtitle:
         sub = QLabel(subtitle)
-        sub.setWordWrap(True)  # long subtitles must wrap, else they widen the card and push right-aligned controls off-screen
+        sub.setWordWrap(
+            True
+        )  # long subtitles must wrap, else they widen the card and push right-aligned controls off-screen
         sub.setStyleSheet("color: #64748b; font-size: 12px; border: none; background: transparent;")
         layout.addWidget(sub)
 
@@ -71,7 +73,9 @@ def _create_card_container(title: str, subtitle: str | None = None) -> tuple[QFr
 
 def _create_field_label(text: str) -> QLabel:
     lbl = QLabel(text)
-    lbl.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px; border: none; background: transparent;")
+    lbl.setStyleSheet(
+        "color: #334155; font-weight: 600; font-size: 12px; border: none; background: transparent;"
+    )
     return lbl
 
 
@@ -162,7 +166,9 @@ class SettingsDialog(QDialog):
         layout.setSpacing(14)
 
         # API Credentials Card
-        card1, c1_layout = _create_card_container("API 凭据配置", "用于调用 OpenAI 或兼容 OpenAI 协议的大模型服务")
+        card1, c1_layout = _create_card_container(
+            "API 凭据配置", "用于调用 OpenAI 或兼容 OpenAI 协议的大模型服务"
+        )
 
         c1_layout.addWidget(_create_field_label("API Key"))
         key_box = QHBoxLayout()
@@ -262,7 +268,9 @@ class SettingsDialog(QDialog):
                 "color: #0f172a; font-weight: 600; font-size: 13px; border: none; background: transparent;"
             )
             chip = QLabel()
-            chip.setStyleSheet("color: #64748b; font-size: 12px; font-weight: 600; border: none; background: transparent;")
+            chip.setStyleSheet(
+                "color: #64748b; font-size: 12px; font-weight: 600; border: none; background: transparent;"
+            )
             # A real, globally-themed checkbox replaces the per-widget-styled button
             # (that stylesheet was hiding the button). checked == connected; clicking
             # toggles wiring and refresh_tool_rows reapplies the authoritative state.
@@ -296,14 +304,20 @@ class SettingsDialog(QDialog):
         layout.setContentsMargins(0, 14, 12, 14)
         layout.setSpacing(14)
 
-        card, c_layout = _create_card_container(f"PetGen 桌宠小助手 v{__version__}", "AI 智能桌面灵动宠物构建平台")
+        card, c_layout = _create_card_container(
+            f"PetGen 桌宠小助手 v{__version__}", "AI 智能桌面灵动宠物构建平台"
+        )
 
         c_layout.addWidget(_create_field_label(f"📂 数据目录：{data_dir()}"))
         try:
             from petgen.store import AiEventStore
 
             stats = AiEventStore().stats()
-            c_layout.addWidget(_create_field_label(f"📊 已记录 AI 互动事件：{stats['total']} 条（今日 {stats['today_count']} 条）"))
+            c_layout.addWidget(
+                _create_field_label(
+                    f"📊 已记录 AI 互动事件：{stats['total']} 条（今日 {stats['today_count']} 条）"
+                )
+            )
         except Exception:
             pass
 
@@ -318,7 +332,9 @@ class SettingsDialog(QDialog):
             value = self._settings.get(key, "")
             getattr(self, widget_name).setText("" if value is None else str(value))
         for widget_name, key in _PET_FIELDS_BOOL.items():
-            getattr(self, widget_name).setChecked(bool(self._settings.get(key, widget_name == "pet_motion")))
+            getattr(self, widget_name).setChecked(
+                bool(self._settings.get(key, widget_name == "pet_motion"))
+            )
         self.pet_scale.setValue(float(self._settings.get("pet.scale", 1.5)))
         # Refresh the tool-wiring states (the dialog instance is reused across shows);
         # a failure here must never break the dialog itself.

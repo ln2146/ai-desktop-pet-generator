@@ -39,7 +39,9 @@ def fake_petgen_exe(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     return exe
 
 
-def _make_home(tmp_path: Path, *, claude: bool = True, codex: bool = True, gemini: bool = True) -> Path:
+def _make_home(
+    tmp_path: Path, *, claude: bool = True, codex: bool = True, gemini: bool = True
+) -> Path:
     home = tmp_path / "home"
     home.mkdir()
     if claude:
@@ -69,9 +71,7 @@ def test_petgen_argv_falls_back_to_module(monkeypatch: pytest.MonkeyPatch) -> No
 # --- Claude Code ----------------------------------------------------------------
 
 
-def test_claude_connect_creates_hooks_and_backs_up(
-    fake_petgen_exe: Path, tmp_path: Path
-) -> None:
+def test_claude_connect_creates_hooks_and_backs_up(fake_petgen_exe: Path, tmp_path: Path) -> None:
     home = _make_home(tmp_path)
     settings = home / ".claude" / "settings.json"
     settings.write_text(json.dumps({"theme": "dark"}), encoding="utf-8")
@@ -101,7 +101,9 @@ def test_claude_connect_idempotent(fake_petgen_exe: Path, tmp_path: Path) -> Non
     data = json.loads(settings.read_text(encoding="utf-8"))
     assert len(data["hooks"]["Stop"]) == 1
     assert len(data["hooks"]["SubagentStop"]) == 1
-    assert list(settings.parent.glob("settings.json.bak.*")) == backups_after_first  # no extra backup
+    assert (
+        list(settings.parent.glob("settings.json.bak.*")) == backups_after_first
+    )  # no extra backup
 
 
 def test_claude_coexists_with_other_pets(fake_petgen_exe: Path, tmp_path: Path) -> None:
@@ -297,7 +299,9 @@ def test_codex_disconnect_foreign_notify_untouched(fake_petgen_exe: Path, tmp_pa
     assert config.read_text(encoding="utf-8") == 'notify = ["/usr/local/bin/other"]\n'
 
 
-def test_codex_stale_status_when_entry_gone(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_codex_stale_status_when_entry_gone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     home = _make_home(tmp_path)
     config = home / ".codex" / "config.toml"
     config.write_text('notify = ["/nonexistent/petgen", "codex-notify"]\n', encoding="utf-8")
@@ -314,13 +318,17 @@ def test_codex_not_detected(tmp_path: Path) -> None:
 def test_codex_sidecar_legacy_single_line(tmp_path: Path) -> None:
     home = _make_home(tmp_path)
     (home / ".petgen").mkdir()
-    (home / ".petgen" / "codex-notify-original").write_text("/usr/local/bin/old-wrapper\n", encoding="utf-8")
+    (home / ".petgen" / "codex-notify-original").write_text(
+        "/usr/local/bin/old-wrapper\n", encoding="utf-8"
+    )
     argv, original_line = integrations.read_codex_sidecar(home=home)
     assert argv == ["/usr/local/bin/old-wrapper"]
     assert original_line is None
 
 
-def test_chain_calls_original_with_passthrough(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_chain_calls_original_with_passthrough(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     home = _make_home(tmp_path)
     (home / ".petgen").mkdir()
     prog = tmp_path / "orig-notify"
@@ -331,7 +339,9 @@ def test_chain_calls_original_with_passthrough(tmp_path: Path, monkeypatch: pyte
         encoding="utf-8",
     )
     recorded: list[list[str]] = []
-    monkeypatch.setattr(integrations.subprocess, "run", lambda argv, **kwargs: recorded.append(list(argv)))
+    monkeypatch.setattr(
+        integrations.subprocess, "run", lambda argv, **kwargs: recorded.append(list(argv))
+    )
     integrations.chain_original_notify(['{"type": "agent-turn-complete"}'], home=home)
     assert recorded == [[str(prog), '{"type": "agent-turn-complete"}']]
 
@@ -352,7 +362,9 @@ def test_chain_skips_self_reference(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     assert called == []
 
 
-def test_chain_skips_bash_wrapper_reading_sidecar(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_chain_skips_bash_wrapper_reading_sidecar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     # The legacy bash wrapper reads our sidecar file — chaining it would loop
     # forever, so any target whose body references the sidecar is skipped.
     home = _make_home(tmp_path)
@@ -381,14 +393,16 @@ def test_chain_allows_foreign_wrapper_with_similar_name(
     home = _make_home(tmp_path)
     (home / ".petgen").mkdir()
     wrapper = tmp_path / "codex-notify-wrapper.sh"
-    wrapper.write_text("#!/bin/sh\n/usr/bin/some-original-notify \"$@\"\n", encoding="utf-8")
+    wrapper.write_text('#!/bin/sh\n/usr/bin/some-original-notify "$@"\n', encoding="utf-8")
     wrapper.chmod(0o755)
     (home / ".petgen" / "codex-notify-original").write_text(
         json.dumps({"format": 1, "argv": [str(wrapper), "turn-ended"], "original_line": None}),
         encoding="utf-8",
     )
     called: list[list[str]] = []
-    monkeypatch.setattr(integrations.subprocess, "run", lambda argv, **kwargs: called.append(list(argv)))
+    monkeypatch.setattr(
+        integrations.subprocess, "run", lambda argv, **kwargs: called.append(list(argv))
+    )
     integrations.chain_original_notify([], home=home)
     assert called == [[str(wrapper), "turn-ended"]]
 
@@ -499,7 +513,9 @@ def test_antigravity_legacy_entry_upgraded_by_connect(
     assert parts[1:5] == ["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"]
 
 
-def test_antigravity_grouped_petgen_entry_marked_stale(fake_petgen_exe: Path, tmp_path: Path) -> None:
+def test_antigravity_grouped_petgen_entry_marked_stale(
+    fake_petgen_exe: Path, tmp_path: Path
+) -> None:
     home = _make_home(tmp_path)
     hooks = home / ".gemini" / "config" / "hooks.json"
     hooks.parent.mkdir(parents=True)
@@ -575,7 +591,7 @@ def test_antigravity_old_petgen_event_marked_stale(fake_petgen_exe: Path, tmp_pa
     ],
 )
 def test_toml_quote_roundtrip(value: str) -> None:
-    line = f"notify = [{_toml_quote(value)}, \"codex-notify\"]"
+    line = f'notify = [{_toml_quote(value)}, "codex-notify"]'
     assert _parse_toml_string_array(line) == [value, "codex-notify"]
     assert _parse_toml_array_fallback(line) == [value, "codex-notify"]
 

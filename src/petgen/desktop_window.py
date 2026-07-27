@@ -84,10 +84,7 @@ class PetWindow(QWidget):
         self._atlas = atlas
 
         self.setWindowFlags(
-            Qt.FramelessWindowHint
-            | Qt.WindowStaysOnTopHint
-            | Qt.Tool
-            | Qt.NoDropShadowWindowHint
+            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.NoDropShadowWindowHint
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
@@ -335,7 +332,11 @@ class PetWindow(QWidget):
         if self._particles:
             painter.setPen(Qt.NoPen)
             for p in self._particles:
-                painter.setBrush(QBrush(QColor(p["color"][0], p["color"][1], p["color"][2], int(255 * p["life"]))))
+                painter.setBrush(
+                    QBrush(
+                        QColor(p["color"][0], p["color"][1], p["color"][2], int(255 * p["life"]))
+                    )
+                )
                 painter.drawEllipse(QPointF(p["x"], p["y"]), 3.0, 3.0)
         painter.end()
 

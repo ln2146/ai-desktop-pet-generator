@@ -73,7 +73,9 @@ class _CreatePetDialog(QDialog):
         layout.addWidget(header)
 
         self.description = QTextEdit()
-        self.description.setPlaceholderText("例如：一只圆滚滚的水豚程序员，戴小耳机，温柔聪明，眼神呆萌…")
+        self.description.setPlaceholderText(
+            "例如：一只圆滚滚的水豚程序员，戴小耳机，温柔聪明，眼神呆萌…"
+        )
         self.description.setStyleSheet("QTextEdit { border-radius: 10px; font-size: 13px; }")
         layout.addWidget(self.description, 1)
 
@@ -104,7 +106,9 @@ class _CreatePetDialog(QDialog):
         layout.addWidget(box)
 
     def _add_image(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(self, "选择参考图", "", "Images (*.png *.jpg *.jpeg *.webp)")
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "选择参考图", "", "Images (*.png *.jpg *.jpeg *.webp)"
+        )
         if paths:
             self._images.extend(paths)
             self._img_label.setText(f"已附加 {len(self._images)} 张参考图")
@@ -264,7 +268,12 @@ class _PetCard(QFrame):
         # Pet, centred and lifted slightly above its shadow
         src = QPixmap(path)
         aw, ah = w - 18, h - 24
-        pm = src.scaled(int(aw * dpr), int(ah * dpr), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        pm = src.scaled(
+            int(aw * dpr),
+            int(ah * dpr),
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
         pm.setDevicePixelRatio(dpr)
         lw = pm.width() / dpr
         lh = pm.height() / dpr
@@ -402,7 +411,9 @@ class LibraryDialog(QDialog):
         root.addLayout(title_box)
 
         self._progress = QLabel("")
-        self._progress.setStyleSheet("color: #4f46e5; font-weight: 600; font-size: 13px; padding: 2px 0px;")
+        self._progress.setStyleSheet(
+            "color: #4f46e5; font-weight: 600; font-size: 13px; padding: 2px 0px;"
+        )
         self._progress.setVisible(False)
         root.addWidget(self._progress)
 
@@ -410,7 +421,9 @@ class LibraryDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { border: 1px solid #e7ecf3; border-radius: 12px; background: #f4f6fc; }")
+        scroll.setStyleSheet(
+            "QScrollArea { border: 1px solid #e7ecf3; border-radius: 12px; background: #f4f6fc; }"
+        )
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         self._grid_layout = QGridLayout(container)
@@ -442,8 +455,12 @@ class LibraryDialog(QDialog):
         self._interaction_style_keys: list[str] = []
         for key, style in load_styles().items():
             self._interaction_style_keys.append(key)
-            self._interaction_style_combo.addItem(f"{style.emoji} {style.display_name} · {style.description}", key)
-        self._interaction_style_combo.currentIndexChanged.connect(self._on_interaction_style_changed)
+            self._interaction_style_combo.addItem(
+                f"{style.emoji} {style.display_name} · {style.description}", key
+            )
+        self._interaction_style_combo.currentIndexChanged.connect(
+            self._on_interaction_style_changed
+        )
         style_control_row = QHBoxLayout()
         style_control_row.setSpacing(6)
         style_control_row.addWidget(self._interaction_style_combo, 1)
@@ -484,7 +501,9 @@ class LibraryDialog(QDialog):
         self._fish_eye.setCheckable(True)
         self._fish_eye.setCursor(Qt.PointingHandCursor)
         self._fish_eye.toggled.connect(
-            lambda on: self._fish_api_key.setEchoMode(QLineEdit.Normal if on else QLineEdit.Password)
+            lambda on: self._fish_api_key.setEchoMode(
+                QLineEdit.Normal if on else QLineEdit.Password
+            )
         )
         self._fish_fill_btn = QPushButton("从 .env")
         self._fish_fill_btn.setFixedHeight(30)
@@ -574,14 +593,16 @@ class LibraryDialog(QDialog):
 
         selected_name = "未选择"
         for i, record in enumerate(pets):
-            is_sel = (record.id == selected_id)
+            is_sel = record.id == selected_id
             if is_sel:
                 selected_name = record.display_name or record.id
             card = _PetCard(record, selected=is_sel)
             card.selected.connect(self.pet_selected.emit)
             card.previewed.connect(self.preview_requested.emit)
             card.revealed.connect(reveal_in_folder)
-            card.renamed.connect(lambda new_name, pid=record.id: self.rename_requested.emit(pid, new_name))
+            card.renamed.connect(
+                lambda new_name, pid=record.id: self.rename_requested.emit(pid, new_name)
+            )
             card.deleted.connect(self.delete_requested.emit)
             self._cards.append(card)
             self._grid_layout.addWidget(card, i // _COLS, i % _COLS)
@@ -601,7 +622,11 @@ class LibraryDialog(QDialog):
         self._scale_slider.blockSignals(False)
 
     def set_interaction_style_value(self, style_key: str | None) -> None:
-        key = style_key if style_key in self._interaction_style_keys else self._interaction_style_keys[0]
+        key = (
+            style_key
+            if style_key in self._interaction_style_keys
+            else self._interaction_style_keys[0]
+        )
         self._interaction_style_combo.blockSignals(True)
         self._interaction_style_combo.setCurrentIndex(self._interaction_style_keys.index(key))
         self._interaction_style_combo.blockSignals(False)

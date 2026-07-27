@@ -100,7 +100,9 @@ def test_legacy_db_is_migrated_to_current_version(tmp_path: Path) -> None:
         try:
             assert conn.execute("PRAGMA user_version").fetchone()[0] == _TARGET_VERSION
             # All current tables present after migration.
-            tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            tables = {
+                r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            }
             assert {"settings", "pets", "ai_events", "reminders"} <= tables
         finally:
             conn.close()

@@ -30,10 +30,14 @@ class FishAudioTTSConfig:
         base_url: str | None = None,
         model: str | None = None,
     ) -> "FishAudioTTSConfig":
-        resolved_key = api_key or os.environ.get("FISH_AUDIO_API_KEY") or os.environ.get("FISH_API_KEY") or ""
+        resolved_key = (
+            api_key or os.environ.get("FISH_AUDIO_API_KEY") or os.environ.get("FISH_API_KEY") or ""
+        )
         return cls(
             api_key=resolved_key.strip(),
-            base_url=(base_url or os.environ.get("FISH_AUDIO_BASE_URL") or FISH_API_BASE_URL).rstrip("/"),
+            base_url=(
+                base_url or os.environ.get("FISH_AUDIO_BASE_URL") or FISH_API_BASE_URL
+            ).rstrip("/"),
             model=model or os.environ.get("FISH_AUDIO_TTS_MODEL") or FISH_FREE_TTS_MODEL,
         )
 
@@ -51,7 +55,9 @@ class FishAudioTTSClient:
         self.config = config
         self._session = session or requests.Session()
 
-    def synthesize_to_file(self, text: str, path: str | Path, *, reference_id: str | None = None) -> None:
+    def synthesize_to_file(
+        self, text: str, path: str | Path, *, reference_id: str | None = None
+    ) -> None:
         clean_text = text.strip()
         if not clean_text:
             raise FishAudioError("Text is required")

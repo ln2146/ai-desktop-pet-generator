@@ -50,7 +50,11 @@ def test_register_build_copies_and_indexes(tmp_path: Path) -> None:
     library, registry, _ = _make_library(tmp_path)
 
     record = library.register_build(
-        {"sprite": out / "sprite.png", "manifest": out / "pet.json", "preview": out / "preview.png"},
+        {
+            "sprite": out / "sprite.png",
+            "manifest": out / "pet.json",
+            "preview": out / "preview.png",
+        },
         pet_id="gen-1",
         model="m",
         prompt="p",

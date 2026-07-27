@@ -50,8 +50,7 @@ def test_codex_notify_falls_back_to_latest_session(tmp_path: Path) -> None:
             ensure_ascii=False,
         )
         + "\n"
-        +
-        json.dumps(
+        + json.dumps(
             {
                 "type": "event_msg",
                 "payload": {
@@ -81,14 +80,22 @@ def test_claude_hook_reads_transcript_for_task_summary(tmp_path: Path) -> None:
                 json.dumps(
                     {
                         "type": "user",
-                        "message": {"role": "user", "content": [{"type": "text", "text": "帮我优化任务完成提示"}]},
+                        "message": {
+                            "role": "user",
+                            "content": [{"type": "text", "text": "帮我优化任务完成提示"}],
+                        },
                     },
                     ensure_ascii=False,
                 ),
                 json.dumps(
                     {
                         "type": "assistant",
-                        "message": {"role": "assistant", "content": [{"type": "text", "text": "已把完成提示改成包含任务摘要和耗时。"}]},
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {"type": "text", "text": "已把完成提示改成包含任务摘要和耗时。"}
+                            ],
+                        },
                     },
                     ensure_ascii=False,
                 ),
@@ -120,19 +127,38 @@ def test_claude_hook_prefers_result_and_skips_low_signal_closer(tmp_path: Path) 
             [
                 json.dumps(
                     {
-                        "message": {"role": "user", "content": [{"type": "text", "text": "把三个工具提示统一"}]},
+                        "message": {
+                            "role": "user",
+                            "content": [{"type": "text", "text": "把三个工具提示统一"}],
+                        },
                     },
                     ensure_ascii=False,
                 ),
                 json.dumps(
                     {
-                        "message": {"role": "assistant", "content": [{"type": "text", "text": "已统一 Codex、Claude Code、Antigravity 的完成提示格式。"}]},
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "已统一 Codex、Claude Code、Antigravity 的完成提示格式。",
+                                }
+                            ],
+                        },
                     },
                     ensure_ascii=False,
                 ),
                 json.dumps(
                     {
-                        "message": {"role": "assistant", "content": [{"type": "text", "text": "后台正常运行中，如果您后续还有需求，随时告诉我。"}]},
+                        "message": {
+                            "role": "assistant",
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": "后台正常运行中，如果您后续还有需求，随时告诉我。",
+                                }
+                            ],
+                        },
                     },
                     ensure_ascii=False,
                 ),
@@ -153,7 +179,10 @@ def test_claude_hook_prefers_result_and_skips_low_signal_closer(tmp_path: Path) 
         fallback_title="Claude 任务完成",
     )
 
-    assert title == "ai-desktop-pet-generator 已完成：已统一 Codex、Claude Code、Antigravity 的完成提示格式。"
+    assert (
+        title
+        == "ai-desktop-pet-generator 已完成：已统一 Codex、Claude Code、Antigravity 的完成提示格式。"
+    )
     assert detail == "任务：把三个工具提示统一；耗时 1 分 2 秒"
 
 
@@ -222,7 +251,10 @@ def test_antigravity_hook_falls_back_to_transcript_for_codex_like_summary(tmp_pa
     )
 
     assert kind == "task_completed"
-    assert title == "ai-desktop-pet-generator 已完成：已按照您的指示，将重复模式下拉菜单与提醒卡片中的名称精简修改为 自定义，并已完成 Git 提交。"
+    assert (
+        title
+        == "ai-desktop-pet-generator 已完成：已按照您的指示，将重复模式下拉菜单与提醒卡片中的名称精简修改为 自定义，并已完成 Git 提交。"
+    )
     assert detail is None
 
 
@@ -258,6 +290,9 @@ def test_antigravity_hook_uses_user_task_when_transcript_has_no_final(tmp_path: 
 
 def test_text_helpers_compact_without_hiding_absence() -> None:
     assert compact_text("  a\n b  ") == "a b"
-    assert compact_text("查到了：**有一个相关项目**，路径是 `demo.py`") == "查到了：有一个相关项目，路径是 demo.py"
+    assert (
+        compact_text("查到了：**有一个相关项目**，路径是 `demo.py`")
+        == "查到了：有一个相关项目，路径是 demo.py"
+    )
     assert format_duration(61000) == "耗时 1 分 1 秒"
     assert summarize_agent_message("qa_note=已检查通过\nbackend=x") == "已检查通过"

@@ -127,7 +127,9 @@ def _record(pet_id: str, tmp_path: Path, name: str) -> PetRecord:
     d.mkdir(parents=True, exist_ok=True)
     Image.new("RGBA", (8, 8), (120, 120, 120, 255)).save(d / "sprite.png")
     Image.new("RGBA", (8, 8), (200, 200, 200, 255)).save(d / "preview.png")
-    (d / "pet.json").write_text(json.dumps({"id": pet_id, "spritesheetPath": "sprite.png"}), encoding="utf-8")
+    (d / "pet.json").write_text(
+        json.dumps({"id": pet_id, "spritesheetPath": "sprite.png"}), encoding="utf-8"
+    )
     return PetRecord(
         id=pet_id,
         display_name=name,

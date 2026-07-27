@@ -12,7 +12,7 @@ def test_load_env_file_without_overriding_existing_values(tmp_path: Path, monkey
         "\n".join(
             [
                 "OPENAI_API_KEY=from-file",
-                "OPENAI_BASE_URL=\"https://example.test/v1\"",
+                'OPENAI_BASE_URL="https://example.test/v1"',
                 "OPENAI_IMAGE_MODEL='gpt-image-2'",
             ]
         ),

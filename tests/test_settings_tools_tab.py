@@ -58,7 +58,9 @@ def _make_dialog(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SettingsDia
     return SettingsDialog(SettingsStore(tmp_path / "db.sqlite"))
 
 
-def test_tools_tab_exists_after_ai_settings_move_to_preferences_tab(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_tools_tab_exists_after_ai_settings_move_to_preferences_tab(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _install(monkeypatch, _FakeWiring(_all(integrations.ToolStatus.NOT_CONNECTED)))
     dlg = _make_dialog(tmp_path, monkeypatch)
     tabs = dlg.findChild(QTabWidget)
@@ -70,12 +72,18 @@ def test_tools_tab_exists_after_ai_settings_move_to_preferences_tab(qapp, tmp_pa
     assert not any("AI 服务" in tabs.tabText(i) for i in range(tabs.count()))
 
 
-def test_rows_reflect_all_four_states(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_rows_reflect_all_four_states(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake = _FakeWiring(
         {
-            "claude": integrations.ToolState("claude", integrations.ToolStatus.CONNECTED, "接通于 /x"),
+            "claude": integrations.ToolState(
+                "claude", integrations.ToolStatus.CONNECTED, "接通于 /x"
+            ),
             "codex": integrations.ToolState("codex", integrations.ToolStatus.NOT_CONNECTED),
-            "antigravity": integrations.ToolState("antigravity", integrations.ToolStatus.NOT_DETECTED, "未检测到"),
+            "antigravity": integrations.ToolState(
+                "antigravity", integrations.ToolStatus.NOT_DETECTED, "未检测到"
+            ),
         }
     )
     fake.states["claude"] = integrations.ToolState("claude", integrations.ToolStatus.CONNECTED)
@@ -101,7 +109,9 @@ def test_rows_reflect_all_four_states(qapp, tmp_path: Path, monkeypatch: pytest.
     assert not ag_toggle.isChecked() and not ag_toggle.isEnabled()
 
 
-def test_toggle_connects_then_disconnects(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_toggle_connects_then_disconnects(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake = _FakeWiring(_all(integrations.ToolStatus.NOT_CONNECTED))
     _install(monkeypatch, fake)
     dlg = _make_dialog(tmp_path, monkeypatch)
@@ -118,7 +128,9 @@ def test_toggle_connects_then_disconnects(qapp, tmp_path: Path, monkeypatch: pyt
     assert not toggle.isChecked()
 
 
-def test_connect_all_connects_each_tool(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_connect_all_connects_each_tool(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     fake = _FakeWiring(_all(integrations.ToolStatus.NOT_CONNECTED))
     _install(monkeypatch, fake)
     dlg = _make_dialog(tmp_path, monkeypatch)
@@ -151,7 +163,9 @@ def test_connect_error_shows_warning(qapp, tmp_path: Path, monkeypatch: pytest.M
     assert warnings and "boom" in warnings[0][1]
 
 
-def test_status_failure_does_not_break_dialog(qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_status_failure_does_not_break_dialog(
+    qapp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     def broken(tool, home=None):
         raise RuntimeError("probe failed")
 

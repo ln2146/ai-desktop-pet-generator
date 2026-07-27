@@ -131,9 +131,7 @@ class SettingsStore:
             self._conn.close()
 
     def get(self, key: str, default: Any = None) -> Any:
-        row = self._conn.execute(
-            "SELECT value FROM settings WHERE key = ?", (key,)
-        ).fetchone()
+        row = self._conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
         if row is None:
             return default
         try:
@@ -199,15 +197,11 @@ class PetRegistry:
         self._conn.commit()
 
     def list_pets(self) -> list[PetRecord]:
-        rows = self._conn.execute(
-            "SELECT * FROM pets ORDER BY created_at ASC, id ASC"
-        ).fetchall()
+        rows = self._conn.execute("SELECT * FROM pets ORDER BY created_at ASC, id ASC").fetchall()
         return [self._to_record(row) for row in rows]
 
     def get(self, pet_id: str) -> PetRecord | None:
-        row = self._conn.execute(
-            "SELECT * FROM pets WHERE id = ?", (pet_id,)
-        ).fetchone()
+        row = self._conn.execute("SELECT * FROM pets WHERE id = ?", (pet_id,)).fetchone()
         return self._to_record(row) if row else None
 
     def delete(self, pet_id: str) -> bool:

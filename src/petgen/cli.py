@@ -21,7 +21,9 @@ from petgen.openai_text import (
 from petgen.prompt import build_pet_prompt
 from petgen.spritesheet import SpriteBuildError, build_pet_assets
 
-DEFAULT_IMAGE_ONLY_DESCRIPTION = "把参考图中的形象原样转成可爱桌面宠物，保留原本的颜色、轮廓、标志性配饰和性格特征"
+DEFAULT_IMAGE_ONLY_DESCRIPTION = (
+    "把参考图中的形象原样转成可爱桌面宠物，保留原本的颜色、轮廓、标志性配饰和性格特征"
+)
 DEFAULT_LOCAL_BUILD_DESCRIPTION = "由本地源图转换的桌面宠物"
 
 #: Subcommands used as hook targets — they must never exit non-zero for usage
@@ -58,7 +60,13 @@ def main(argv: list[str] | None = None) -> int:
             return _run_antigravity_hook(args)
         if args.command == "tools":
             return _run_tools(args)
-    except (ImageGenerationError, TextGenerationError, SpriteBuildError, OSError, ValueError) as exc:
+    except (
+        ImageGenerationError,
+        TextGenerationError,
+        SpriteBuildError,
+        OSError,
+        ValueError,
+    ) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
     parser.print_help()
@@ -101,7 +109,9 @@ def _run_generate(args: argparse.Namespace) -> int:
         description=description,
         model=config.model,
         prompt=prompt,
-        enriched_description=effective_description if effective_description != description else None,
+        enriched_description=effective_description
+        if effective_description != description
+        else None,
     )
     if not getattr(args, "no_register", False):
         _register_generated_pet(
@@ -214,12 +224,18 @@ def _build_parser() -> argparse.ArgumentParser:
 
     generate = sub.add_parser("generate", help="call the image API, then build desktop-pet assets")
     _add_common_args(generate)
-    generate.add_argument("--image", action="append", default=[], help="optional reference image; repeatable")
+    generate.add_argument(
+        "--image", action="append", default=[], help="optional reference image; repeatable"
+    )
     generate.add_argument("--api-key", default=None, help="defaults to OPENAI_API_KEY")
     generate.add_argument("--base-url", default=None, help="defaults to OPENAI_BASE_URL or OpenAI")
-    generate.add_argument("--model", default=None, help="defaults to OPENAI_IMAGE_MODEL or gpt-image-2")
+    generate.add_argument(
+        "--model", default=None, help="defaults to OPENAI_IMAGE_MODEL or gpt-image-2"
+    )
     generate.add_argument("--size", default=None, help="defaults to OPENAI_IMAGE_SIZE or 1536x1024")
-    generate.add_argument("--quality", default=None, help="defaults to OPENAI_IMAGE_QUALITY or high")
+    generate.add_argument(
+        "--quality", default=None, help="defaults to OPENAI_IMAGE_QUALITY or high"
+    )
     generate.add_argument("--env-file", default=None, help="load variables from this .env file")
     generate.add_argument(
         "--enrich",
@@ -227,14 +243,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="enrich short descriptions via a text model; --no-enrich disables; default: auto when < 30 chars",
     )
-    generate.add_argument("--text-model", default=None, help="defaults to OPENAI_TEXT_MODEL or gpt-4o-mini")
+    generate.add_argument(
+        "--text-model", default=None, help="defaults to OPENAI_TEXT_MODEL or gpt-4o-mini"
+    )
     generate.add_argument(
         "--no-register",
         action="store_true",
         help="do not copy/register the generated pet into the managed library",
     )
 
-    build = sub.add_parser("build", help="build desktop-pet assets from an existing generated source image")
+    build = sub.add_parser(
+        "build", help="build desktop-pet assets from an existing generated source image"
+    )
     _add_common_args(build)
     build.add_argument("--source", required=True, help="existing 3-row green-screen source sheet")
     build.add_argument("--model", default="local-source", help="model name recorded in pet.json")
@@ -245,7 +265,9 @@ def _build_parser() -> argparse.ArgumentParser:
         help="run a generated pet as a floating, click-through desktop window",
     )
     desktop.add_argument("path", help="pet output directory (with pet.json) or path to pet.json")
-    desktop.add_argument("--scale", type=float, default=1.0, help="multiply frame size for visibility (default 1.0)")
+    desktop.add_argument(
+        "--scale", type=float, default=1.0, help="multiply frame size for visibility (default 1.0)"
+    )
     desktop.add_argument(
         "--no-passthrough",
         action="store_true",
@@ -262,36 +284,50 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="disable transparent-area click-through if setMask misbehaves on your platform",
     )
-    app.add_argument("--data-dir", default=None, help="override the data directory (also $PETGEN_DATA_DIR)")
+    app.add_argument(
+        "--data-dir", default=None, help="override the data directory (also $PETGEN_DATA_DIR)"
+    )
 
     event = sub.add_parser(
         "event",
         help="append one task event to the pet inbox (hook target for AI tools)",
     )
-    event.add_argument("kind", help="e.g. ai_thinking | ai_responding | task_completed | ai_error | custom")
+    event.add_argument(
+        "kind", help="e.g. ai_thinking | ai_responding | task_completed | ai_error | custom"
+    )
     event.add_argument("title", help="short message shown in the pet bubble")
     event.add_argument("detail", nargs="?", default=None, help="optional extra detail")
-    event.add_argument("source", nargs="?", default="manual", help="event source, e.g. claude_code | codex")
+    event.add_argument(
+        "source", nargs="?", default="manual", help="event source, e.g. claude_code | codex"
+    )
 
     codex_notify = sub.add_parser(
         "codex-notify",
         help="Codex notify target: chain the previous notify, then emit a pet event",
     )
-    codex_notify.add_argument("notify_args", nargs="*", default=[], help="arguments Codex passes (ignored here)")
+    codex_notify.add_argument(
+        "notify_args", nargs="*", default=[], help="arguments Codex passes (ignored here)"
+    )
 
     claude_hook = sub.add_parser(
         "claude-hook",
         help="Claude Code hook target: read hook JSON from stdin, then emit a pet event",
     )
-    claude_hook.add_argument("event_name", nargs="?", default="Stop", help="Claude hook event name, e.g. Stop")
-    claude_hook.add_argument("fallback_title", nargs="?", default="Claude 任务完成", help="fallback bubble title")
+    claude_hook.add_argument(
+        "event_name", nargs="?", default="Stop", help="Claude hook event name, e.g. Stop"
+    )
+    claude_hook.add_argument(
+        "fallback_title", nargs="?", default="Claude 任务完成", help="fallback bubble title"
+    )
     claude_hook.add_argument("source", nargs="?", default="claude_code", help="event source")
 
     antigravity_hook = sub.add_parser(
         "antigravity-hook",
         help="Antigravity hook target: read hook JSON from stdin, then emit a pet event",
     )
-    antigravity_hook.add_argument("event_name", nargs="?", default="Stop", help="Antigravity hook event name")
+    antigravity_hook.add_argument(
+        "event_name", nargs="?", default="Stop", help="Antigravity hook event name"
+    )
     antigravity_hook.add_argument(
         "fallback_title", nargs="?", default="Antigravity 任务完成", help="fallback bubble title"
     )
@@ -331,9 +367,7 @@ def _run_app(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    coordinator = AppCoordinator(
-        scale=args.scale, passthrough=not args.no_passthrough
-    )
+    coordinator = AppCoordinator(scale=args.scale, passthrough=not args.no_passthrough)
     return coordinator.run()
 
 
@@ -425,7 +459,10 @@ def _run_tools(args: argparse.Namespace) -> int:
     from petgen import integrations
 
     if not getattr(args, "tools_action", None):
-        print("usage: petgen tools {status|connect|disconnect} {claude|codex|antigravity|all}", file=sys.stderr)
+        print(
+            "usage: petgen tools {status|connect|disconnect} {claude|codex|antigravity|all}",
+            file=sys.stderr,
+        )
         return 2
     tools = integrations.TOOLS if args.tool == "all" else (args.tool,)
     exit_code = 0

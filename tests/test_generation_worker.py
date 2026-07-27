@@ -155,9 +155,7 @@ def test_generation_worker_emits_paths_without_touching_db(
     assert registry.count() == 0
 
 
-def test_on_gen_done_registers_on_main_thread(
-    qapp, tmp_path: Path, monkeypatch
-) -> None:
+def test_on_gen_done_registers_on_main_thread(qapp, tmp_path: Path, monkeypatch) -> None:
     """End-to-end: worker emits -> coordinator registers on the main thread."""
     from petgen.coordinator import AppCoordinator
 

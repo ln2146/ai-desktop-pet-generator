@@ -51,9 +51,7 @@ def test_line_for_falls_back_to_tap() -> None:
     catalog = load_catalog()
     pack = catalog[default_pack().id]
     # a kind with no pool falls back to tap lines (never raises)
-    empty_pack = type(pack)(
-        id="x", display_name="x", emoji="x", lines={"tap": ("hi",)}, sounds={}
-    )
+    empty_pack = type(pack)(id="x", display_name="x", emoji="x", lines={"tap": ("hi",)}, sounds={})
     assert empty_pack.line_for("idle") in ("hi",) or empty_pack.line_for("idle") is None
     assert empty_pack.line_for("tap") == "hi"
 
@@ -155,8 +153,12 @@ def test_voice_pack_service_set_pack_switches(qapp) -> None:
 def test_voice_pack_preview_speaks_without_sfx(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
     played: list[str | None] = []
     spoken: list[str | None] = []
-    monkeypatch.setattr("petgen.sound.SoundService.play", lambda _self, value: played.append(value) or True)
-    monkeypatch.setattr("petgen.speak.Speaker.speak", lambda _self, text: spoken.append(text) or bool(text))
+    monkeypatch.setattr(
+        "petgen.sound.SoundService.play", lambda _self, value: played.append(value) or True
+    )
+    monkeypatch.setattr(
+        "petgen.speak.Speaker.speak", lambda _self, text: spoken.append(text) or bool(text)
+    )
 
     svc = VoicePackService(default_pack())
     result = svc.preview()
@@ -166,14 +168,19 @@ def test_voice_pack_preview_speaks_without_sfx(qapp, monkeypatch: pytest.MonkeyP
     assert spoken and spoken[0]
 
 
-def test_voice_pack_service_applies_fish_reference_ids(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_voice_pack_service_applies_fish_reference_ids(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
     spoken: list[tuple[str, str]] = []
     fallback: list[str | None] = []
     monkeypatch.setattr(
         "petgen.speak._FishSpeaker.speak",
         lambda _self, text, reference_id: spoken.append((text, reference_id)) or True,
     )
-    monkeypatch.setattr("petgen.speak.Speaker._speak_edge_or_system", lambda _self, text: fallback.append(text) or True)
+    monkeypatch.setattr(
+        "petgen.speak.Speaker._speak_edge_or_system",
+        lambda _self, text: fallback.append(text) or True,
+    )
 
     svc = VoicePackService(
         default_pack(),

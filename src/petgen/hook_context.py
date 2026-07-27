@@ -39,7 +39,9 @@ def summarize_agent_message(text: object, *, limit: int = 84) -> str:
     return compact_text(preferred, limit=limit)
 
 
-def codex_event_from_notify_args(args: list[str], *, home: Path | None = None) -> tuple[str, str, str | None]:
+def codex_event_from_notify_args(
+    args: list[str], *, home: Path | None = None
+) -> tuple[str, str, str | None]:
     payload = _first_payload(args)
     event_type = _event_type(args, payload)
     done_types = {None, "", "agent-turn-complete", "turn-ended", "completed", "task_complete"}
@@ -48,8 +50,14 @@ def codex_event_from_notify_args(args: list[str], *, home: Path | None = None) -
         title = _codex_in_progress_title(event_type)
         return kind, title, None
 
-    completion = payload if _payload_get(payload, "last_agent_message", "message", "summary") else _latest_codex_completion(home)
-    final = summarize_agent_message(_payload_get(completion, "last_agent_message", "message", "summary"))
+    completion = (
+        payload
+        if _payload_get(payload, "last_agent_message", "message", "summary")
+        else _latest_codex_completion(home)
+    )
+    final = summarize_agent_message(
+        _payload_get(completion, "last_agent_message", "message", "summary")
+    )
     project = _project_name(_payload_get(completion, "cwd", "workspace"))
     subject = f"已完成：{final}" if final else "回合完成，可以查看最新回复"
     title = f"{project} {subject}" if project else subject
@@ -66,7 +74,9 @@ def claude_event_from_hook_input(
     fallback_title: str,
 ) -> tuple[str, str, str | None]:
     payload = payload or {}
-    event = str(_payload_get(payload, "hook_event_name", "event_name", "event", "type") or event_name)
+    event = str(
+        _payload_get(payload, "hook_event_name", "event_name", "event", "type") or event_name
+    )
     kind = "task_completed" if event in {"Stop", "SubagentStop", "completed"} else "custom"
     if kind != "task_completed":
         return kind, fallback_title, None
@@ -77,11 +87,15 @@ def claude_event_from_hook_input(
     final = summarize_agent_message(transcript.get("last_assistant"), limit=82)
     label = "子任务完成" if event == "SubagentStop" else "已完成"
     project = _project_name(_payload_get(payload, "cwd", "workspace", "workspacePaths"))
-    subject = f"{label}：{final}" if final else (f"{label}：{user_task}" if user_task else fallback_title)
+    subject = (
+        f"{label}：{final}" if final else (f"{label}：{user_task}" if user_task else fallback_title)
+    )
     title = f"{project} {subject}" if project else subject
     detail = _detail_from_parts(
         f"任务：{user_task}" if user_task and final else "",
-        format_duration(_payload_get(payload, "duration_ms", "elapsed_ms", "durationMs", "elapsedMs")),
+        format_duration(
+            _payload_get(payload, "duration_ms", "elapsed_ms", "durationMs", "elapsedMs")
+        ),
     )
     return kind, title, detail
 
@@ -93,12 +107,22 @@ def antigravity_event_from_hook_input(
     fallback_title: str,
 ) -> tuple[str, str, str | None]:
     payload = payload or {}
-    event = str(_payload_get(payload, "hook_event_name", "event_name", "event", "type") or event_name)
-    kind = "task_completed" if event in {"Stop", "completed", "task_completed", "task_complete"} else "custom"
+    event = str(
+        _payload_get(payload, "hook_event_name", "event_name", "event", "type") or event_name
+    )
+    kind = (
+        "task_completed"
+        if event in {"Stop", "completed", "task_completed", "task_complete"}
+        else "custom"
+    )
     if kind != "task_completed":
         return kind, fallback_title, None
 
-    transcript = _read_antigravity_transcript(Path(str(payload["transcriptPath"]))) if payload.get("transcriptPath") else {}
+    transcript = (
+        _read_antigravity_transcript(Path(str(payload["transcriptPath"])))
+        if payload.get("transcriptPath")
+        else {}
+    )
     raw_final = _payload_get(
         payload,
         "last_agent_message",
@@ -121,10 +145,14 @@ def antigravity_event_from_hook_input(
             "project",
         )
     )
-    subject = f"已完成：{final}" if final else (f"已完成：{user_task}" if user_task else fallback_title)
+    subject = (
+        f"已完成：{final}" if final else (f"已完成：{user_task}" if user_task else fallback_title)
+    )
     title = f"{project} {subject}" if project else subject
     detail = _detail_from_parts(
-        format_duration(_payload_get(payload, "duration_ms", "elapsed_ms", "durationMs", "elapsedMs")),
+        format_duration(
+            _payload_get(payload, "duration_ms", "elapsed_ms", "durationMs", "elapsedMs")
+        ),
         _antigravity_stop_detail(payload),
     )
     return kind, title, detail
@@ -196,7 +224,9 @@ def _project_name(value: object) -> str:
 
 
 def _antigravity_stop_detail(payload: dict[str, Any]) -> str:
-    reason = compact_text(_payload_get(payload, "terminationReason", "termination_reason"), limit=36)
+    reason = compact_text(
+        _payload_get(payload, "terminationReason", "termination_reason"), limit=36
+    )
     error = compact_text(_payload_get(payload, "error"), limit=70)
     parts: list[str] = []
     if reason and reason != "model_stop":
@@ -280,7 +310,9 @@ def _read_claude_transcript(path: Path) -> dict[str, str]:
             item = json.loads(line)
         except ValueError:
             continue
-        role = ((item.get("message") or {}) if isinstance(item.get("message"), dict) else {}).get("role")
+        role = ((item.get("message") or {}) if isinstance(item.get("message"), dict) else {}).get(
+            "role"
+        )
         text = _message_text(item)
         if not text:
             continue
@@ -363,6 +395,10 @@ def _message_text(item: dict[str, Any]) -> str:
         return ""
     chunks: list[str] = []
     for part in content:
-        if isinstance(part, dict) and part.get("type") == "text" and isinstance(part.get("text"), str):
+        if (
+            isinstance(part, dict)
+            and part.get("type") == "text"
+            and isinstance(part.get("text"), str)
+        ):
             chunks.append(part["text"])
     return "\n".join(chunks)

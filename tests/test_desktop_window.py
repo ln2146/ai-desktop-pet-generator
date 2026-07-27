@@ -125,7 +125,9 @@ def _make_six_state_pet(tmp_path: Path):
         },
     }
     (tmp_path / "pet.json").write_text(json.dumps(manifest), encoding="utf-8")
-    return load_manifest(tmp_path), FrameAtlas.load((tmp_path / "sprite.png"), load_manifest(tmp_path).frame)
+    return load_manifest(tmp_path), FrameAtlas.load(
+        (tmp_path / "sprite.png"), load_manifest(tmp_path).frame
+    )
 
 
 def test_set_expression_cycles_all_six_states(qapp, tmp_path: Path) -> None:

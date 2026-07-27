@@ -44,7 +44,9 @@ def test_fish_audio_tts_uses_free_model_and_reference_id(tmp_path: Path) -> None
     config = FishAudioTTSConfig(api_key="fish-key", base_url="https://example.test")
 
     path = tmp_path / "voice.mp3"
-    FishAudioTTSClient(config, session=session).synthesize_to_file("  你好  ", path, reference_id="voice-id")
+    FishAudioTTSClient(config, session=session).synthesize_to_file(
+        "  你好  ", path, reference_id="voice-id"
+    )
 
     assert path.read_bytes() == b"mp3-bytes"
     call = session.calls[0]

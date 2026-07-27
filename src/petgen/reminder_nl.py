@@ -16,9 +16,30 @@ def localnow() -> datetime:
     """
     return utcnow().astimezone()
 
-_CN_DIGIT = {"零": 0, "〇": 0, "一": 1, "两": 2, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10}
+
+_CN_DIGIT = {
+    "零": 0,
+    "〇": 0,
+    "一": 1,
+    "两": 2,
+    "二": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+    "十": 10,
+}
 _WEEK = {"一": 0, "二": 1, "三": 2, "四": 3, "五": 4, "六": 5, "日": 6, "天": 6}
-_RECURRENCE = {"每天": "daily", "每日": "daily", "工作日": "weekdays", "每周": "weekly", "每月": "monthly"}
+_RECURRENCE = {
+    "每天": "daily",
+    "每日": "daily",
+    "工作日": "weekdays",
+    "每周": "weekly",
+    "每月": "monthly",
+}
 
 
 def _num(token: str) -> int | None:
@@ -42,7 +63,10 @@ def _num(token: str) -> int | None:
 
 
 def _parse_time(s: str) -> tuple[int, int] | None:
-    m = re.search(r"(上午|下午|晚上|早)?\s*([0-9零〇一二两三四五六七八九十]+)\s*点\s*(半|([0-9零〇一二两三四五六七八九十]+)\s*分?)?", s)
+    m = re.search(
+        r"(上午|下午|晚上|早)?\s*([0-9零〇一二两三四五六七八九十]+)\s*点\s*(半|([0-9零〇一二两三四五六七八九十]+)\s*分?)?",
+        s,
+    )
     if not m:
         return None
     period, htok, half, mtok = m.group(1), m.group(2), m.group(3), m.group(4)
@@ -106,7 +130,20 @@ def _parse_chinese_datetime(s: str, now: datetime) -> datetime | None:
     return date_part.replace(hour=t[0], minute=t[1], second=0, microsecond=0)
 
 
-_CN_DATE_MARKERS = ("今天", "明天", "后天", "昨天", "周", "星期", "上午", "下午", "晚上", "点", "月", "日")
+_CN_DATE_MARKERS = (
+    "今天",
+    "明天",
+    "后天",
+    "昨天",
+    "周",
+    "星期",
+    "上午",
+    "下午",
+    "晚上",
+    "点",
+    "月",
+    "日",
+)
 
 
 def _has_cn_date_marker(s: str) -> bool:

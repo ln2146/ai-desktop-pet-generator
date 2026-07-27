@@ -80,9 +80,7 @@ def test_enrich_uses_enrich_system_prompt() -> None:
 
 def test_enrich_caps_overlong_model_output() -> None:
     """A model that ignores the ~120-char instruction is truncated, not fed raw."""
-    session = FakeSession(
-        FakeResponse(200, {"choices": [{"message": {"content": "猫" * 500}}]})
-    )
+    session = FakeSession(FakeResponse(200, {"choices": [{"message": {"content": "猫" * 500}}]}))
     result = _client(session).enrich("一只猫")
     assert len(result) <= ENRICH_MAX_DESCRIPTION_CHARS
 
@@ -164,7 +162,9 @@ def test_from_env_requires_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
         TextRequestConfig.from_env()
 
 
-LONG_DESCRIPTION = "一只圆滚滚的水豚程序员，戴小耳机，背着小小的代码背包，性格温柔、专注、聪明，适合陪伴写代码"
+LONG_DESCRIPTION = (
+    "一只圆滚滚的水豚程序员，戴小耳机，背着小小的代码背包，性格温柔、专注、聪明，适合陪伴写代码"
+)
 
 
 def test_should_enrich_auto_depends_on_length() -> None:

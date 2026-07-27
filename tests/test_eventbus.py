@@ -97,7 +97,12 @@ def qapp():
 
 
 def _line(**fields) -> str:
-    base = {"id": "auto", "kind": "task_completed", "title": "t", "createdAt": "2026-01-01T00:00:00Z"}
+    base = {
+        "id": "auto",
+        "kind": "task_completed",
+        "title": "t",
+        "createdAt": "2026-01-01T00:00:00Z",
+    }
     base.update(fields)
     return json.dumps(base, ensure_ascii=False)
 
@@ -161,7 +166,9 @@ def test_poll_now_leaves_partial_line_unconsumed(qapp, tmp_path: Path) -> None:
 
 def test_poll_now_resets_offset_after_truncation(qapp, tmp_path: Path) -> None:
     inbox = tmp_path / "inbox.jsonl"
-    inbox.write_text(_line(id="first", title="a longish title to make this line big") + "\n", encoding="utf-8")
+    inbox.write_text(
+        _line(id="first", title="a longish title to make this line big") + "\n", encoding="utf-8"
+    )
     bus = EventBus(inbox=inbox, state=tmp_path / "state.json", parent=qapp)
     got: list[TaskEvent] = []
     bus.event_received.connect(lambda e: got.append(e))

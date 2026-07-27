@@ -72,7 +72,9 @@ def test_monthly_clamps_short_month() -> None:
 
 def test_custom_weekly_picks_next_listed_day() -> None:
     # 2026-03-01 is Sunday(6). Want Mon(0) and Wed(2). Next after Sun should be Mon 2026-03-02.
-    r = _r(trigger_at="2026-03-01T09:00:00+00:00", recurrence="custom_weekly", custom_weekdays=[0, 2])
+    r = _r(
+        trigger_at="2026-03-01T09:00:00+00:00", recurrence="custom_weekly", custom_weekdays=[0, 2]
+    )
     nxt = r.next_occurrence(T("2026-03-01T09:00:00"))
     assert nxt == T("2026-03-02T09:00:00")
     assert nxt.weekday() == 0

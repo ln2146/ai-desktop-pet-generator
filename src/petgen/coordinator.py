@@ -75,7 +75,9 @@ def _set_macos_accessory_policy() -> None:
         import ctypes
         import ctypes.util
 
-        lib = ctypes.cdll.LoadLibrary(ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib")
+        lib = ctypes.cdll.LoadLibrary(
+            ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib"
+        )
         lib.objc_getClass.restype = ctypes.c_void_p
         lib.objc_getClass.argtypes = [ctypes.c_char_p]
         lib.sel_registerName.restype = ctypes.c_void_p
@@ -231,7 +233,9 @@ class AppCoordinator(QObject):
     def bootstrap(self) -> None:
         self._wire_tray()
         self.bus.event_received.connect(self._on_event)
-        self.bus.warnings.connect(lambda msgs: [print(f"petgen: {m}", file=sys.stderr) for m in msgs])
+        self.bus.warnings.connect(
+            lambda msgs: [print(f"petgen: {m}", file=sys.stderr) for m in msgs]
+        )
         if self.tray.is_available():
             self.tray.show()
 
@@ -376,11 +380,15 @@ class AppCoordinator(QObject):
             self.library_dialog.create_requested.connect(self._create_pet)
             self.library_dialog.refresh_requested.connect(self._refresh_library)
             self.library_dialog.scale_changed.connect(self._on_library_scale_changed)
-            self.library_dialog.interaction_style_changed.connect(self._on_library_interaction_style_changed)
+            self.library_dialog.interaction_style_changed.connect(
+                self._on_library_interaction_style_changed
+            )
             self.library_dialog.preview_style_requested.connect(self._preview_interaction_style)
             self.library_dialog.voice_provider_changed.connect(self._on_voice_provider_changed)
             self.library_dialog.fish_api_key_changed.connect(self._on_fish_api_key_changed)
-            self.library_dialog.fish_reference_id_changed.connect(self._on_fish_reference_id_changed)
+            self.library_dialog.fish_reference_id_changed.connect(
+                self._on_fish_reference_id_changed
+            )
         self._refresh_library()
         self.library_dialog.show()
         self.library_dialog.raise_()

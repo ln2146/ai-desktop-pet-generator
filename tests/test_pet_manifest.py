@@ -46,8 +46,10 @@ def make_pet_dir(
     with_sprite: bool = True,
     sprite_size: tuple[int, int] | None = None,
 ) -> Path:
-    sprite = make_sprite(cols, rows, fw, fh) if sprite_size is None else Image.new(
-        "RGBA", sprite_size, (1, 2, 3, 255)
+    sprite = (
+        make_sprite(cols, rows, fw, fh)
+        if sprite_size is None
+        else Image.new("RGBA", sprite_size, (1, 2, 3, 255))
     )
     if with_sprite:
         sprite.save(tmp_path / "sprite.png")
@@ -110,7 +112,10 @@ def test_load_manifest_missing_sprite_file(tmp_path: Path) -> None:
 
 
 def test_load_manifest_out_of_range_animation_index(tmp_path: Path) -> None:
-    make_pet_dir(tmp_path, animations={"idle": {"frames": [0, 99], "fps": 1, "loop": True, "fallback": "idle"}})
+    make_pet_dir(
+        tmp_path,
+        animations={"idle": {"frames": [0, 99], "fps": 1, "loop": True, "fallback": "idle"}},
+    )
     with pytest.raises(ManifestError, match="out-of-range"):
         load_manifest(tmp_path)
 

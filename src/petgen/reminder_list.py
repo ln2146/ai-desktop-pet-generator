@@ -157,7 +157,9 @@ class ReminderListDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        scroll.setStyleSheet("QScrollArea { border: 1px solid #e2e8f0; border-radius: 12px; background: #fafafa; }")
+        scroll.setStyleSheet(
+            "QScrollArea { border: 1px solid #e2e8f0; border-radius: 12px; background: #fafafa; }"
+        )
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         self._grid = QGridLayout(container)

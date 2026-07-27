@@ -111,9 +111,7 @@ def test_create_pet_rejects_concurrent_while_worker_running(
         coord._due_timer.stop()  # noqa: SLF001
 
 
-def test_quick_capture_and_pomodoro_dialogs_are_reused(
-    qapp, tmp_path: Path, monkeypatch
-) -> None:
+def test_quick_capture_and_pomodoro_dialogs_are_reused(qapp, tmp_path: Path, monkeypatch) -> None:
     """Opening twice must reuse the same widget, not orphan the first.
 
     Regression: each open rebuilt a fresh QDialog and dropped the prior
@@ -139,9 +137,7 @@ def test_quick_capture_and_pomodoro_dialogs_are_reused(
             coord.pomodoro_window.close()
 
 
-def test_reminder_editor_does_not_leak_across_opens(
-    qapp, tmp_path: Path, monkeypatch
-) -> None:
+def test_reminder_editor_does_not_leak_across_opens(qapp, tmp_path: Path, monkeypatch) -> None:
     """The editor carries per-open state, so it is rebuilt — but the previous
     dialog must be closed + scheduled for deletion rather than orphaned."""
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))

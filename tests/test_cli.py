@@ -29,9 +29,7 @@ def test_resolve_description_prefers_prompt(tmp_path: Path) -> None:
     prompt_file = tmp_path / "prompt.txt"
     prompt_file.write_text("file text", encoding="utf-8")
 
-    result = _resolve_description(
-        "direct prompt", str(prompt_file), reference_images=["ref.png"]
-    )
+    result = _resolve_description("direct prompt", str(prompt_file), reference_images=["ref.png"])
 
     assert result == "direct prompt"
 
@@ -143,9 +141,7 @@ def test_enrichment_runs_when_flag_true(monkeypatch: pytest.MonkeyPatch) -> None
     assert result == "enriched"
 
 
-def test_enrichment_auto_triggers_for_short_description(
-    monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_enrichment_auto_triggers_for_short_description(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("petgen.cli.OpenAITextClient", _ReturningTextClient)
 
     result = _maybe_enrich_description(
@@ -250,11 +246,11 @@ def test_parser_event_defaults() -> None:
     assert args.source == "manual"
 
 
-def test_run_event_appends_parseable_line(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_event_appends_parseable_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
-    args = _build_parser().parse_args(["event", "task_completed", "完成啦", "一些细节", "claude_code"])
+    args = _build_parser().parse_args(
+        ["event", "task_completed", "完成啦", "一些细节", "claude_code"]
+    )
     assert _run_event(args) == 0
 
     lines = (tmp_path / "task-events.jsonl").read_text(encoding="utf-8").splitlines()
@@ -273,7 +269,9 @@ def test_run_event_empty_detail_becomes_null(
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
     args = _build_parser().parse_args(["event", "task_completed", "x", ""])
     _run_event(args)
-    event = parse_event_line((tmp_path / "task-events.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    event = parse_event_line(
+        (tmp_path / "task-events.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
     assert event is not None and event.detail is None
 
 
@@ -294,12 +292,12 @@ def test_main_event_missing_args_returns_zero_not_exit2() -> None:
 
 
 def _last_event(tmp_path: Path):
-    return parse_event_line((tmp_path / "task-events.jsonl").read_text(encoding="utf-8").splitlines()[-1])
+    return parse_event_line(
+        (tmp_path / "task-events.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+    )
 
 
-def test_run_codex_notify_json_arg(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_codex_notify_json_arg(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
     chained: list[list[str]] = []
     monkeypatch.setattr(
@@ -320,9 +318,7 @@ def test_run_codex_notify_json_arg(
     assert chained == [[payload]]  # Codex args passed through to the original notify
 
 
-def test_run_codex_notify_legacy_string(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_codex_notify_legacy_string(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
     monkeypatch.setattr("petgen.integrations.chain_original_notify", lambda *a, **k: None)
     args = _build_parser().parse_args(["codex-notify", "turn-ended"])
@@ -353,7 +349,12 @@ def test_run_claude_hook_reads_stdin_payload(
         )
         + "\n"
         + json.dumps(
-            {"message": {"role": "assistant", "content": [{"type": "text", "text": "已完成并验证。"}]}},
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "text", "text": "已完成并验证。"}],
+                }
+            },
             ensure_ascii=False,
         )
         + "\n",
@@ -399,7 +400,9 @@ def test_run_antigravity_hook_reads_stdin_payload(
         ),
     )
 
-    args = _build_parser().parse_args(["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"])
+    args = _build_parser().parse_args(
+        ["antigravity-hook", "Stop", "Antigravity 任务完成", "antigravity"]
+    )
     assert _run_antigravity_hook(args) == 0
     event = _last_event(tmp_path)
     assert event.kind == "task_completed"

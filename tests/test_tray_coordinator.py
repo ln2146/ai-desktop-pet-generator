@@ -102,7 +102,9 @@ def test_coordinator_visibility_request_is_idempotent(qapp, tmp_path: Path, monk
         coord.bus.stop()
 
 
-def test_coordinator_library_style_changes_persist_immediately(qapp, tmp_path: Path, monkeypatch) -> None:
+def test_coordinator_library_style_changes_persist_immediately(
+    qapp, tmp_path: Path, monkeypatch
+) -> None:
     monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
     from petgen.coordinator import AppCoordinator
 
@@ -171,9 +173,7 @@ def test_reload_pet_tolerates_corrupt_manifest(qapp, tmp_path: Path, monkeypatch
             draw.ellipse((cx - 34, top + 56, cx + 34, top + 134), fill=(236, 66, 74, 255))
     img.save(src)
     work = tmp_path / "work"
-    paths = build_pet_assets(
-        src, work, pet_id="pet-bad", description="d", model="m", prompt="p"
-    )
+    paths = build_pet_assets(src, work, pet_id="pet-bad", description="d", model="m", prompt="p")
 
     coord = AppCoordinator()
     try:

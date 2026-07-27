@@ -80,4 +80,3 @@ def with_retry(
     if last_exc is not None:  # pragma: no cover
         raise last_exc
     raise RuntimeError("with_retry: no attempts made")  # pragma: no cover
-

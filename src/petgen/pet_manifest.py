@@ -121,9 +121,7 @@ def _coerce_frame(raw: object) -> FrameSpec:
         raise ManifestError(f"pet.json 'frame' has invalid numbers: {exc}") from exc
 
 
-def _coerce_animations(
-    raw: object, frame: FrameSpec
-) -> dict[str, AnimationSpec]:
+def _coerce_animations(raw: object, frame: FrameSpec) -> dict[str, AnimationSpec]:
     source = raw if isinstance(raw, dict) and raw else default_animations()
     animations: dict[str, AnimationSpec] = {}
     for name, entry in source.items():
@@ -137,9 +135,7 @@ def _coerce_animations(
             raise ManifestError(f"animation '{name}' has invalid frame indices: {exc}") from exc
         for index in frames:
             if index < 0 or index >= frame.frame_count:
-                raise ManifestError(
-                    f"animation '{name}' references out-of-range frame {index}"
-                )
+                raise ManifestError(f"animation '{name}' references out-of-range frame {index}")
         animations[name] = AnimationSpec(
             frames=frames,
             fps=float(entry.get("fps", 1.0)),
