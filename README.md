@@ -1,42 +1,36 @@
-# AI Desktop Pet Generator 🐾
+# AI 桌面宠物生成器
 
 <p align="center">
-  <img src="docs/images/social-preview.png" alt="AI Desktop Pet Generator — turn a sentence into a desktop pet" width="860">
+  <a href="README.md"><b>中文</b></a> · <a href="README_EN.md">English</a>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <img src="https://img.shields.io/badge/python-%3E%3D3.10-blue.svg" alt="Python >= 3.10">
-  <img src="https://img.shields.io/badge/tests-pytest%20%2B%20ruff-brightgreen.svg" alt="pytest + ruff">
-  <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Cross-platform">
+  <img src="https://img.shields.io/badge/pytest%20%2B%20ruff-passing-brightgreen.svg" alt="pytest + ruff">
+  <img src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-lightgrey.svg" alt="macOS / Linux / Windows">
 </p>
 
-> 🌐 **中文** · [**English**](#-english-quick-start)
+把一句话，或一张参考图，变成一只常驻桌面的高质感宠物。
 
----
-
-## ✨ 一句话简介
-
-把一句话（或一张参考图）变成一只<sub>　</sub>**常驻桌面的高质感宠物**。
-
-AI 生图 → 本地绿幕抠图 → 切帧打包成 `8×9` 精灵表 → 在系统托盘里养起来，**还能在你用 AI 写代码时实时做出反应**。
+它会完成从 AI 生图到本地切帧的整条链路：生成形象、绿幕抠图、切帧、打包成 `8 x 9` 精灵表，然后通过托盘应用把宠物养在桌面上。你也可以把它接入 Claude Code、Codex、Antigravity 等 AI 编码工具，让任务状态实时变成桌宠表情、气泡和音效反馈。
 
 <p align="center">
   <table align="center">
     <tr>
       <td align="center"><img src="docs/images/hero.png" alt="主角：灰白小猫" width="340"></td>
-      <td align="center"><img src="docs/images/idle.gif" alt="主角的 idle 呼吸动画（会动）" width="180"></td>
+      <td align="center"><img src="docs/images/idle.gif" alt="灰白小猫 idle 呼吸动画" width="180"></td>
     </tr>
     <tr>
-      <td align="center"><sub><b>灰白小猫</b> · 由一句话 / 参考图生成</sub></td>
+      <td align="center"><sub><b>灰白小猫</b>：由一句话 / 参考图生成</sub></td>
       <td align="center"><sub>idle 呼吸动画</sub></td>
     </tr>
   </table>
 </p>
 
-### 🌟 精选伙伴
+## 精选伙伴
 
-每一只都由一句话生成，画风一致、可直接养在桌面。
+每一只都由一句话生成，画风一致，可以直接养在桌面。
 
 <p align="center">
   <table align="center">
@@ -59,62 +53,43 @@ AI 生图 → 本地绿幕抠图 → 切帧打包成 `8×9` 精灵表 → 在系
   </table>
 </p>
 
-<p align="center">
-  <sub>还有更多画风一致的伙伴 ↓</sub><br>
-  <img src="docs/images/gallery-showcase.png" alt="精选桌宠画廊：灰白小猫、熊猫团团、北极狐、橘猫宝宝、奶绿龙、柯基幼崽" width="820">
-</p>
+## 功能概览
 
-## 🎯 它能做什么
-
-| 能力 | 说明 |
+| 功能 | 说明 |
 |------|------|
-| 🎨 **文字 / 参考图生宠** | 一句描述，或丢一张参考图保留配色与标志配饰 |
-| 🧩 **本地后处理** | 绿幕抠图、连通域切帧、归一打包成标准桌宠 spritesheet |
-| 🖥️ **常驻桌宠 App** | 托盘、悬浮宠物、宠物库、设置、气泡、撒花 |
-| 🔌 **AI 编码联动** | 接通 Claude Code / Codex / Antigravity，任务完成时桌宠实时回应 |
-| 🗣️ **语音包 + 提醒 + 番茄钟** | TTS 说话、原创合成音效、中文自然语言提醒、25/5 专注 |
+| 文字 / 参考图生宠 | 用一句描述生成宠物，或通过参考图保留颜色、轮廓和标志性配饰 |
+| 本地后处理 | 绿幕抠图、连通域切帧、归一化，并打包成标准桌宠精灵表 |
+| 常驻托盘应用 | 支持系统托盘、悬浮宠物、宠物中心、设置面板、气泡和撒花 |
+| AI 编码联动 | 可接入 Claude Code、Codex、Antigravity，任务完成时桌宠实时回应 |
+| 语音、提醒、番茄钟 | 支持 TTS 说话、原创合成音效、中文自然语言提醒和 25/5 专注计时 |
 
-## 🚀 三秒上手
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[desktop]"
-
-# 配置 API Key
-cp .env.example .env   # 然后填入你的 OPENAI_API_KEY
-
-# 一句话生成桌宠
-petgen generate \
-  --prompt "一只圆滚滚的水豚程序员，戴小耳机，温柔、聪明、适合陪伴写代码" \
-  --name "水豚程序员" \
-  --output outputs/capybara-coder
-
-# 启动托盘 App，养起来
-petgen app
-```
-
-<details>
-<summary><b>📖 完整使用文档（点击展开）</b></summary>
-
-### 安装
-
-使用桌宠 App：
+## 快速开始
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[desktop]"
+
+cp .env.example .env
+# 然后在 .env 中填入 OPENAI_API_KEY
 ```
 
-开发和测试：
+生成一只桌宠：
 
 ```bash
-pip install -e ".[dev,desktop]"
+petgen generate \
+  --prompt "一只圆滚滚的水豚程序员，戴小耳机，温柔、聪明、适合陪伴写代码" \
+  --name "水豚程序员" \
+  --output outputs/capybara-coder
 ```
 
-核心生成链路依赖 `Pillow`、`requests`、`numpy`；桌面 App 额外依赖 `PySide6` 和语音相关能力。
+启动桌宠应用：
 
-### 配置
+```bash
+petgen app
+```
+
+## 配置
 
 项目会自动读取当前目录下的 `.env`。默认使用 OpenAI：
 
@@ -125,7 +100,7 @@ OPENAI_IMAGE_MODEL=gpt-image-2
 OPENAI_TEXT_MODEL=gpt-4o-mini
 ```
 
-也可以使用 OpenAI 兼容代理：
+也可以使用兼容 OpenAI 协议的代理或中转服务：
 
 ```bash
 OPENAI_BASE_URL=https://your-compatible-endpoint/v1
@@ -134,7 +109,7 @@ OPENAI_IMAGE_MODEL=gpt-image-2
 OPENAI_TEXT_MODEL=your-chat-model
 ```
 
-### 生成你的桌宠
+## 常用命令
 
 纯文字生成：
 
@@ -160,42 +135,50 @@ petgen generate \
 petgen build --source /path/to/source.png --name "本地桌宠" --output outputs/local-pet
 ```
 
+快速浮起一只已有桌宠：
+
+```bash
+petgen desktop outputs/capybara-coder --scale 1.5
+```
+
+## 生成结果
+
 输出目录包含：
 
-- `source.png`：模型原始返回图（仅 `generate` 写入）
-- `sprite.png`：标准 `8 x 9` 桌宠 spritesheet（透明通道）
-- `pet.json`：动画 manifest
-- `preview.png`：首帧预览图
+- `source.png`：模型原始返回图，仅 `generate` 会写入。
+- `sprite.png`：标准 `8 x 9` 桌宠精灵表，背景透明。
+- `pet.json`：动画配置和生成信息。
+- `preview.png`：首帧预览图。
 
 <p align="center">
-  <img src="docs/images/spritesheet.png" alt="标准 8x9 桌宠 spritesheet 示例（透明通道，浅底便于查看）" width="430">
-  <br><sub>打包出的 <code>8 × 9</code> 精灵表</sub>
+  <img src="docs/images/spritesheet.png" alt="标准 8x9 桌宠精灵表示例" width="430">
+  <br><sub>打包出的 <code>8 x 9</code> 精灵表</sub>
 </p>
 
-### 启动桌宠 App
+## 桌宠应用
 
 ```bash
 petgen app
 ```
 
-`petgen app` 会启动系统托盘、悬浮宠物、宠物库、设置面板和 AI 事件总线。数据默认存放在 `~/.petgen/`，也可以用 `$PETGEN_DATA_DIR` 或 `--data-dir` 覆盖。
+`petgen app` 会启动系统托盘、悬浮宠物、宠物中心、设置面板和 AI 事件总线。数据默认存放在 `~/.petgen/`，也可以用 `$PETGEN_DATA_DIR` 或 `--data-dir` 覆盖。
 
 常用入口：
 
-- 打开宠物库：浏览、选择、预览、删除宠物，也可以创建新宠物。
-- 打开设置：配置 API、模型、动画、音效、语音包、人格和工具接入。
-- 快速浮一只：`petgen desktop outputs/xxx --scale 1.5`。
+- 宠物中心：浏览、选择、预览、删除宠物，也可以创建新宠物。
+- 设置中心：配置 API、模型、动画、音效、语音包、互动风格和工具接入。
 - 快速提醒：支持「明天下午三点 开会」「每天 9点 喝水」「1小时后 吃药」。
+- 番茄钟：内置 25/5 专注计时，到点后桌宠会提醒。
 
-### AI 工具接入
+## AI 工具接入
 
-桌宠可以读取 AI 编码工具写入的事件，并切换到对应表情。GUI 路径：
+桌宠可以读取 AI 编码工具写入的事件，并切换到对应表情。应用内路径：
 
 ```text
-petgen app → 设置 → 🔌 工具接入
+petgen app -> 设置中心 -> 工具接入
 ```
 
-CLI 等价命令：
+命令行等价操作：
 
 ```bash
 petgen tools status all
@@ -206,107 +189,44 @@ petgen event KIND TITLE [DETAIL] [SOURCE]
 
 接入细节、旧 hook 迁移和手写事件协议见 [docs/integrations.md](docs/integrations.md)。
 
-### 图像源图约定
+## 源图约定
 
 为让本地切图稳定，模型输出应尽量遵守：
 
 - 单张图，纯 `#00FF00` 绿幕背景。
-- 3 行动作：第 1 行 6 帧 idle、第 2 行 4 帧 attentive、第 3 行 5 帧 happy。
+- 3 行动作：第 1 行 6 帧 idle，第 2 行 4 帧 attentive，第 3 行 5 帧 happy。
 - 每帧完整身体、居中，角色之间留明显绿幕间隔。
 - 角色本体不要以绿色为主；同色前景与绿幕无法仅靠颜色分离。
 
-</details>
-
-## 📚 更多文档
-
-- [docs/development.md](docs/development.md)：开发、测试、lint、wheel 构建和发布检查。
-- [docs/integrations.md](docs/integrations.md)：Claude Code / Codex / Antigravity 接入说明。
-- [docs/architecture.md](docs/architecture.md)：生成链路、运行时组件、存储和容错设计。
-- [docs/troubleshooting.md](docs/troubleshooting.md)：API、PySide6、音效、提醒、切图失败等常见问题。
-
----
-
-## 🌍 English Quick Start
-
-Turn a sentence (or a reference image) into a **tray-resident desktop pet** — and react in real time while you code with AI.
-
-**Pipeline:** AI image generation → local green-screen keying → frame slicing → packed `8×9` spritesheet → tray-resident pet app.
-
-### Featured companions
-
-Each one was generated from a single sentence — consistent style, ready to live on your desktop.
-
-<p align="center">
-  <table align="center">
-    <tr>
-      <td align="center"><img src="docs/images/pet-cat.png" alt="Grey-white cat" width="120"></td>
-      <td align="center"><img src="docs/images/pet-redpanda.png" alt="Panda" width="120"></td>
-      <td align="center"><img src="docs/images/pet-fox.png" alt="Arctic fox" width="120"></td>
-      <td align="center"><img src="docs/images/pet-gingercat.png" alt="Ginger kitten" width="120"></td>
-      <td align="center"><img src="docs/images/pet-dragon.png" alt="Baby dragon" width="120"></td>
-      <td align="center"><img src="docs/images/pet-corgi.png" alt="Corgi pup" width="120"></td>
-    </tr>
-    <tr>
-      <td align="center"><sub><b>Grey-white cat</b></sub></td>
-      <td align="center"><sub><b>Panda</b></sub></td>
-      <td align="center"><sub><b>Arctic fox</b></sub></td>
-      <td align="center"><sub><b>Ginger kitten</b></sub></td>
-      <td align="center"><sub><b>Baby dragon</b></sub></td>
-      <td align="center"><sub><b>Corgi pup</b></sub></td>
-    </tr>
-  </table>
-</p>
-
-### Quick start
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[desktop]"
-cp .env.example .env   # then fill in your OPENAI_API_KEY
-
-# Generate a pet from a text prompt
-petgen generate \
-  --prompt "a chubby capybara programmer wearing tiny headphones, gentle and smart" \
-  --name "Capybara Coder" \
-  --output outputs/capybara-coder
-
-# Launch the tray app
-petgen app
-```
-
-### Highlights
-
-- 🎨 **Text / reference-image generation** — describe a pet in one line, or feed a reference image to keep its colors and signature accessories.
-- 🧩 **Local post-processing** — chroma-key background removal, connected-component frame slicing, normalized into a standard pet spritesheet.
-- 🖥️ **Resident tray app** — system tray, floating pet, pet library, settings, speech bubbles, confetti.
-- 🔌 **AI coding integration** — connects to Claude Code / Codex / Antigravity; the pet reacts when your AI coding tasks complete.
-- 🗣️ **Voice + reminders + pomodoro** — TTS speech, original synthesized SFX, natural-language reminders, 25/5 focus timer.
-
-### Output of a generation run
-
-- `source.png` — raw model output (`generate` only)
-- `sprite.png` — standard `8×9` pet spritesheet (transparent background)
-- `pet.json` — animation manifest
-- `preview.png` — first-frame preview
-
-See the [full Chinese docs](#-三秒上手) above for advanced usage, AI-tool wiring, and the source-image spec. The codebase is fully type-hinted, tested (**pytest + ruff**, 319 tests), and cross-platform (macOS / Linux / Windows).
-
----
-
-## 🔧 技术栈 / Tech Stack
-
-`Python ≥3.10` · `PySide6` · `Pillow` + `numpy` (image pipeline) · `requests` · `edge-tts` / Fish Audio (voice) · `pytest` + `ruff` · MIT License
-
-## 🤝 贡献 / Contributing
-
-欢迎 Issue 和 PR！开发环境：
+## 开发
 
 ```bash
 pip install -e ".[dev,desktop]"
-pytest              # 319 tests
-ruff check .        # lint
+pytest
+ruff check .
+python -m pip wheel . --no-deps -w /tmp/petgen-wheel
 ```
 
-## 📄 许可 / License
+## 文档
+
+- [开发指南](docs/development.md)：开发、测试、lint、wheel 构建和发布检查。
+- [工具接入](docs/integrations.md)：Claude Code、Codex、Antigravity 接入说明。
+- [架构概览](docs/architecture.md)：生成链路、运行时组件、存储和容错设计。
+- [排障指南](docs/troubleshooting.md)：API、PySide6、音效、提醒、切图失败等常见问题。
+
+## 技术栈
+
+`Python >= 3.10` · `PySide6` · `Pillow` · `numpy` · `requests` · `edge-tts` · `pytest` · `ruff`
+
+## 贡献
+
+欢迎提交 Issue 和 PR。提交前建议至少运行：
+
+```bash
+pytest
+ruff check .
+```
+
+## 许可
 
 [MIT](LICENSE)
