@@ -147,6 +147,22 @@ def test_coordinator_bootstrap_does_not_crash(qapp, tmp_path: Path, monkeypatch)
         coord.bus.stop()
 
 
+def test_tray_library_request_opens_dialog(qapp, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    from petgen.coordinator import AppCoordinator
+
+    coord = AppCoordinator()
+    try:
+        coord.bootstrap()
+        coord.tray.library_requested.emit()
+        QApplication.processEvents()
+
+        assert coord.library_dialog is not None
+        assert coord.library_dialog.isVisible()
+    finally:
+        coord.bus.stop()
+
+
 def test_reload_pet_tolerates_corrupt_manifest(qapp, tmp_path: Path, monkeypatch) -> None:
     """A registered pet whose manifest is corrupt/missing must not crash the app.
 

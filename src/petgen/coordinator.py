@@ -321,14 +321,25 @@ class AppCoordinator(QObject):
     def _wire_tray(self) -> None:
         t = self.tray
         t.show_pet_requested.connect(self._set_pet_visible)
-        t.library_requested.connect(self._open_library)
-        t.settings_requested.connect(self._open_settings)
-        t.about_requested.connect(self._open_settings)
+        t.library_requested.connect(lambda: self._defer_ui_open(self._open_library))
+        t.settings_requested.connect(lambda: self._defer_ui_open(self._open_settings))
+        t.about_requested.connect(lambda: self._defer_ui_open(self._open_settings))
         t.quiet_toggled.connect(self._set_quiet)
-        t.quick_capture_requested.connect(self._open_quick_capture)
-        t.reminder_list_requested.connect(self._open_reminder_list)
-        t.pomodoro_requested.connect(self._open_pomodoro)
+        t.quick_capture_requested.connect(lambda: self._defer_ui_open(self._open_quick_capture))
+        t.reminder_list_requested.connect(lambda: self._defer_ui_open(self._open_reminder_list))
+        t.pomodoro_requested.connect(lambda: self._defer_ui_open(self._open_pomodoro))
         t.quit_requested.connect(self._quit)
+
+    @staticmethod
+    def _defer_ui_open(callback) -> None:
+        """Open tray-launched dialogs on the next event-loop tick.
+
+        Native tray menus can still be tearing down when the QAction fires.
+        Deferring avoids cases where a dialog is technically shown but never
+        surfaces on macOS / some Linux shells because the menu kept focus for
+        the rest of the callback turn.
+        """
+        QTimer.singleShot(0, callback)
 
     def _selected_id(self) -> str | None:
         return self.settings.get("pet.selected_id")
