@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Cross-platform">
 </p>
 
-> 🌐 **中文** · [**English**](README.en.md)
+> 🌐 **中文** · [**English**](#-english-quick-start)
 
 ---
 
@@ -24,8 +24,8 @@ AI 生图 → 本地绿幕抠图 → 切帧打包成 `8×9` 精灵表 → 在系
 <p align="center">
   <table align="center">
     <tr>
-      <td align="center"><img src="docs/images/hero.png" alt="主角：灰白小猫" width="360"></td>
-      <td align="center"><img src="docs/images/idle.gif" alt="主角的 idle 呼吸动画（会动）" width="200"></td>
+      <td align="center"><img src="docs/images/hero.png" alt="主角：灰白小猫" width="340"></td>
+      <td align="center"><img src="docs/images/idle.gif" alt="主角的 idle 呼吸动画（会动）" width="180"></td>
     </tr>
     <tr>
       <td align="center"><sub><b>灰白小猫</b> · 由一句话 / 参考图生成</sub></td>
@@ -34,9 +34,34 @@ AI 生图 → 本地绿幕抠图 → 切帧打包成 `8×9` 精灵表 → 在系
   </table>
 </p>
 
+### 🌟 精选伙伴
+
+每一只都由一句话生成，画风一致、可直接养在桌面。
+
 <p align="center">
-  <sub>更多画风一致的伙伴：</sub><br>
-  <img src="docs/images/gallery.png" alt="更多宠物：六角恐龙、小熊猫、柯基幼崽、短尾矮袋鼠、绒绒猫头鹰、小刺猬" width="820">
+  <table align="center">
+    <tr>
+      <td align="center"><img src="docs/images/pet-cat.png" alt="灰白小猫" width="120"></td>
+      <td align="center"><img src="docs/images/pet-redpanda.png" alt="熊猫团团" width="120"></td>
+      <td align="center"><img src="docs/images/pet-fox.png" alt="北极狐" width="120"></td>
+      <td align="center"><img src="docs/images/pet-gingercat.png" alt="橘猫宝宝" width="120"></td>
+      <td align="center"><img src="docs/images/pet-dragon.png" alt="奶绿龙" width="120"></td>
+      <td align="center"><img src="docs/images/pet-corgi.png" alt="柯基幼崽" width="120"></td>
+    </tr>
+    <tr>
+      <td align="center"><sub><b>灰白小猫</b></sub></td>
+      <td align="center"><sub><b>熊猫团团</b></sub></td>
+      <td align="center"><sub><b>北极狐</b></sub></td>
+      <td align="center"><sub><b>橘猫宝宝</b></sub></td>
+      <td align="center"><sub><b>奶绿龙</b></sub></td>
+      <td align="center"><sub><b>柯基幼崽</b></sub></td>
+    </tr>
+  </table>
+</p>
+
+<p align="center">
+  <sub>还有更多画风一致的伙伴 ↓</sub><br>
+  <img src="docs/images/gallery-showcase.png" alt="精选桌宠画廊：灰白小猫、熊猫团团、北极狐、橘猫宝宝、奶绿龙、柯基幼崽" width="820">
 </p>
 
 ## 🎯 它能做什么
@@ -198,6 +223,73 @@ petgen event KIND TITLE [DETAIL] [SOURCE]
 - [docs/integrations.md](docs/integrations.md)：Claude Code / Codex / Antigravity 接入说明。
 - [docs/architecture.md](docs/architecture.md)：生成链路、运行时组件、存储和容错设计。
 - [docs/troubleshooting.md](docs/troubleshooting.md)：API、PySide6、音效、提醒、切图失败等常见问题。
+
+---
+
+## 🌍 English Quick Start
+
+Turn a sentence (or a reference image) into a **tray-resident desktop pet** — and react in real time while you code with AI.
+
+**Pipeline:** AI image generation → local green-screen keying → frame slicing → packed `8×9` spritesheet → tray-resident pet app.
+
+### Featured companions
+
+Each one was generated from a single sentence — consistent style, ready to live on your desktop.
+
+<p align="center">
+  <table align="center">
+    <tr>
+      <td align="center"><img src="docs/images/pet-cat.png" alt="Grey-white cat" width="120"></td>
+      <td align="center"><img src="docs/images/pet-redpanda.png" alt="Red panda" width="120"></td>
+      <td align="center"><img src="docs/images/pet-fox.png" alt="Arctic fox" width="120"></td>
+      <td align="center"><img src="docs/images/pet-gingercat.png" alt="Ginger kitten" width="120"></td>
+      <td align="center"><img src="docs/images/pet-dragon.png" alt="Baby dragon" width="120"></td>
+      <td align="center"><img src="docs/images/pet-corgi.png" alt="Corgi pup" width="120"></td>
+    </tr>
+    <tr>
+      <td align="center"><sub><b>Grey-white cat</b></sub></td>
+      <td align="center"><sub><b>Red panda</b></sub></td>
+      <td align="center"><sub><b>Arctic fox</b></sub></td>
+      <td align="center"><sub><b>Ginger kitten</b></sub></td>
+      <td align="center"><sub><b>Baby dragon</b></sub></td>
+      <td align="center"><sub><b>Corgi pup</b></sub></td>
+    </tr>
+  </table>
+</p>
+
+### Quick start
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[desktop]"
+cp .env.example .env   # then fill in your OPENAI_API_KEY
+
+# Generate a pet from a text prompt
+petgen generate \
+  --prompt "a chubby capybara programmer wearing tiny headphones, gentle and smart" \
+  --name "Capybara Coder" \
+  --output outputs/capybara-coder
+
+# Launch the tray app
+petgen app
+```
+
+### Highlights
+
+- 🎨 **Text / reference-image generation** — describe a pet in one line, or feed a reference image to keep its colors and signature accessories.
+- 🧩 **Local post-processing** — chroma-key background removal, connected-component frame slicing, normalized into a standard pet spritesheet.
+- 🖥️ **Resident tray app** — system tray, floating pet, pet library, settings, speech bubbles, confetti.
+- 🔌 **AI coding integration** — connects to Claude Code / Codex / Antigravity; the pet reacts when your AI coding tasks complete.
+- 🗣️ **Voice + reminders + pomodoro** — TTS speech, original synthesized SFX, natural-language reminders, 25/5 focus timer.
+
+### Output of a generation run
+
+- `source.png` — raw model output (`generate` only)
+- `sprite.png` — standard `8×9` pet spritesheet (transparent background)
+- `pet.json` — animation manifest
+- `preview.png` — first-frame preview
+
+See the [full Chinese docs](#-三秒上手) above for advanced usage, AI-tool wiring, and the source-image spec. The codebase is fully type-hinted, tested (**pytest + ruff**, 319 tests), and cross-platform (macOS / Linux / Windows).
 
 ---
 
