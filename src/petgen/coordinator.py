@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import uuid
+from datetime import datetime
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, QTimer, Signal
@@ -17,6 +18,7 @@ from petgen.pet_manifest import FrameAtlas, load_manifest
 from petgen.settings_dialog import SettingsDialog
 from petgen.store import AiEventStore, PetRegistry, SettingsStore
 from petgen.tray import TrayController
+from petgen.usage_tracker import SNAPSHOT_KEY, UsageTracker
 
 
 def _config_overrides(settings: SettingsStore) -> dict:
@@ -301,6 +303,20 @@ class AppCoordinator(QObject):
         self.quick_capture_dialog = None
         self.pomodoro_window = None
 
+        # usage tracking + rest nudges
+        self.usage_tracker = UsageTracker(
+            enabled=bool(self.settings.get("pet.usage_reminder_enabled", True)),
+            work_threshold_seconds=max(1, int(self.settings.get("pet.usage_work_threshold", 45))) * 60,
+        )
+        self.usage_tracker.load_snapshot(self.settings.get(SNAPSHOT_KEY))
+        self.usage_tracker.rest_reminder.connect(self._on_rest_reminder)
+        self.usage_panel_dialog = None
+        self._usage_timer = QTimer(self)
+        self._usage_timer.setInterval(20000)
+        self._usage_timer.timeout.connect(self._on_usage_tick)
+        self._usage_last_tick_at: datetime | None = None
+        self._usage_last_save_at: datetime | None = None
+
     # --- lifecycle ----------------------------------------------------------
 
     def bootstrap(self) -> None:
@@ -324,6 +340,7 @@ class AppCoordinator(QObject):
         self.bus.start()
         self._due_timer.start()
         self.reminder_scheduler.check_due()  # surface anything already overdue at startup
+        self._start_usage_tracking()
         return app.exec()
 
     # --- wiring -------------------------------------------------------------
@@ -338,6 +355,7 @@ class AppCoordinator(QObject):
         t.quick_capture_requested.connect(lambda: self._defer_ui_open(self._open_quick_capture))
         t.reminder_list_requested.connect(lambda: self._defer_ui_open(self._open_reminder_list))
         t.pomodoro_requested.connect(lambda: self._defer_ui_open(self._open_pomodoro))
+        t.usage_requested.connect(lambda: self._defer_ui_open(self._open_usage_panel))
         t.quit_requested.connect(self._quit)
 
     @staticmethod
@@ -648,6 +666,10 @@ class AppCoordinator(QObject):
         self.voice.set_style(self._current_interaction_style_id())
         sound_on = bool(self.settings.get("pet.sound_enabled", True)) and not self._quiet
         self.voice.set_enabled(sound_on)
+        self.usage_tracker.configure(
+            enabled=bool(self.settings.get("pet.usage_reminder_enabled", True)),
+            work_threshold_seconds=max(1, int(self.settings.get("pet.usage_work_threshold", 45))) * 60,
+        )
 
     def _set_quiet(self, quiet: bool) -> None:
         # Quiet = "do not disturb": the pet STAYS visible but stops reacting
@@ -803,9 +825,68 @@ class AppCoordinator(QObject):
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())
 
+    # --- usage tracking + rest nudges --------------------------------------
+
+    def _start_usage_tracking(self) -> None:
+        self._usage_last_tick_at = datetime.now()
+        self._usage_last_save_at = datetime.now()
+        self._on_usage_tick()  # prime the state with a single sample
+        self._usage_timer.start()
+
+    def _on_usage_tick(self) -> None:
+        from petgen.idle_time import get_idle_seconds
+        from petgen.reminder import utcnow
+
+        now = datetime.now()
+        # Truncate the gap so a long sleep/suspend can't dump an hour into the
+        # active count at once. 120s matches the tracker's own tick resolution.
+        if self._usage_last_tick_at is None:
+            elapsed = 0
+        else:
+            elapsed = min(int((now - self._usage_last_tick_at).total_seconds()), 120)
+        self._usage_last_tick_at = now
+
+        self.usage_tracker.tick(get_idle_seconds(), utcnow(), elapsed=elapsed)
+
+        # Persist the day's totals every ~60s (and on rollover/quit), not every
+        # tick, to keep the settings table write volume down.
+        if self._usage_last_save_at is None or (now - self._usage_last_save_at).total_seconds() >= 60:
+            self.settings.set(SNAPSHOT_KEY, self.usage_tracker.snapshot(utcnow()))
+            self._usage_last_save_at = now
+
+    def _on_rest_reminder(self, info: dict) -> None:
+        if self._quiet:
+            return
+        mins = info.get("active_minutes", 0)
+        if self.pet_window is not None:
+            self.pet_window.set_expression("alert")
+        self.voice.react("alert")
+        actions = [
+            ("休息一下", lambda: self.usage_tracker.take_break()),
+            ("再等 10 分钟", lambda: self.usage_tracker.snooze(10 * 60)),
+            ("知道啦", lambda: None),
+        ]
+        self.bubble.show_message(
+            f"你已经连续用电脑 {mins} 分钟啦，起来动一动、看看远处吧 🌿",
+            actions=actions,
+            timeout_ms=0,
+        )
+        if self.pet_window is not None:
+            self.bubble.anchor_to(self.pet_window.frameGeometry())
+
+    def _open_usage_panel(self) -> None:
+        from petgen.usage_panel import UsagePanelDialog
+
+        if self.usage_panel_dialog is None:
+            self.usage_panel_dialog = UsagePanelDialog(self.usage_tracker)
+        self.usage_panel_dialog.refresh()
+        _bring_to_front(self.usage_panel_dialog)
+
     def _quit(self) -> None:
         self.bus.stop()
         self._due_timer.stop()
+        self._usage_timer.stop()
+        self.settings.set(SNAPSHOT_KEY, self.usage_tracker.snapshot())
         # Let an in-flight generation thread exit cleanly instead of being
         # destroyed mid-run (which aborts the process). It only does local file
         # work + a network call, so it returns promptly; the timeout is a safety
