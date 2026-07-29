@@ -47,6 +47,54 @@ def test_interaction_styles_use_distinct_valid_edge_prosody() -> None:
         assert pack.edge_pitch.endswith("Hz")
 
 
+def test_moe_pet_uses_soft_natural_pet_voice_distinct_from_moe_girl() -> None:
+    pack = load_catalog()["moe-pet"]
+    moe_girl = load_catalog()["moe-girl"]
+
+    pitch = int(pack.edge_pitch.removesuffix("Hz"))
+    moe_girl_pitch = int(moe_girl.edge_pitch.removesuffix("Hz"))
+
+    assert pack.edge_voice == "zh-CN-XiaoyiNeural"
+    assert pack.voice == "婷婷"
+    assert pack.edge_rate == "+6%"
+    assert 12 <= pitch <= 22
+    assert pitch == moe_girl_pitch
+    assert "避免听起来像硬装动物" in pack.prompt_flavor
+    assert all("摇尾巴" not in line and "爪爪" not in line for pool in pack.lines.values() for line in pool)
+
+
+def test_moe_girl_keeps_human_energetic_voice() -> None:
+    pack = load_catalog()["moe-girl"]
+
+    assert pack.edge_voice == "zh-CN-XiaoxiaoNeural"
+    assert pack.edge_rate == "+6%"
+    assert pack.edge_pitch == "+18Hz"
+    assert "不要拟动物化" in pack.prompt_flavor
+
+
+def test_butler_uses_professional_male_voice_without_overcompression() -> None:
+    pack = load_catalog()["butler"]
+
+    pitch = int(pack.edge_pitch.removesuffix("Hz"))
+
+    assert pack.edge_voice == "zh-CN-YunxiNeural"
+    assert pack.edge_rate == "-2%"
+    assert -8 <= pitch <= 0
+    assert "避免过度机械" in pack.prompt_flavor
+
+
+def test_elegant_senior_uses_mainland_mandarin_with_settled_prosody() -> None:
+    pack = load_catalog()["elegant-senior"]
+
+    pitch = int(pack.edge_pitch.removesuffix("Hz"))
+
+    assert pack.edge_voice in {"zh-CN-XiaoxiaoNeural", "zh-CN-XiaoyiNeural"}
+    assert pack.voice == "婷婷"
+    assert int(pack.edge_rate.removesuffix("%")) < 0
+    assert -8 <= pitch <= 0
+    assert "少撒娇" in pack.prompt_flavor
+
+
 def test_line_for_falls_back_to_tap() -> None:
     catalog = load_catalog()
     pack = catalog[default_pack().id]
