@@ -316,6 +316,7 @@ class AppCoordinator(QObject):
         self._usage_timer.timeout.connect(self._on_usage_tick)
         self._usage_last_tick_at: datetime | None = None
         self._usage_last_save_at: datetime | None = None
+        self._usage_idle_warning_shown = False
 
     # --- lifecycle ----------------------------------------------------------
 
@@ -846,13 +847,25 @@ class AppCoordinator(QObject):
             elapsed = min(int((now - self._usage_last_tick_at).total_seconds()), 120)
         self._usage_last_tick_at = now
 
-        self.usage_tracker.tick(get_idle_seconds(), utcnow(), elapsed=elapsed)
+        idle_seconds = get_idle_seconds()
+        if idle_seconds is None and not self._usage_idle_warning_shown:
+            print(
+                "petgen: system idle time unavailable; usage stats are estimated from app runtime",
+                file=sys.stderr,
+            )
+            self._usage_idle_warning_shown = True
+        self.usage_tracker.tick(idle_seconds, utcnow(), elapsed=elapsed)
 
         # Persist the day's totals every ~60s (and on rollover/quit), not every
         # tick, to keep the settings table write volume down.
         if self._usage_last_save_at is None or (now - self._usage_last_save_at).total_seconds() >= 60:
-            self.settings.set(SNAPSHOT_KEY, self.usage_tracker.snapshot(utcnow()))
-            self._usage_last_save_at = now
+            self._save_usage_snapshot(now)
+
+    def _save_usage_snapshot(self, saved_at: datetime | None = None) -> None:
+        from petgen.reminder import utcnow
+
+        self.settings.set(SNAPSHOT_KEY, self.usage_tracker.snapshot(utcnow()))
+        self._usage_last_save_at = saved_at or datetime.now()
 
     def _on_rest_reminder(self, info: dict) -> None:
         if self._quiet:
@@ -878,7 +891,10 @@ class AppCoordinator(QObject):
         from petgen.usage_panel import UsagePanelDialog
 
         if self.usage_panel_dialog is None:
-            self.usage_panel_dialog = UsagePanelDialog(self.usage_tracker)
+            self.usage_panel_dialog = UsagePanelDialog(
+                self.usage_tracker,
+                reset_callback=self._save_usage_snapshot,
+            )
         self.usage_panel_dialog.refresh()
         _bring_to_front(self.usage_panel_dialog)
 

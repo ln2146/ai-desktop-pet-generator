@@ -163,6 +163,26 @@ def test_tray_library_request_opens_dialog(qapp, tmp_path: Path, monkeypatch) ->
         coord.bus.stop()
 
 
+def test_usage_panel_reset_persists_snapshot(qapp, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("PETGEN_DATA_DIR", str(tmp_path))
+    from petgen.coordinator import AppCoordinator
+    from petgen.usage_tracker import SNAPSHOT_KEY
+
+    coord = AppCoordinator()
+    try:
+        coord.usage_tracker.tick(0, elapsed=120)
+        coord._open_usage_panel()  # noqa: SLF001
+        coord.usage_panel_dialog._reset_today()  # noqa: SLF001
+
+        snap = coord.settings.get(SNAPSHOT_KEY)
+        assert snap["today_seconds"] == 0
+        assert snap["reminders"] == 0
+    finally:
+        if coord.usage_panel_dialog is not None:
+            coord.usage_panel_dialog.close()
+        coord.bus.stop()
+
+
 def test_reload_pet_tolerates_corrupt_manifest(qapp, tmp_path: Path, monkeypatch) -> None:
     """A registered pet whose manifest is corrupt/missing must not crash the app.
 

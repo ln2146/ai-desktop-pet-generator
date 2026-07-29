@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -9,6 +10,7 @@ import pytest  # noqa: E402
 pytest.importorskip("PySide6")
 
 from datetime import datetime, timedelta, timezone  # noqa: E402
+from zoneinfo import ZoneInfo  # noqa: E402
 
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
@@ -40,6 +42,16 @@ def test_idle_break_resets_streak(qapp) -> None:
     t.tick(400, now=_now(), elapsed=20)
     assert t.active_seconds == 0
     assert t.today_seconds == 60  # unchanged: the away time didn't count
+
+
+def test_idle_detection_unavailable_is_explicit(qapp) -> None:
+    t = UsageTracker(work_threshold_seconds=999, idle_break_seconds=300, now=_now())
+    t.tick(None, now=_now(), elapsed=60)
+    assert t.idle_detection_available is False
+    assert t.today_seconds == 60
+
+    t.tick(0, now=_now(), elapsed=20)
+    assert t.idle_detection_available is True
 
 
 def test_below_threshold_no_nudge(qapp) -> None:
@@ -121,6 +133,31 @@ def test_day_rollover_resets_totals(qapp) -> None:
     assert t.today_seconds == 50  # rolled over
     assert t.reminders_today == 0
     assert t.last_date == next_day.date()
+
+
+def test_today_boundary_uses_system_local_date(qapp) -> None:
+    if not hasattr(time, "tzset"):
+        pytest.skip("requires tzset")
+
+    old_tz = os.environ.get("TZ")
+    os.environ["TZ"] = "Asia/Shanghai"
+    time.tzset()
+    try:
+        local_now = datetime(2026, 7, 30, 0, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+        utc_now = local_now.astimezone(timezone.utc)
+
+        t = UsageTracker(work_threshold_seconds=999, idle_break_seconds=300, now=utc_now)
+        t.tick(0, now=utc_now, elapsed=60)
+
+        assert utc_now.date().isoformat() == "2026-07-29"
+        assert t.last_date.isoformat() == "2026-07-30"
+        assert t.snapshot(utc_now)["date"] == "2026-07-30"
+    finally:
+        if old_tz is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = old_tz
+        time.tzset()
 
 
 def test_snapshot_roundtrip_same_day(qapp) -> None:

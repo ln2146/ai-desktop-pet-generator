@@ -36,6 +36,12 @@ DEFAULT_COOLDOWN_SECONDS = 15 * 60
 SNAPSHOT_KEY = "usage.snapshot"
 
 
+def _local_date(now: datetime):
+    if now.tzinfo is None or now.utcoffset() is None:
+        return now.date()
+    return now.astimezone().date()
+
+
 @dataclass
 class _Config:
     work_threshold_seconds: int = DEFAULT_WORK_THRESHOLD_SECONDS
@@ -69,10 +75,11 @@ class UsageTracker(QObject):
             enabled=enabled,
         )
         now = now or utcnow()
-        self.last_date = now.date()
+        self.last_date = _local_date(now)
         self.today_seconds = 0
         self.active_seconds = 0
         self.reminders_today = 0
+        self.idle_detection_available = True
         self.last_reminder_at: datetime = now - timedelta(seconds=self._cfg.cooldown_seconds + 1)
 
     # --- configuration ------------------------------------------------------
@@ -105,14 +112,16 @@ class UsageTracker(QObject):
     ) -> None:
         """Advance the state machine by ``elapsed`` seconds.
 
-        ``idle_seconds`` is the OS-reported idle (``None`` if unavailable, in
-        which case we assume active and rely on ``elapsed``). ``elapsed`` must
-        be supplied by the caller (the coordinator truncates it to avoid sleep
-        gaps inflating the count).
+        ``idle_seconds`` is the OS-reported idle. When it is unavailable
+        (``None``), we mark :attr:`idle_detection_available` false and rely on
+        ``elapsed`` so callers can surface the degraded estimate explicitly.
+        ``elapsed`` must be supplied by the caller (the coordinator truncates it
+        to avoid sleep gaps inflating the count).
         """
         now = now or utcnow()
         self._rollover_day_if_needed(now)
 
+        self.idle_detection_available = idle_seconds is not None
         on_break = idle_seconds is not None and idle_seconds >= self._cfg.idle_break_seconds
         if on_break:
             # The user stepped away long enough to count as a rest: the streak
@@ -155,15 +164,16 @@ class UsageTracker(QObject):
 
     def reset_today(self, now: datetime | None = None) -> None:
         now = now or utcnow()
-        self.last_date = now.date()
+        self.last_date = _local_date(now)
         self.today_seconds = 0
         self.reminders_today = 0
 
     # --- internals ----------------------------------------------------------
 
     def _rollover_day_if_needed(self, now: datetime) -> None:
-        if now.date() != self.last_date:
-            self.last_date = now.date()
+        local_date = _local_date(now)
+        if local_date != self.last_date:
+            self.last_date = local_date
             self.today_seconds = 0
             self.reminders_today = 0
 
@@ -172,7 +182,7 @@ class UsageTracker(QObject):
     def snapshot(self, now: datetime | None = None) -> dict:
         now = now or utcnow()
         return {
-            "date": now.date().isoformat(),
+            "date": _local_date(now).isoformat(),
             "today_seconds": self.today_seconds,
             "reminders": self.reminders_today,
         }
@@ -189,10 +199,11 @@ class UsageTracker(QObject):
         now = now or utcnow()
         try:
             snap_date_str = data.get("date")
-            if snap_date_str and snap_date_str != now.date().isoformat():
+            local_date = _local_date(now)
+            if snap_date_str and snap_date_str != local_date.isoformat():
                 return  # stale snapshot from another day; keep the fresh state
             self.today_seconds = max(0, int(data.get("today_seconds", 0)))
             self.reminders_today = max(0, int(data.get("reminders", 0)))
-            self.last_date = now.date()
+            self.last_date = local_date
         except (TypeError, ValueError):
             return  # corrupt snapshot: degrade silently to defaults
