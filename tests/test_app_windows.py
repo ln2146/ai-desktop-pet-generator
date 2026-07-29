@@ -205,27 +205,4 @@ def test_library_dialog_style_controls_emit_values(qapp) -> None:
     assert previews == [True]
 
 
-def test_library_dialog_voice_config_tracks_current_style(qapp) -> None:
-    dlg = LibraryDialog()
-    providers: list[str] = []
-    refs: list[tuple[str, str]] = []
-    dlg.voice_provider_changed.connect(providers.append)
-    dlg.fish_reference_id_changed.connect(lambda style_id, ref_id: refs.append((style_id, ref_id)))
 
-    dlg.set_voice_config(
-        provider="fish",
-        fish_api_key="fish-key",
-        fish_reference_ids={"moe-pet": "pet-voice", "tsundere": "tsun-voice"},
-    )
-    assert dlg._voice_provider_combo.currentData() == "fish"  # noqa: SLF001
-    assert dlg._fish_api_key.text() == "fish-key"  # noqa: SLF001
-
-    dlg.set_interaction_style_value("tsundere")
-    assert dlg._fish_reference_id.text() == "tsun-voice"  # noqa: SLF001
-
-    dlg._fish_reference_id.setText("updated")  # noqa: SLF001
-    dlg._on_fish_reference_id_changed()  # noqa: SLF001
-
-    dlg._voice_provider_combo.setCurrentIndex(0)  # noqa: SLF001
-    assert providers == ["edge"]
-    assert refs == [("tsundere", "updated")]

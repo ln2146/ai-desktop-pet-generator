@@ -326,9 +326,6 @@ class LibraryDialog(QDialog):
     scale_changed = Signal(float)
     interaction_style_changed = Signal(str)
     preview_style_requested = Signal()
-    voice_provider_changed = Signal(str)
-    fish_api_key_changed = Signal(str)
-    fish_reference_id_changed = Signal(str, str)
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -444,89 +441,77 @@ class LibraryDialog(QDialog):
         line.setStyleSheet("background-color: #e2e8f0; max-height: 1px;")
         root.addWidget(line)
 
-        style_box = QVBoxLayout()
-        style_box.setSpacing(4)
-        style_title = QLabel("互动风格")
-        style_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 14px;")
-        style_sub = QLabel("绑定气泡台词、说话音色、语速语调和反馈音效")
-        style_sub.setStyleSheet("color: #64748b; font-size: 12px;")
+        # Interaction Style Card Frame
+        style_card = QFrame()
+        style_card.setObjectName("InteractionStyleCard")
+        style_card.setStyleSheet(
+            "QFrame#InteractionStyleCard {"
+            "  background-color: #ffffff;"
+            "  border: 1px solid #e2e8f0;"
+            "  border-radius: 12px;"
+            "}"
+        )
+        style_card_layout = QVBoxLayout(style_card)
+        style_card_layout.setContentsMargins(14, 12, 14, 12)
+        style_card_layout.setSpacing(10)
+
+        # Header Title
+        style_title = QLabel("🎭 互动风格")
+        style_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 13px; border: none;")
+        style_card_layout.addWidget(style_title)
+
+        LABEL_WIDTH = 72
+
+        # Style Selection & Preview Row
+        style_control_row = QHBoxLayout()
+        style_control_row.setSpacing(8)
+
+        style_lbl = QLabel("风格选择")
+        style_lbl.setFixedWidth(LABEL_WIDTH)
+        style_lbl.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px; border: none;")
+        style_control_row.addWidget(style_lbl)
+
         self._interaction_style_combo = QComboBox()
         self._interaction_style_combo.setFixedHeight(32)
+        self._interaction_style_combo.setStyleSheet(
+            "QComboBox { font-weight: 600; color: #1e293b; padding-left: 8px; }"
+        )
         self._interaction_style_keys: list[str] = []
         for key, style in load_styles().items():
             self._interaction_style_keys.append(key)
             self._interaction_style_combo.addItem(
-                f"{style.emoji} {style.display_name} · {style.description}", key
+                f"{style.emoji} {style.display_name}", key
             )
         self._interaction_style_combo.currentIndexChanged.connect(
             self._on_interaction_style_changed
         )
-        style_control_row = QHBoxLayout()
-        style_control_row.setSpacing(6)
         style_control_row.addWidget(self._interaction_style_combo, 1)
+
         preview_style = QPushButton("▶ 试听")
         preview_style.setFixedHeight(32)
         preview_style.setCursor(Qt.PointingHandCursor)
+        preview_style.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #eef2ff;"
+            "  color: #4f46e5;"
+            "  border: 1px solid #c7d2fe;"
+            "  border-radius: 6px;"
+            "  font-weight: 600;"
+            "  padding: 0px 14px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #e0e7ff;"
+            "  border-color: #a5b4fc;"
+            "  color: #4338ca;"
+            "}"
+            "QPushButton:pressed {"
+            "  background-color: #c7d2fe;"
+            "}"
+        )
         preview_style.clicked.connect(lambda: self.preview_style_requested.emit())
         style_control_row.addWidget(preview_style)
-        style_box.addWidget(style_title)
-        style_box.addWidget(style_sub)
-        style_box.addLayout(style_control_row)
-
-        voice_source_row = QHBoxLayout()
-        voice_source_row.setSpacing(8)
-        source_label = QLabel("语音来源")
-        source_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px;")
-        self._voice_provider_combo = QComboBox()
-        self._voice_provider_combo.setFixedHeight(30)
-        self._voice_provider_combo.addItem("Microsoft 免费语音", "edge")
-        self._voice_provider_combo.addItem("Fish Audio 免费 API", "fish")
-        self._voice_provider_combo.currentIndexChanged.connect(self._on_voice_provider_changed)
-        self._fish_model_label = QLabel("Fish 模型：s2.1-pro-free")
-        self._fish_model_label.setStyleSheet("color: #64748b; font-size: 12px;")
-        voice_source_row.addWidget(source_label)
-        voice_source_row.addWidget(self._voice_provider_combo, 1)
-        voice_source_row.addWidget(self._fish_model_label)
-        style_box.addLayout(voice_source_row)
-
-        fish_key_row = QHBoxLayout()
-        fish_key_row.setSpacing(6)
-        self._fish_api_key = QLineEdit()
-        self._fish_api_key.setFixedHeight(30)
-        self._fish_api_key.setPlaceholderText("Fish Audio API Key")
-        self._fish_api_key.setEchoMode(QLineEdit.Password)
-        self._fish_api_key.editingFinished.connect(self._on_fish_api_key_changed)
-        self._fish_eye = QPushButton("👁")
-        self._fish_eye.setFixedSize(32, 30)
-        self._fish_eye.setCheckable(True)
-        self._fish_eye.setCursor(Qt.PointingHandCursor)
-        self._fish_eye.toggled.connect(
-            lambda on: self._fish_api_key.setEchoMode(
-                QLineEdit.Normal if on else QLineEdit.Password
-            )
-        )
-        self._fish_fill_btn = QPushButton("从 .env")
-        self._fish_fill_btn.setFixedHeight(30)
-        self._fish_fill_btn.setCursor(Qt.PointingHandCursor)
-        self._fish_fill_btn.clicked.connect(self._fill_fish_from_env)
-        fish_key_row.addWidget(self._fish_api_key, 1)
-        fish_key_row.addWidget(self._fish_eye)
-        fish_key_row.addWidget(self._fish_fill_btn)
-        style_box.addLayout(fish_key_row)
-
-        fish_ref_row = QHBoxLayout()
-        fish_ref_row.setSpacing(6)
-        ref_label = QLabel("当前风格声音 ID")
-        ref_label.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px;")
-        self._fish_reference_id = QLineEdit()
-        self._fish_reference_id.setFixedHeight(30)
-        self._fish_reference_id.setPlaceholderText("Fish reference_id")
-        self._fish_reference_id.editingFinished.connect(self._on_fish_reference_id_changed)
-        fish_ref_row.addWidget(ref_label)
-        fish_ref_row.addWidget(self._fish_reference_id, 1)
-        style_box.addLayout(fish_ref_row)
-
-        root.addLayout(style_box)
+        style_card_layout.addLayout(style_control_row)
+        root.addWidget(style_card)
 
         # Pet Scale Control Section (Matches Image 2 bottom slider)
         scale_box = QVBoxLayout()
@@ -579,7 +564,6 @@ class LibraryDialog(QDialog):
         root.addLayout(scale_box)
 
         self._scale_slider.valueChanged.connect(self._on_slider_changed)
-        self._sync_voice_controls_enabled()
 
     # --- public API ---------------------------------------------------------
 
@@ -630,25 +614,10 @@ class LibraryDialog(QDialog):
         self._interaction_style_combo.blockSignals(True)
         self._interaction_style_combo.setCurrentIndex(self._interaction_style_keys.index(key))
         self._interaction_style_combo.blockSignals(False)
-        self._set_current_fish_reference_field()
 
-    def set_voice_config(
-        self,
-        *,
-        provider: str,
-        fish_api_key: str,
-        fish_reference_ids: dict[str, str] | None,
-    ) -> None:
-        self._fish_reference_ids = dict(fish_reference_ids or {})
-        idx = self._voice_provider_combo.findData("fish" if provider == "fish" else "edge")
-        self._voice_provider_combo.blockSignals(True)
-        self._voice_provider_combo.setCurrentIndex(max(idx, 0))
-        self._voice_provider_combo.blockSignals(False)
-        self._fish_api_key.blockSignals(True)
-        self._fish_api_key.setText(fish_api_key or "")
-        self._fish_api_key.blockSignals(False)
-        self._set_current_fish_reference_field()
-        self._sync_voice_controls_enabled()
+    def set_voice_config(self, *args, **kwargs) -> None:
+        """Compatibility no-op method for legacy callers."""
+        pass
 
     # --- helpers ------------------------------------------------------------
 
@@ -659,50 +628,7 @@ class LibraryDialog(QDialog):
     def _on_interaction_style_changed(self) -> None:
         key = self._interaction_style_combo.currentData()
         if key:
-            self._set_current_fish_reference_field()
             self.interaction_style_changed.emit(str(key))
-
-    def _on_voice_provider_changed(self) -> None:
-        provider = str(self._voice_provider_combo.currentData() or "edge")
-        self._sync_voice_controls_enabled()
-        self.voice_provider_changed.emit(provider)
-
-    def _on_fish_api_key_changed(self) -> None:
-        self.fish_api_key_changed.emit(self._fish_api_key.text().strip())
-
-    def _on_fish_reference_id_changed(self) -> None:
-        key = self._current_style_key()
-        reference_id = self._fish_reference_id.text().strip()
-        if reference_id:
-            self._fish_reference_ids[key] = reference_id
-        else:
-            self._fish_reference_ids.pop(key, None)
-        self.fish_reference_id_changed.emit(key, reference_id)
-
-    def _fill_fish_from_env(self) -> None:
-        load_env_file(None)
-        value = os.environ.get("FISH_AUDIO_API_KEY") or os.environ.get("FISH_API_KEY") or ""
-        if value:
-            self._fish_api_key.setText(value)
-            self.fish_api_key_changed.emit(value.strip())
-
-    def _current_style_key(self) -> str:
-        key = self._interaction_style_combo.currentData()
-        return str(key or self._interaction_style_keys[0])
-
-    def _set_current_fish_reference_field(self) -> None:
-        key = self._current_style_key()
-        self._fish_reference_id.blockSignals(True)
-        self._fish_reference_id.setText(self._fish_reference_ids.get(key, ""))
-        self._fish_reference_id.blockSignals(False)
-
-    def _sync_voice_controls_enabled(self) -> None:
-        fish_enabled = self._voice_provider_combo.currentData() == "fish"
-        self._fish_model_label.setVisible(fish_enabled)
-        self._fish_api_key.setEnabled(fish_enabled)
-        self._fish_eye.setEnabled(fish_enabled)
-        self._fish_fill_btn.setEnabled(fish_enabled)
-        self._fish_reference_id.setEnabled(fish_enabled)
 
     def _on_create(self) -> None:
         dlg = _CreatePetDialog(self)

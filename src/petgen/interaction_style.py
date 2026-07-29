@@ -25,9 +25,6 @@ class InteractionStyle:
     edge_voice: str = ""
     edge_rate: str = ""  # prosody rate e.g. +10% / -8%; empty = omit
     edge_pitch: str = ""  # prosody pitch e.g. +20Hz; empty = omit
-    # Fish Audio public/custom voice model id. Empty means Fish Audio is not
-    # configured for this style yet and the speaker should use the local preset.
-    fish_reference_id: str = ""
 
     def line_for(self, kind: str) -> str | None:
         import random

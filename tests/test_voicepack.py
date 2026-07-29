@@ -168,31 +168,7 @@ def test_voice_pack_preview_speaks_without_sfx(qapp, monkeypatch: pytest.MonkeyP
     assert spoken and spoken[0]
 
 
-def test_voice_pack_service_applies_fish_reference_ids(
-    qapp, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    spoken: list[tuple[str, str]] = []
-    fallback: list[str | None] = []
-    monkeypatch.setattr(
-        "petgen.speak._FishSpeaker.speak",
-        lambda _self, text, reference_id: spoken.append((text, reference_id)) or True,
-    )
-    monkeypatch.setattr(
-        "petgen.speak.Speaker._speak_edge_or_system",
-        lambda _self, text: fallback.append(text) or True,
-    )
 
-    svc = VoicePackService(
-        default_pack(),
-        voice_provider="fish",
-        fish_api_key="fish-key",
-        fish_reference_ids={default_pack().id: "fish-voice-id"},
-    )
-    result = svc.preview()
-
-    assert result["speech"] is True
-    assert spoken and spoken[0][1] == "fish-voice-id"
-    assert fallback == []
 
 
 def test_all_clip_kinds_do_not_crash(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
