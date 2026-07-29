@@ -77,10 +77,33 @@ def test_import_existing_dir_copies_and_loads(tmp_path: Path) -> None:
     record = library.import_existing_dir(src)
 
     assert record.id == "old"
-    assert record.model == "m"
+    # Imported pets are tagged "custom" so they show under the "自定义" tab,
+    # regardless of the original model recorded in pet.json.
+    assert record.model == "custom"
     assert record.prompt == "p"
     assert registry.get("old") is not None
     assert Path(record.sprite_path).is_file()
+
+
+def test_imported_pet_classifies_as_custom(tmp_path: Path) -> None:
+    """A pet imported via 'import folder' must count as custom in the library."""
+    # Source pet.json carries a real model name + a "pet-" id — neither would
+    # normally satisfy the custom classification on its own.
+    src = _write_pet_dir(
+        tmp_path / "gen_run", pet_id="pet-abc123", display_name="生成猫"
+    )
+    manifest = json.loads((src / "pet.json").read_text(encoding="utf-8"))
+    manifest["_generation"]["model"] = "gpt-image-2"
+    (src / "pet.json").write_text(json.dumps(manifest), encoding="utf-8")
+    library, _, _ = _make_library(tmp_path)
+
+    record = library.import_existing_dir(src)
+
+    is_custom = (
+        record.model in ("custom", "user-generated")
+        or record.id.startswith("custom-")
+    )
+    assert is_custom is True
 
 
 def test_duplicate_id_gets_suffix(tmp_path: Path) -> None:

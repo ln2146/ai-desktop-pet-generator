@@ -94,6 +94,10 @@ class PetLibrary:
         pet_id = _unique_id(self._registry, base_id)
         sprite_dst, manifest_dst, preview_dst = _copy_assets(src, self._root / pet_id)
         now = _utcnow()
+        # Imported pets are user-supplied, so mark them "custom" so they land in
+        # the "自定义" tab. The original model is still kept inside the copied
+        # pet.json (_generation.model) for provenance; record.model only drives
+        # the preset/custom classification in the library dialog.
         record = PetRecord(
             id=pet_id,
             display_name=manifest.display_name or src.name,
@@ -101,7 +105,7 @@ class PetLibrary:
             sprite_path=str(sprite_dst),
             manifest_path=str(manifest_dst),
             preview_path=str(preview_dst) if preview_dst else None,
-            model=_read_generation_field(manifest.sprite_path.parent / "pet.json", "model"),
+            model="custom",
             prompt=_read_generation_field(manifest.sprite_path.parent / "pet.json", "prompt"),
             description=manifest.description,
             created_at=now,
