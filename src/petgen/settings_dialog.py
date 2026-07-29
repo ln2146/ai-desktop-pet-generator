@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -243,6 +244,27 @@ class SettingsDialog(QDialog):
             c3_layout.addWidget(cb)
         layout.addWidget(card3)
 
+        # Health / rest-nudge Card
+        card4, c4_layout = _create_card_container(
+            "健康提醒", "久坐时让桌宠主动提醒你休息（离开电脑超过 5 分钟会自动算作休息）"
+        )
+        self.pet_usage_reminder = QCheckBox("启用久坐休息提醒")
+        self.pet_usage_reminder.setCursor(Qt.PointingHandCursor)
+        self.pet_usage_reminder.setStyleSheet("font-size: 13px; font-weight: 500;")
+        c4_layout.addWidget(self.pet_usage_reminder)
+
+        threshold_row = QHBoxLayout()
+        threshold_row.setSpacing(8)
+        threshold_row.addWidget(_create_field_label("连续工作提醒阈值（分钟）"))
+        self.pet_usage_threshold = QSpinBox()
+        self.pet_usage_threshold.setRange(15, 120)
+        self.pet_usage_threshold.setSingleStep(5)
+        self.pet_usage_threshold.setFixedWidth(90)
+        threshold_row.addStretch(1)
+        threshold_row.addWidget(self.pet_usage_threshold)
+        c4_layout.addLayout(threshold_row)
+        layout.addWidget(card4)
+
         layout.addStretch(1)
         return w
 
@@ -336,6 +358,8 @@ class SettingsDialog(QDialog):
                 bool(self._settings.get(key, widget_name == "pet_motion"))
             )
         self.pet_scale.setValue(float(self._settings.get("pet.scale", 1.5)))
+        self.pet_usage_reminder.setChecked(bool(self._settings.get("pet.usage_reminder_enabled", True)))
+        self.pet_usage_threshold.setValue(int(self._settings.get("pet.usage_work_threshold", 45)))
         # Refresh the tool-wiring states (the dialog instance is reused across shows);
         # a failure here must never break the dialog itself.
         try:
@@ -354,6 +378,8 @@ class SettingsDialog(QDialog):
             _PET_FIELDS_BOOL["pet_sound"]: self.pet_sound.isChecked(),
             _PET_FIELDS_BOOL["pet_click_chat"]: self.pet_click_chat.isChecked(),
             "pet.scale": float(self.pet_scale.value()),
+            "pet.usage_reminder_enabled": self.pet_usage_reminder.isChecked(),
+            "pet.usage_work_threshold": int(self.pet_usage_threshold.value()),
         }
         self._settings.set_many(values)
         return values

@@ -105,6 +105,7 @@ class TrayController(QObject):
     quick_capture_requested = Signal()
     reminder_list_requested = Signal()
     pomodoro_requested = Signal()
+    usage_requested = Signal()
     quit_requested = Signal()
 
     def __init__(self, parent=None) -> None:
@@ -167,6 +168,7 @@ class TrayController(QObject):
         menu.addSeparator()
         menu.addAction("提醒列表").triggered.connect(lambda: self.reminder_list_requested.emit())
         menu.addAction("番茄钟").triggered.connect(lambda: self.pomodoro_requested.emit())
+        menu.addAction("今日使用时长").triggered.connect(lambda: self.usage_requested.emit())
         menu.addSeparator()
         self._quiet_action = menu.addAction("安静模式")
         self._quiet_action.setCheckable(True)
