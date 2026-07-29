@@ -53,6 +53,27 @@
   </table>
 </p>
 
+## 真实运行
+
+不只是预览图——这是 `petgen app` 实际跑起来的样子。悬浮宠物常驻桌面、有呼吸动画，宠物中心可以浏览、切换、管理你养的所有伙伴。
+
+<p align="center">
+  <table align="center">
+    <tr>
+      <td align="center">
+        <img src="docs/images/idle.gif" alt="桌面上呼吸中的灰白小猫" width="200">
+      </td>
+      <td align="center">
+        <img src="docs/images/ui-pet-center.png" alt="宠物中心界面" width="460">
+      </td>
+    </tr>
+    <tr>
+      <td align="center"><sub>悬浮宠物 · idle 呼吸动画</sub></td>
+      <td align="center"><sub>宠物中心 · 浏览 / 切换 / 管理</sub></td>
+    </tr>
+  </table>
+</p>
+
 ## 功能概览
 
 | 功能 | 说明 |
