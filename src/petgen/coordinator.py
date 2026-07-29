@@ -98,6 +98,72 @@ def _set_macos_accessory_policy() -> None:
         pass
 
 
+def _activate_macos_app() -> None:
+    """Force the current process to the foreground on macOS.
+
+    Under the Accessory activation policy, ``QWindow.activateWindow()`` is a
+    polite request that macOS routinely ignores when another app holds the
+    focus — so the dialog window is created but stays buried behind the front
+    app, and only a sliver of it (e.g. an inner config row) peeks out. That is
+    the root cause of "clicking the tray sometimes shows a tiny window."
+
+    ``[NSApp activateIgnoringOtherApps:YES]`` is the only reliable way to steal
+    focus on macOS; it is the documented escape hatch Qt itself relies on. No-op
+    off-platform and in the offscreen self-check platform.
+    """
+    if sys.platform != "darwin":
+        return
+    try:
+        from PySide6.QtGui import QGuiApplication
+
+        if QGuiApplication.platformName() == "offscreen":
+            return
+        import ctypes
+        import ctypes.util
+
+        lib = ctypes.cdll.LoadLibrary(
+            ctypes.util.find_library("objc") or "/usr/lib/libobjc.A.dylib"
+        )
+        lib.objc_getClass.restype = ctypes.c_void_p
+        lib.objc_getClass.argtypes = [ctypes.c_char_p]
+        lib.sel_registerName.restype = ctypes.c_void_p
+        lib.sel_registerName.argtypes = [ctypes.c_char_p]
+        send = lib.objc_msgSend
+        send.restype = ctypes.c_void_p
+        send.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+        nsapp = send(
+            lib.objc_getClass(b"NSApplication"),
+            lib.sel_registerName(b"sharedApplication"),
+        )
+        if not nsapp:
+            return
+        # [NSApp activateIgnoringOtherApps:YES] — steal focus unconditionally.
+        send.restype = None
+        send.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
+        send(nsapp, lib.sel_registerName(b"activateIgnoringOtherApps:"), True)
+    except Exception:  # noqa: BLE001 - bringing to front must never crash the app
+        pass
+
+
+def _bring_to_front(widget) -> None:
+    """Show + raise + activate a top-level widget so it actually appears on top.
+
+    Under the macOS Accessory activation policy (and in several offscreen / WM
+    configurations on Linux), ``show()`` + ``raise_()`` alone are NOT enough to
+    bring a window to the front — the app lacks foreground standing, so the
+    window is created but stays buried behind other apps' windows. On macOS we
+    additionally force the app itself into the foreground via Cocoa
+    (``activateIgnoringOtherApps``); ``activateWindow()`` alone is a polite
+    request that macOS ignores when another app holds focus, which is why a
+    dialog sometimes appears as just a sliver peeking out from under the front
+    app.
+    """
+    _activate_macos_app()
+    widget.show()
+    widget.raise_()
+    widget.activateWindow()
+
+
 class GenerationWorker(QThread):
     progress = Signal(str)
     finished_ok = Signal(object)
@@ -197,9 +263,6 @@ class AppCoordinator(QObject):
 
         self.voice = VoicePackService(
             enabled=bool(self.settings.get("pet.sound_enabled", True)),
-            voice_provider=self._voice_provider(),
-            fish_api_key=self._fish_api_key(),
-            fish_reference_ids=self._fish_reference_ids(),
         )
         style_id = self._current_interaction_style_id()
         if self.settings.get("pet.interaction_style") != style_id:
@@ -384,14 +447,26 @@ class AppCoordinator(QObject):
                 self._on_library_interaction_style_changed
             )
             self.library_dialog.preview_style_requested.connect(self._preview_interaction_style)
-            self.library_dialog.voice_provider_changed.connect(self._on_voice_provider_changed)
-            self.library_dialog.fish_api_key_changed.connect(self._on_fish_api_key_changed)
-            self.library_dialog.fish_reference_id_changed.connect(
-                self._on_fish_reference_id_changed
-            )
+            # The dialog is a top-level Qt.Window. If we keep the Python reference
+            # after the user closes it, the underlying QWidget is only hidden, not
+            # destroyed — a "zombie" window lingers in the window manager and, under
+            # the macOS Accessory policy, resurfaces later as a collapsed/abnormal
+            # sliver. Drop the reference on close so the next open rebuilds a fresh,
+            # correctly-sized dialog (same pattern as reminder_editor_dialog).
+            self.library_dialog.finished.connect(self._discard_library_dialog)
         self._refresh_library()
-        self.library_dialog.show()
-        self.library_dialog.raise_()
+        _bring_to_front(self.library_dialog)
+
+    def _discard_library_dialog(self) -> None:
+        """Drop the library dialog reference when it closes so it is GC'd.
+
+        ``QDialog.finished`` fires for both accept and reject (the red close
+        button, Esc, etc.), so this single hook covers every close path.
+        """
+        if self.library_dialog is not None:
+            dlg = self.library_dialog
+            self.library_dialog = None
+            dlg.deleteLater()
 
     def _refresh_library(self) -> None:
         if self.library_dialog is not None:
@@ -399,11 +474,6 @@ class AppCoordinator(QObject):
             scale = float(self.settings.get("pet.scale", 1.5))
             self.library_dialog.set_scale_value(scale)
             self.library_dialog.set_interaction_style_value(self._current_interaction_style_id())
-            self.library_dialog.set_voice_config(
-                provider=self._voice_provider(),
-                fish_api_key=self._fish_api_key(),
-                fish_reference_ids=self._fish_reference_ids(),
-            )
 
     def _on_library_scale_changed(self, scale: float) -> None:
         self.settings.set("pet.scale", float(scale))
@@ -427,44 +497,6 @@ class AppCoordinator(QObject):
         self.settings.set("pet.interaction_style", style_id)
         self.voice.set_style(style_id)
 
-    def _voice_provider(self) -> str:
-        return "fish" if self.settings.get("voice.provider") == "fish" else "edge"
-
-    def _fish_api_key(self) -> str:
-        return str(self.settings.get("voice.fish_api_key") or "")
-
-    def _fish_reference_ids(self) -> dict[str, str]:
-        raw = self.settings.get("voice.fish_reference_ids", {})
-        if not isinstance(raw, dict):
-            return {}
-        return {str(k): str(v).strip() for k, v in raw.items() if str(v).strip()}
-
-    def _apply_voice_config(self) -> None:
-        self.voice.configure_voice(
-            voice_provider=self._voice_provider(),
-            fish_api_key=self._fish_api_key(),
-            fish_reference_ids=self._fish_reference_ids(),
-        )
-
-    def _on_voice_provider_changed(self, provider: str) -> None:
-        self.settings.set("voice.provider", "fish" if provider == "fish" else "edge")
-        self._apply_voice_config()
-
-    def _on_fish_api_key_changed(self, api_key: str) -> None:
-        self.settings.set("voice.fish_api_key", api_key.strip())
-        self._apply_voice_config()
-
-    def _on_fish_reference_id_changed(self, style_id: str, reference_id: str) -> None:
-        refs = self._fish_reference_ids()
-        clean_id = normalize_style_id(style_id)
-        clean_reference = reference_id.strip()
-        if clean_reference:
-            refs[clean_id] = clean_reference
-        else:
-            refs.pop(clean_id, None)
-        self.settings.set("voice.fish_reference_ids", refs)
-        self._apply_voice_config()
-
     def _preview_interaction_style(self) -> None:
         try:
             from petgen.speak import VoicePackService
@@ -479,17 +511,9 @@ class AppCoordinator(QObject):
                 svc = VoicePackService(
                     style,
                     enabled=True,
-                    voice_provider=self._voice_provider(),
-                    fish_api_key=self._fish_api_key(),
-                    fish_reference_ids=self._fish_reference_ids(),
                 )
                 self._preview_voice_svc = svc
             else:
-                svc.configure_voice(
-                    voice_provider=self._voice_provider(),
-                    fish_api_key=self._fish_api_key(),
-                    fish_reference_ids=self._fish_reference_ids(),
-                )
                 svc.set_style(style.id)
             svc.set_enabled(True)
             svc.preview()
@@ -595,13 +619,11 @@ class AppCoordinator(QObject):
             self.settings_dialog = SettingsDialog(self.settings)
             self.settings_dialog.applied.connect(self._apply_settings)
         self.settings_dialog.load_values()
-        self.settings_dialog.show()
-        self.settings_dialog.raise_()
+        _bring_to_front(self.settings_dialog)
 
     def _apply_settings(self) -> None:
         # scale lives in the fixed-size window, so any settings save rebuilds the pet
         self._reload_pet()
-        self._apply_voice_config()
         self.voice.set_style(self._current_interaction_style_id())
         sound_on = bool(self.settings.get("pet.sound_enabled", True)) and not self._quiet
         self.voice.set_enabled(sound_on)
@@ -631,8 +653,7 @@ class AppCoordinator(QObject):
         else:
             # Reset the input so reopening feels like a fresh capture.
             self.quick_capture_dialog.input.clear()
-        self.quick_capture_dialog.show()
-        self.quick_capture_dialog.raise_()
+        _bring_to_front(self.quick_capture_dialog)
 
     def _create_reminder(self, data: dict) -> None:
         try:
@@ -660,8 +681,7 @@ class AppCoordinator(QObject):
             self.reminder_list_dialog.edit_requested.connect(self._edit_reminder)
             self.reminder_list_dialog.delete_requested.connect(self._delete_reminder)
         self._refresh_reminder_list()
-        self.reminder_list_dialog.show()
-        self.reminder_list_dialog.raise_()
+        _bring_to_front(self.reminder_list_dialog)
 
     def _refresh_reminder_list(self) -> None:
         if self.reminder_list_dialog is not None:
@@ -681,8 +701,7 @@ class AppCoordinator(QObject):
             old.deleteLater()
         self.reminder_editor_dialog = ReminderEditorDialog(reminder)
         self.reminder_editor_dialog.reminder_saved.connect(self._save_reminder)
-        self.reminder_editor_dialog.show()
-        self.reminder_editor_dialog.raise_()
+        _bring_to_front(self.reminder_editor_dialog)
 
     def _save_reminder(self, data: dict) -> None:
         try:
@@ -747,8 +766,7 @@ class AppCoordinator(QObject):
         # its signals to the service, doubling tick handlers).
         if self.pomodoro_window is None:
             self.pomodoro_window = PomodoroWindow(self.pomodoro)
-        self.pomodoro_window.show()
-        self.pomodoro_window.raise_()
+        _bring_to_front(self.pomodoro_window)
 
     def _on_pomodoro_finished(self, phase: str) -> None:
         from petgen.pomodoro import BREAK
