@@ -151,8 +151,8 @@ petgen desktop outputs/capybara-coder --scale 1.5
 - `preview.png`：首帧预览图。
 
 <p align="center">
-  <img src="docs/images/spritesheet.png" alt="标准 8x9 桌宠精灵表示例" width="430">
-  <br><sub>打包出的 <code>8 x 9</code> 精灵表</sub>
+  <img src="docs/images/spritesheet.png" alt="灰白小猫的标准 8x9 桌宠精灵表" width="430">
+  <br><sub>「灰白小猫」打包出的 <code>8 x 9</code> 精灵表</sub>
 </p>
 
 ## 桌宠应用
