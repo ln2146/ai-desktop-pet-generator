@@ -84,7 +84,11 @@ class PetWindow(QWidget):
         self._atlas = atlas
 
         self.setWindowFlags(
-            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.NoDropShadowWindowHint
+            Qt.FramelessWindowHint
+            | Qt.WindowStaysOnTopHint
+            | Qt.Tool
+            | Qt.NoDropShadowWindowHint
+            | Qt.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)

@@ -16,7 +16,11 @@ class BubbleWindow(QWidget):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowFlags(
-            Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.Tool | Qt.NoDropShadowWindowHint
+            Qt.FramelessWindowHint
+            | Qt.WindowStaysOnTopHint
+            | Qt.Tool
+            | Qt.NoDropShadowWindowHint
+            | Qt.WindowDoesNotAcceptFocus
         )
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setAttribute(Qt.WA_ShowWithoutActivating, True)
@@ -48,6 +52,7 @@ class BubbleWindow(QWidget):
         self._close_button = QPushButton("✕")
         self._close_button.setFixedWidth(24)
         self._close_button.setFixedHeight(24)
+        self._close_button.setFocusPolicy(Qt.NoFocus)
         self._close_button.setCursor(Qt.PointingHandCursor)
         self._close_button.setStyleSheet(
             "QPushButton { border: none; background: #f1f5f9; color: #64748b; font-weight: bold; border-radius: 12px; font-size: 11px; }"
@@ -83,7 +88,6 @@ class BubbleWindow(QWidget):
         self._close_button.setVisible(False)
         self.adjustSize()
         self.show()
-        self.raise_()
         self._timer.stop()
         if timeout_ms and timeout_ms > 0:
             self._timer.start(timeout_ms)
@@ -111,6 +115,7 @@ class BubbleWindow(QWidget):
                 item.widget().deleteLater()
         for label, callback in actions:
             button = QPushButton(label)
+            button.setFocusPolicy(Qt.NoFocus)
             button.setCursor(Qt.PointingHandCursor)
             button.setStyleSheet(
                 "QPushButton { border: 1px solid #fecaca; background: #fff7ed; color: #ea580c; border-radius: 14px; padding: 5px 12px; font-weight: 700; font-size: 12px; }"

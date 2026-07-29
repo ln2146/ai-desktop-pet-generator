@@ -93,6 +93,13 @@ def test_show_and_close_does_not_crash(qapp, tmp_path: Path) -> None:
     window.close()
 
 
+def test_pet_window_does_not_accept_focus(qapp, tmp_path: Path) -> None:
+    manifest, atlas = _make_pet(tmp_path)
+    window = PetWindow(manifest, atlas, scale=1.0, passthrough=False)
+
+    assert window.windowFlags() & Qt.WindowDoesNotAcceptFocus
+
+
 def _make_six_state_pet(tmp_path: Path):
     fw = fh = 48  # must exceed BADGE_SIZE (30) so the badge fits inside a frame
     cols, rows = 2, 3

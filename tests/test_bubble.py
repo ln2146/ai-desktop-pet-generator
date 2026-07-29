@@ -34,6 +34,19 @@ def test_bubble_label_is_plain_text(qapp) -> None:
     assert bubble._label.textFormat() == Qt.PlainText  # noqa: SLF001
 
 
+def test_bubble_does_not_accept_focus(qapp) -> None:
+    """Notifications must not interrupt typing in the foreground app."""
+    bubble = BubbleWindow()
+    assert bubble.windowFlags() & Qt.WindowDoesNotAcceptFocus
+
+    bubble.show_message("提醒", actions=[("完成", lambda: None)])
+    from PySide6.QtWidgets import QPushButton
+
+    buttons = [b for b in bubble.findChildren(QPushButton) if b.text() == "完成"]
+    assert buttons
+    assert buttons[0].focusPolicy() == Qt.NoFocus
+
+
 def test_bubble_renders_html_markup_literally(qapp) -> None:
     bubble = BubbleWindow()
     markup = '<b>bold</b> <a href="x">link</a>'
