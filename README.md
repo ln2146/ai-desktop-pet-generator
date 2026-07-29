@@ -240,7 +240,7 @@ Each one was generated from a single sentence — consistent style, ready to liv
   <table align="center">
     <tr>
       <td align="center"><img src="docs/images/pet-cat.png" alt="Grey-white cat" width="120"></td>
-      <td align="center"><img src="docs/images/pet-redpanda.png" alt="Red panda" width="120"></td>
+      <td align="center"><img src="docs/images/pet-redpanda.png" alt="Panda" width="120"></td>
       <td align="center"><img src="docs/images/pet-fox.png" alt="Arctic fox" width="120"></td>
       <td align="center"><img src="docs/images/pet-gingercat.png" alt="Ginger kitten" width="120"></td>
       <td align="center"><img src="docs/images/pet-dragon.png" alt="Baby dragon" width="120"></td>
@@ -248,7 +248,7 @@ Each one was generated from a single sentence — consistent style, ready to liv
     </tr>
     <tr>
       <td align="center"><sub><b>Grey-white cat</b></sub></td>
-      <td align="center"><sub><b>Red panda</b></sub></td>
+      <td align="center"><sub><b>Panda</b></sub></td>
       <td align="center"><sub><b>Arctic fox</b></sub></td>
       <td align="center"><sub><b>Ginger kitten</b></sub></td>
       <td align="center"><sub><b>Baby dragon</b></sub></td>
