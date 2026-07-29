@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg" alt="Cross-platform">
 </p>
 
-> 🌐 **中文介绍** · [**English** quick start](#-english-quick-start)
+> 🌐 **中文** · [**English**](README.en.md)
 
 ---
 
@@ -198,46 +198,6 @@ petgen event KIND TITLE [DETAIL] [SOURCE]
 - [docs/integrations.md](docs/integrations.md)：Claude Code / Codex / Antigravity 接入说明。
 - [docs/architecture.md](docs/architecture.md)：生成链路、运行时组件、存储和容错设计。
 - [docs/troubleshooting.md](docs/troubleshooting.md)：API、PySide6、音效、提醒、切图失败等常见问题。
-
----
-
-## 🌍 English Quick Start
-
-Turn a sentence (or a reference image) into a **high-quality desktop pet that lives in your system tray** — and reacts in real time while you code with AI.
-
-**Pipeline:** AI image generation → local green-screen keying → frame slicing → packed `8×9` spritesheet → tray-resident pet app.
-
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -e ".[desktop]"
-cp .env.example .env   # then fill in your OPENAI_API_KEY
-
-# Generate a pet from a text prompt
-petgen generate \
-  --prompt "a chubby capybara programmer wearing tiny headphones, gentle and smart" \
-  --name "Capybara Coder" \
-  --output outputs/capybara-coder
-
-# Launch the tray app
-petgen app
-```
-
-### Highlights
-
-- 🎨 **Text / reference-image generation** — describe a pet in one line, or feed a reference image to keep its colors and signature accessories.
-- 🧩 **Local post-processing** — chroma-key background removal, connected-component frame slicing, normalized into a standard pet spritesheet.
-- 🖥️ **Resident tray app** — system tray, floating pet, pet library, settings, speech bubbles, confetti.
-- 🔌 **AI coding integration** — connects to Claude Code / Codex / Antigravity; the pet reacts when your AI coding tasks complete.
-- 🗣️ **Voice + reminders + pomodoro** — TTS speech, original synthesized SFX, natural-language reminders, 25/5 focus timer.
-
-### Output of a generation run
-
-- `source.png` — raw model output (`generate` only)
-- `sprite.png` — standard `8×9` pet spritesheet (transparent background)
-- `pet.json` — animation manifest
-- `preview.png` — first-frame preview
-
-See the [full Chinese docs](#-三秒上手) above for advanced usage, AI-tool wiring, and the source-image spec. The codebase is fully type-hinted, tested (**pytest + ruff**), and cross-platform (macOS / Linux / Windows).
 
 ---
 
