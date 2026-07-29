@@ -157,11 +157,21 @@ def _bring_to_front(widget) -> None:
     request that macOS ignores when another app holds focus, which is why a
     dialog sometimes appears as just a sliver peeking out from under the front
     app.
+
+    A second ``activateWindow`` is re-issued off the next event-loop tick. Tray
+    dialogs are opened via ``QTimer.singleShot(0, ...)`` to dodge the native
+    status-menu teardown; by the time that callback runs macOS has often handed
+    focus back to the previously front app (the pet/bubble windows are
+    ``WindowDoesNotAcceptFocus`` and cannot hold it), so a single
+    ``activateWindow`` at callback time loses the race. Re-arming it one tick
+    later wins the focus back after the menu is fully gone.
     """
     _activate_macos_app()
     widget.show()
     widget.raise_()
     widget.activateWindow()
+    # Re-assert activation after the menu has fully torn down.
+    QTimer.singleShot(0, widget.activateWindow)
 
 
 class GenerationWorker(QThread):
