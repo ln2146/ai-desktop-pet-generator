@@ -369,10 +369,10 @@ def _make_ui_showcase(library_path: Path, usage_path: Path) -> Image.Image:
     _text(draw, (74, 124), "宠物中心、提醒列表、番茄钟和今日使用时长都是真实窗口截图", _font(FONT_CJK, 25), MUTED)
 
     shots = (
-        ("宠物中心", _required_image(PET_CENTER_SHOT), (72, 238, 654, 580), True),
-        ("提醒列表", _required_image(REMINDERS_SHOT), (694, 238, 1208, 580), False),
-        ("番茄钟", _required_image(POMODORO_SHOT), (72, 698, 586, 1006), False),
-        ("今日使用时长", _required_image(USAGE_SHOT), (626, 698, 1208, 1006), False),
+        ("宠物中心", _required_image(PET_CENTER_SHOT), (72, 238, 616, 594), True),
+        ("提醒列表", _required_image(REMINDERS_SHOT), (664, 238, 1208, 594), False),
+        ("番茄钟", _required_image(POMODORO_SHOT), (72, 706, 616, 1062), False),
+        ("今日使用时长", _required_image(USAGE_SHOT), (664, 706, 1208, 1062), False),
     )
     for title, image, box, cover in shots:
         _draw_image_panel(canvas, image, box, cover=cover)
@@ -381,16 +381,20 @@ def _make_ui_showcase(library_path: Path, usage_path: Path) -> Image.Image:
 
 
 def _make_showcase(desktop: Image.Image, ui: Image.Image) -> Image.Image:
-    canvas = _gradient((1400, 900), (248, 250, 252), (239, 246, 255))
+    canvas = _gradient((1400, 1040), (248, 250, 252), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
     _text(draw, (78, 54), "一句话生成，真的养在桌面上", _font(FONT_CJK, 58), INK)
-    _text(draw, (82, 132), "桌宠在桌面回应 AI 编码任务，工作台集中管理宠物、提醒和专注状态。", _font(FONT_CJK, 25), MUTED)
+    _text(draw, (82, 132), "桌宠工作台集中管理宠物、提醒、专注和今日使用时长。", _font(FONT_CJK, 25), MUTED)
 
-    notification = _required_image(NOTIFICATION_SHOT)
-    _draw_image_panel(canvas, notification, (90, 210, 520, 790), radius=36)
-    _draw_image_panel(canvas, _required_image(PET_CENTER_SHOT), (570, 210, 1298, 505), radius=34, cover=True)
-    _draw_image_panel(canvas, _required_image(USAGE_SHOT), (570, 560, 930, 790), radius=34)
-    _draw_image_panel(canvas, _required_image(POMODORO_SHOT), (980, 560, 1298, 790), radius=34)
+    shots = (
+        ("宠物中心", _required_image(PET_CENTER_SHOT), (90, 246, 660, 622), True),
+        ("提醒列表", _required_image(REMINDERS_SHOT), (740, 246, 1310, 622), False),
+        ("番茄钟", _required_image(POMODORO_SHOT), (90, 748, 660, 1018), False),
+        ("今日使用时长", _required_image(USAGE_SHOT), (740, 748, 1310, 1018), False),
+    )
+    for title, image, box, cover in shots:
+        _draw_image_panel(canvas, image, box, radius=34, cover=cover)
+        _text(draw, (box[0] + 18, box[1] - 42), title, _font(FONT_CJK, 26), INK)
     return canvas.convert("RGB")
 
 

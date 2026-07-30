@@ -16,9 +16,9 @@
 它会完成从 AI 生图到本地切帧的整条链路：生成形象、绿幕抠图、切帧、打包成 `8 x 9` 精灵表，然后通过托盘应用把宠物养在桌面上。你也可以把它接入 Claude Code、Codex、Antigravity 等 AI 编码工具，让任务状态实时变成桌宠表情、气泡和音效反馈。
 
 <p align="center">
-  <img src="docs/images/readme-showcase.png" alt="AI 桌面宠物生成器：桌面运行和宠物工作台展示" width="880">
+  <img src="docs/images/readme-showcase.png" alt="AI 桌面宠物生成器：宠物中心、提醒列表、番茄钟和今日使用时长四宫格展示" width="880">
   <br>
-  <sub>一句话生成、绿幕切帧、托盘常驻，桌宠会呼吸、弹气泡，并回应 AI 编码任务。</sub>
+  <sub>一句话生成、绿幕切帧、托盘常驻，并在一个工作台里管理宠物、提醒、专注和使用时长。</sub>
 </p>
 
 ## 精选伙伴
@@ -51,32 +51,9 @@
 不只是预览图，这是 `petgen app` 跑起来后的核心体验：悬浮宠物常驻桌面、有呼吸动画，宠物中心可以浏览、切换、管理你养的所有伙伴，今日使用时长面板会记录连续工作和休息提醒。
 
 <p align="center">
-  <table align="center">
-    <tr>
-      <td align="center">
-        <img src="docs/images/readme-notification.png" alt="Codex 任务完成后的桌面宠物通知" width="300">
-      </td>
-      <td align="center">
-        <img src="docs/images/readme-ui-showcase.png" alt="宠物中心、提醒列表、番茄钟和今日使用时长界面展示" width="560">
-      </td>
-    </tr>
-    <tr>
-      <td align="center"><sub>桌面通知 · AI 任务完成反馈</sub></td>
-      <td align="center"><sub>宠物工作台 · 宠物中心 / 提醒 / 专注 / 统计</sub></td>
-    </tr>
-  </table>
-</p>
-
-应用界面截图：
-
-<p align="center">
-  <img src="docs/images/readme-pet-center.png" alt="PetGen 宠物中心" width="860">
-</p>
-
-<p align="center">
-  <img src="docs/images/readme-reminders.png" alt="提醒事项中心" width="280">
-  <img src="docs/images/readme-pomodoro.png" alt="番茄钟助手" width="280">
-  <img src="docs/images/readme-usage.png" alt="今日使用时长" width="280">
+  <img src="docs/images/readme-ui-showcase.png" alt="宠物中心、提醒列表、番茄钟和今日使用时长四宫格界面展示" width="820">
+  <br>
+  <sub>宠物中心 / 提醒列表 / 番茄钟 / 今日使用时长</sub>
 </p>
 
 ## 小红书素材
