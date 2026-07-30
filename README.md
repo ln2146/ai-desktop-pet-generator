@@ -56,21 +56,6 @@
   <sub>Codex 完成通知 / 休息提醒 / 宠物中心 / 提醒列表 / 番茄钟 / 今日使用时长</sub>
 </p>
 
-## 小红书素材
-
-已经准备好一组可直接发帖或二次排版的素材：
-
-- 封面图：[docs/social/xhs-cover.png](docs/social/xhs-cover.png)
-- 桌面运行竖图：[docs/social/xhs-desktop-running.png](docs/social/xhs-desktop-running.png)
-- 界面展示竖图：[docs/social/xhs-ui-showcase.png](docs/social/xhs-ui-showcase.png)
-- 4.8 秒短视频：[docs/social/petgen-desktop-demo.mp4](docs/social/petgen-desktop-demo.mp4)
-
-如需重新生成这些素材：
-
-```bash
-QT_QPA_PLATFORM=offscreen python scripts/make_readme_media.py
-```
-
 ## 功能概览
 
 | 功能 | 说明 |
