@@ -16,16 +16,9 @@
 它会完成从 AI 生图到本地切帧的整条链路：生成形象、绿幕抠图、切帧、打包成 `8 x 9` 精灵表，然后通过托盘应用把宠物养在桌面上。你也可以把它接入 Claude Code、Codex、Antigravity 等 AI 编码工具，让任务状态实时变成桌宠表情、气泡和音效反馈。
 
 <p align="center">
-  <table align="center">
-    <tr>
-      <td align="center"><img src="docs/images/hero.png" alt="主角：灰白小猫" width="340"></td>
-      <td align="center"><img src="docs/images/idle.gif" alt="灰白小猫 idle 呼吸动画" width="180"></td>
-    </tr>
-    <tr>
-      <td align="center"><sub><b>灰白小猫</b>：由一句话 / 参考图生成</sub></td>
-      <td align="center"><sub>idle 呼吸动画</sub></td>
-    </tr>
-  </table>
+  <img src="docs/images/readme-showcase.png" alt="AI 桌面宠物生成器：桌面运行和宠物工作台展示" width="880">
+  <br>
+  <sub>一句话生成、绿幕切帧、托盘常驻，桌宠会呼吸、弹气泡，并回应 AI 编码任务。</sub>
 </p>
 
 ## 精选伙伴
@@ -55,24 +48,46 @@
 
 ## 真实运行
 
-不只是预览图——这是 `petgen app` 实际跑起来的样子。悬浮宠物常驻桌面、有呼吸动画，宠物中心可以浏览、切换、管理你养的所有伙伴。
+不只是预览图，这是 `petgen app` 跑起来后的核心体验：悬浮宠物常驻桌面、有呼吸动画，宠物中心可以浏览、切换、管理你养的所有伙伴，今日使用时长面板会记录连续工作和休息提醒。
 
 <p align="center">
   <table align="center">
     <tr>
       <td align="center">
-        <img src="docs/images/idle.gif" alt="桌面上呼吸中的灰白小猫" width="200">
+        <img src="docs/images/desktop-demo.gif" alt="桌面宠物动态运行演示" width="360">
       </td>
       <td align="center">
-        <img src="docs/images/ui-pet-center.png" alt="宠物中心界面" width="460">
+        <img src="docs/images/readme-ui-showcase.png" alt="宠物中心和今日使用时长界面展示" width="520">
       </td>
     </tr>
     <tr>
-      <td align="center"><sub>悬浮宠物 · idle 呼吸动画</sub></td>
-      <td align="center"><sub>宠物中心 · 浏览 / 切换 / 管理</sub></td>
+      <td align="center"><sub>桌面运行 · 呼吸动画 / 气泡反馈</sub></td>
+      <td align="center"><sub>宠物工作台 · 宠物中心 / 健康提醒</sub></td>
     </tr>
   </table>
 </p>
+
+静态截图：
+
+<p align="center">
+  <img src="docs/images/readme-desktop-running.png" alt="桌面宠物运行效果图" width="430">
+  <img src="docs/images/readme-ui-showcase.png" alt="宠物工作台界面拼图" width="430">
+</p>
+
+## 小红书素材
+
+已经准备好一组可直接发帖或二次排版的素材：
+
+- 封面图：[docs/social/xhs-cover.png](docs/social/xhs-cover.png)
+- 桌面运行竖图：[docs/social/xhs-desktop-running.png](docs/social/xhs-desktop-running.png)
+- 界面展示竖图：[docs/social/xhs-ui-showcase.png](docs/social/xhs-ui-showcase.png)
+- 4.8 秒短视频：[docs/social/petgen-desktop-demo.mp4](docs/social/petgen-desktop-demo.mp4)
+
+如需重新生成这些素材：
+
+```bash
+QT_QPA_PLATFORM=offscreen python scripts/make_readme_media.py
+```
 
 ## 功能概览
 
