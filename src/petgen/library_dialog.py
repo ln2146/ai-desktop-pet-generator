@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -10,7 +9,6 @@ from PySide6.QtGui import QColor, QFont, QMouseEvent, QPixmap
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
-    QDialogButtonBox,
     QFileDialog,
     QFrame,
     QGraphicsDropShadowEffect,
@@ -28,7 +26,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from petgen.envfile import load_env_file
 from petgen.interaction_style import load_styles
 from petgen.theme import apply_theme
 
@@ -50,72 +47,295 @@ def reveal_in_folder(path: str) -> None:
         pass
 
 
+class _ImageThumbnail(QFrame):
+    """Square thumbnail tile with a delete button in the top-right corner."""
+
+    remove_clicked = Signal(str)
+
+    def __init__(self, path: str, parent=None) -> None:
+        super().__init__(parent)
+        self.path = path
+        self.setFixedSize(76, 76)
+        self.setStyleSheet(
+            "QFrame {"
+            "  border: 1px solid #e2e8f0;"
+            "  border-radius: 12px;"
+            "  background-color: #f8fafc;"
+            "}"
+        )
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+
+        img_label = QLabel(self)
+        img_label.setFixedSize(76, 76)
+        pix = QPixmap(path)
+        if not pix.isNull():
+            scaled = pix.scaled(
+                76, 76, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            img_label.setPixmap(scaled)
+            img_label.setAlignment(Qt.AlignCenter)
+            img_label.setStyleSheet("border-radius: 12px; background: transparent;")
+
+        del_btn = QPushButton("✕", self)
+        del_btn.setFixedSize(20, 20)
+        del_btn.move(52, 4)
+        del_btn.setCursor(Qt.PointingHandCursor)
+        del_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: rgba(15, 23, 42, 0.7);"
+            "  color: #ffffff;"
+            "  border: none;"
+            "  border-radius: 10px;"
+            "  font-size: 11px;"
+            "  font-weight: bold;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #ef4444;"
+            "}"
+        )
+        del_btn.clicked.connect(lambda: self.remove_clicked.emit(self.path))
+
+
+class _AddImageTile(QFrame):
+    """Square tile button for uploading reference images."""
+
+    clicked = Signal()
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(76, 76)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(
+            "QFrame {"
+            "  border: 1.5px dashed #cbd5e1;"
+            "  border-radius: 12px;"
+            "  background-color: #fafafa;"
+            "}"
+            "QFrame:hover {"
+            "  border-color: #6366f1;"
+            "  background-color: #f5f3ff;"
+            "}"
+        )
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setAlignment(Qt.AlignCenter)
+
+        icon_lbl = QLabel("🖼️⁺", self)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet(
+            "font-size: 24px; color: #64748b; border: none; background: transparent;"
+        )
+        layout.addWidget(icon_lbl)
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+
+
 class _CreatePetDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("✨ 创建新宠物")
-        self.resize(580, 480)
-        self.setMinimumSize(520, 420)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowMinimizeButtonHint)
+        self.setWindowTitle("生成自定义宠物")
+        self.resize(520, 510)
+        self.setMinimumSize(480, 480)
+        self.setStyleSheet("QDialog { background-color: #ffffff; }")
         apply_theme(self)
 
         self._images: list[str] = []
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(22, 22, 22, 22)
-        layout.setSpacing(14)
 
-        # Header
-        header = QLabel("描述你的宠物形象与性格")
-        header_font = QFont()
-        header_font.setPointSize(14)
-        header_font.setBold(True)
-        header.setFont(header_font)
-        layout.addWidget(header)
+        main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(24, 20, 24, 20)
+        main_layout.setSpacing(16)
 
+        # Header Title
+        header_title = QLabel("生成自定义宠物")
+        header_title.setStyleSheet(
+            "color: #0f172a; font-weight: 700; font-size: 16px; border: none;"
+        )
+        main_layout.addWidget(header_title)
+
+        # Field 1: 宠物命名（选填）
+        name_box = QVBoxLayout()
+        name_box.setSpacing(6)
+        name_label = QLabel("宠物命名（选填）")
+        name_label.setStyleSheet(
+            "color: #1e293b; font-weight: 600; font-size: 13px; border: none;"
+        )
+        self.name_edit = QLineEdit()
+        self.name_edit.setFixedHeight(40)
+        self.name_edit.setPlaceholderText("给宠物起个名字，例如：小橘")
+        self.name_edit.setStyleSheet(
+            "QLineEdit {"
+            "  background-color: #f4f5f7;"
+            "  border: 1px solid #e2e8f0;"
+            "  border-radius: 10px;"
+            "  padding: 0px 14px;"
+            "  font-size: 13px;"
+            "  color: #0f172a;"
+            "}"
+            "QLineEdit:focus {"
+            "  border-color: #6366f1;"
+            "  background-color: #ffffff;"
+            "}"
+        )
+        name_box.addWidget(name_label)
+        name_box.addWidget(self.name_edit)
+        main_layout.addLayout(name_box)
+
+        # Field 2: 参考图
+        img_section = QVBoxLayout()
+        img_section.setSpacing(8)
+
+        img_header_row = QHBoxLayout()
+        img_title = QLabel("参考图")
+        img_title.setStyleSheet(
+            "color: #1e293b; font-weight: 600; font-size: 13px; border: none;"
+        )
+        self._count_label = QLabel("0/5")
+        self._count_label.setStyleSheet("color: #94a3b8; font-size: 12px; border: none;")
+        img_header_row.addWidget(img_title)
+        img_header_row.addStretch()
+        img_header_row.addWidget(self._count_label)
+        img_section.addLayout(img_header_row)
+
+        # Horizontal image tile grid container
+        self._tiles_row = QHBoxLayout()
+        self._tiles_row.setSpacing(10)
+        self._tiles_row.setAlignment(Qt.AlignLeft)
+        img_section.addLayout(self._tiles_row)
+        main_layout.addLayout(img_section)
+
+        # Field 3: 形象描述（选填）
+        desc_box = QVBoxLayout()
+        desc_box.setSpacing(6)
+        desc_label = QLabel("形象描述（选填）")
+        desc_label.setStyleSheet(
+            "color: #1e293b; font-weight: 600; font-size: 13px; border: none;"
+        )
         self.description = QTextEdit()
         self.description.setPlaceholderText(
-            "例如：一只圆滚滚的水豚程序员，戴小耳机，温柔聪明，眼神呆萌…"
+            "例如：橘色眼镜小猫，抱着 laptop，圆头胖身，像素风"
         )
-        self.description.setStyleSheet("QTextEdit { border-radius: 10px; font-size: 13px; }")
-        layout.addWidget(self.description, 1)
+        self.description.setStyleSheet(
+            "QTextEdit {"
+            "  background-color: #f4f5f7;"
+            "  border: 1px solid #e2e8f0;"
+            "  border-radius: 10px;"
+            "  padding: 10px 14px;"
+            "  font-size: 13px;"
+            "  color: #0f172a;"
+            "}"
+            "QTextEdit:focus {"
+            "  border-color: #6366f1;"
+            "  background-color: #ffffff;"
+            "}"
+        )
+        desc_box.addWidget(desc_label)
+        desc_box.addWidget(self.description, 1)
+        main_layout.addLayout(desc_box, 1)
 
-        # Reference image section
-        img_row = QHBoxLayout()
-        add_img = QPushButton("📷 添加参考图…")
-        add_img.setCursor(Qt.PointingHandCursor)
-        add_img.clicked.connect(self._add_image)
-        self._img_label = QLabel("未选择参考图")
-        self._img_label.setStyleSheet("color: #64748b; font-size: 12px;")
-        img_row.addWidget(add_img)
-        img_row.addWidget(self._img_label, 1)
-        layout.addLayout(img_row)
+        # Footer Actions Separator Line
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setStyleSheet("background-color: #f1f5f9; max-height: 1px;")
+        main_layout.addWidget(line)
 
-        box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
-        ok_btn = box.button(QDialogButtonBox.Ok)
-        if ok_btn:
-            ok_btn.setText("✨ 开始生成")
-            ok_btn.setProperty("accent", "primary")
-            ok_btn.setCursor(Qt.PointingHandCursor)
-        cancel_btn = box.button(QDialogButtonBox.Cancel)
-        if cancel_btn:
-            cancel_btn.setText("取消")
-            cancel_btn.setCursor(Qt.PointingHandCursor)
+        # Footer Buttons
+        action_row = QHBoxLayout()
+        action_row.setSpacing(12)
+        action_row.addStretch()
 
-        box.accepted.connect(self.accept)
-        box.rejected.connect(self.reject)
-        layout.addWidget(box)
+        cancel_btn = QPushButton("取消")
+        cancel_btn.setCursor(Qt.PointingHandCursor)
+        cancel_btn.setStyleSheet(
+            "QPushButton {"
+            "  background: transparent;"
+            "  color: #475569;"
+            "  border: none;"
+            "  font-size: 14px;"
+            "  font-weight: 500;"
+            "  padding: 6px 16px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #0f172a;"
+            "}"
+        )
+        cancel_btn.clicked.connect(self.reject)
+
+        submit_btn = QPushButton("开始生成")
+        submit_btn.setCursor(Qt.PointingHandCursor)
+        submit_btn.setStyleSheet(
+            "QPushButton {"
+            "  background-color: #18181b;"
+            "  color: #ffffff;"
+            "  border: none;"
+            "  border-radius: 19px;"
+            "  font-size: 14px;"
+            "  font-weight: 600;"
+            "  padding: 8px 24px;"
+            "  min-height: 38px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #27272a;"
+            "}"
+            "QPushButton:pressed {"
+            "  background-color: #09090b;"
+            "}"
+        )
+        submit_btn.clicked.connect(self.accept)
+
+        action_row.addWidget(cancel_btn)
+        action_row.addWidget(submit_btn)
+        main_layout.addLayout(action_row)
+
+        self._refresh_image_tiles()
+
+    def _refresh_image_tiles(self) -> None:
+        while self._tiles_row.count():
+            item = self._tiles_row.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for path in self._images:
+            thumb = _ImageThumbnail(path, self)
+            thumb.remove_clicked.connect(self._remove_image)
+            self._tiles_row.addWidget(thumb)
+
+        if len(self._images) < 5:
+            add_tile = _AddImageTile(self)
+            add_tile.clicked.connect(self._add_image)
+            self._tiles_row.addWidget(add_tile)
+
+        self._count_label.setText(f"{len(self._images)}/5")
 
     def _add_image(self) -> None:
+        remaining = 5 - len(self._images)
+        if remaining <= 0:
+            return
         paths, _ = QFileDialog.getOpenFileNames(
             self, "选择参考图", "", "Images (*.png *.jpg *.jpeg *.webp)"
         )
         if paths:
-            self._images.extend(paths)
-            self._img_label.setText(f"已附加 {len(self._images)} 张参考图")
-            self._img_label.setStyleSheet("color: #4f46e5; font-weight: 600; font-size: 12px;")
+            self._images.extend(paths[:remaining])
+            self._refresh_image_tiles()
+
+    def _remove_image(self, path: str) -> None:
+        if path in self._images:
+            self._images.remove(path)
+            self._refresh_image_tiles()
 
     def result_values(self) -> tuple[str, list[str]]:
-        return self.description.toPlainText().strip(), list(self._images)
+        name = self.name_edit.text().strip()
+        desc = self.description.toPlainText().strip()
+        if name and desc:
+            prompt = f"名字：{name}。{desc}"
+        elif name:
+            prompt = f"名字：{name}"
+        else:
+            prompt = desc
+        return prompt, list(self._images)
 
 
 class _PetCard(QFrame):
@@ -315,6 +535,132 @@ class _PetCard(QFrame):
             self.renamed.emit(new_name.strip())
 
 
+class _CreatePetCardTile(QFrame):
+    """Special tile card shown in the Custom Pets tab to launch _CreatePetDialog."""
+
+    clicked = Signal()
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(104, 134)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setStyleSheet(
+            "QFrame {"
+            "  background-color: #fafafa;"
+            "  border: 1.5px dashed #cbd5e1;"
+            "  border-radius: 14px;"
+            "}"
+            "QFrame:hover {"
+            "  background-color: #f5f3ff;"
+            "  border-color: #6366f1;"
+            "}"
+        )
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(8, 16, 8, 16)
+        layout.setAlignment(Qt.AlignCenter)
+        layout.setSpacing(8)
+
+        icon_lbl = QLabel("✨⁺", self)
+        icon_lbl.setAlignment(Qt.AlignCenter)
+        icon_lbl.setStyleSheet(
+            "font-size: 26px; color: #475569; border: none; background: transparent;"
+        )
+        layout.addWidget(icon_lbl)
+
+        text_lbl = QLabel("生成新宠物", self)
+        text_lbl.setAlignment(Qt.AlignCenter)
+        text_font = QFont()
+        text_font.setBold(True)
+        text_font.setPointSize(11)
+        text_lbl.setFont(text_font)
+        text_lbl.setStyleSheet("color: #334155; border: none; background: transparent;")
+        layout.addWidget(text_lbl)
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
+
+
+class _PetTabBar(QFrame):
+    tab_changed = Signal(int)  # 0: Preset, 1: Custom
+
+    def __init__(self, parent=None) -> None:
+        super().__init__(parent)
+        self._current_index = 0
+        self.setStyleSheet(
+            "QFrame {"
+            "  background-color: #f1f5f9;"
+            "  border-radius: 10px;"
+            "  border: 1px solid #e2e8f0;"
+            "}"
+        )
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
+
+        self.btn_preset = QPushButton("预设宠物")
+        self.btn_preset.setFixedHeight(30)
+        self.btn_preset.setCursor(Qt.PointingHandCursor)
+
+        self.btn_custom = QPushButton("自定义宠物")
+        self.btn_custom.setFixedHeight(30)
+        self.btn_custom.setCursor(Qt.PointingHandCursor)
+
+        self.btn_preset.clicked.connect(lambda: self.set_index(0))
+        self.btn_custom.clicked.connect(lambda: self.set_index(1))
+
+        layout.addWidget(self.btn_preset)
+        layout.addWidget(self.btn_custom)
+
+        self._update_styles()
+
+    def index(self) -> int:
+        return self._current_index
+
+    def set_index(self, index: int) -> None:
+        if self._current_index != index:
+            self._current_index = index
+            self._update_styles()
+            self.tab_changed.emit(self._current_index)
+
+    def _update_styles(self) -> None:
+        active_style = (
+            "QPushButton {"
+            "  background-color: #ffffff;"
+            "  color: #0f172a;"
+            "  font-size: 13px;"
+            "  font-weight: 700;"
+            "  border: 1px solid #cbd5e1;"
+            "  border-radius: 7px;"
+            "  padding: 4px 16px;"
+            "}"
+        )
+        inactive_style = (
+            "QPushButton {"
+            "  background-color: transparent;"
+            "  color: #64748b;"
+            "  font-size: 13px;"
+            "  font-weight: 500;"
+            "  border: none;"
+            "  border-radius: 7px;"
+            "  padding: 4px 16px;"
+            "}"
+            "QPushButton:hover {"
+            "  color: #0f172a;"
+            "  background-color: rgba(255, 255, 255, 0.5);"
+            "}"
+        )
+        self.btn_preset.setStyleSheet(
+            active_style if self._current_index == 0 else inactive_style
+        )
+        self.btn_custom.setStyleSheet(
+            active_style if self._current_index == 1 else inactive_style
+        )
+
+
 class LibraryDialog(QDialog):
     pet_selected = Signal(str)
     preview_requested = Signal(str)
@@ -330,82 +676,103 @@ class LibraryDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self.setWindowTitle("PetGen 宠物管理")
-        self.resize(962, 700)
-        self.setMinimumSize(880, 600)
-        self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
+        self.resize(1012, 810)
+        self.setMinimumSize(980, 720)
+        self.setWindowFlags(
+            Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint
+        )
         apply_theme(self)
 
         self._grid_layout: QGridLayout | None = None
         self._cards: list[_PetCard] = []
+        self._preset_cards: list[_PetCard] = []
+        self._custom_cards: list[_PetCard] = []
         self._selected_name: str = "未选择"
         self._fish_reference_ids: dict[str, str] = {}
 
         root = QVBoxLayout(self)
         root.setContentsMargins(18, 16, 18, 16)
-        root.setSpacing(10)
+        root.setSpacing(12)
 
-        # Header Title (Matches Image 2 header structure)
+        # Header Title Area
         title_box = QHBoxLayout()
+        head_row = QHBoxLayout()
+        head_row.setSpacing(8)
+
+        # Square Icon Badge Container
+        icon_box = QLabel("✨")
+        icon_box.setFixedSize(36, 36)
+        icon_box.setAlignment(Qt.AlignCenter)
+        icon_box.setStyleSheet(
+            "background-color: #f1f5f9; border-radius: 8px; font-size: 18px;"
+        )
+
         title_text = QVBoxLayout()
         title_text.setSpacing(2)
-
-        head_row = QHBoxLayout()
-        head_row.setSpacing(6)
-        icon_lbl = QLabel("✨")
-        i_font = QFont()
-        i_font.setPointSize(16)
-        icon_lbl.setFont(i_font)
 
         title = QLabel("宠物")
         t_font = QFont()
         t_font.setPointSize(16)
         t_font.setBold(True)
         title.setFont(t_font)
-        title.setStyleSheet("color: #0f172a;")
-
-        head_row.addWidget(icon_lbl)
-        head_row.addWidget(title)
-        head_row.addStretch(1)
-        title_text.addLayout(head_row)
+        title.setStyleSheet("color: #0f172a; border: none;")
 
         subtitle = QLabel("切换工作伙伴并调整悬浮行为")
-        subtitle.setStyleSheet("color: #64748b; font-size: 12px;")
+        subtitle.setStyleSheet("color: #64748b; font-size: 12px; border: none;")
+
+        title_text.addWidget(title)
         title_text.addWidget(subtitle)
 
-        title_box.addLayout(title_text)
+        head_row.addWidget(icon_box)
+        head_row.addLayout(title_text)
+        title_box.addLayout(head_row)
         title_box.addStretch(1)
 
-        # Toolbar Buttons on Header Right
+        # Header Right Toolbar Buttons
         toolbar = QHBoxLayout()
-        toolbar.setSpacing(6)
+        toolbar.setSpacing(8)
 
-        button_style = "QPushButton { padding: 4px 10px; font-size: 12px; }"
-
-        self._create_btn = QPushButton("✨ 创建新宠物")
-        self._create_btn.setProperty("accent", "primary")
-        self._create_btn.setCursor(Qt.PointingHandCursor)
-        self._create_btn.setFixedHeight(30)
-        self._create_btn.setStyleSheet(button_style)
-        self._create_btn.clicked.connect(self._on_create)
+        button_style = (
+            "QPushButton {"
+            "  background-color: #f1f5f9;"
+            "  color: #334155;"
+            "  border: 1px solid #e2e8f0;"
+            "  border-radius: 6px;"
+            "  font-size: 12px;"
+            "  font-weight: 500;"
+            "  padding: 4px 12px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #e2e8f0;"
+            "  color: #0f172a;"
+            "}"
+        )
 
         import_btn = QPushButton("📥 导入文件夹")
         import_btn.setCursor(Qt.PointingHandCursor)
-        import_btn.setFixedHeight(30)
+        import_btn.setFixedHeight(32)
         import_btn.setStyleSheet(button_style)
         import_btn.clicked.connect(self._on_import)
 
-        refresh_btn = QPushButton("🔄 刷新")
-        refresh_btn.setCursor(Qt.PointingHandCursor)
-        refresh_btn.setFixedHeight(30)
-        refresh_btn.setStyleSheet(button_style)
-        refresh_btn.clicked.connect(lambda: self.refresh_requested.emit())
-
-        toolbar.addWidget(self._create_btn)
         toolbar.addWidget(import_btn)
-        toolbar.addWidget(refresh_btn)
         title_box.addLayout(toolbar)
 
         root.addLayout(title_box)
+
+        # Tab Bar Header Row
+        tab_header_row = QHBoxLayout()
+        tab_header_row.setContentsMargins(0, 4, 0, 0)
+
+        self._tab_bar = _PetTabBar(self)
+        self._tab_bar.tab_changed.connect(self._on_tab_changed)
+        tab_header_row.addWidget(self._tab_bar)
+        tab_header_row.addStretch(1)
+
+        self._current_label = QLabel("当前形象：星糖熊猫")
+        self._current_label.setStyleSheet("color: #64748b; font-size: 12px; padding-bottom: 4px;")
+        tab_header_row.addWidget(self._current_label)
+
+        root.addLayout(tab_header_row)
 
         self._progress = QLabel("")
         self._progress.setStyleSheet(
@@ -414,26 +781,27 @@ class LibraryDialog(QDialog):
         self._progress.setVisible(False)
         root.addWidget(self._progress)
 
-        # Main Pet Grid Scroll Area (Matches Image 2 grid)
+        # Scroll Area Grid Layout
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         scroll.setStyleSheet(
-            "QScrollArea { border: 1px solid #e7ecf3; border-radius: 12px; background: #f4f6fc; }"
+            "QScrollArea { border: 1px solid #e7ecf3; border-radius: 12px; background: #f8fafc; }"
         )
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         self._grid_layout = QGridLayout(container)
-        self._grid_layout.setContentsMargins(12, 12, 12, 12)
-        self._grid_layout.setSpacing(12)
+        self._grid_layout.setContentsMargins(14, 8, 14, 14)
+        self._grid_layout.setSpacing(14)
         self._grid_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
         scroll.setWidget(container)
         root.addWidget(scroll, 1)
 
-        # Current Selected Pet Info
-        self._current_label = QLabel("当前形象：星糖熊猫")
-        self._current_label.setStyleSheet("color: #475569; font-size: 12px; padding: 1px 0px;")
-        root.addWidget(self._current_label)
+        # Create Pet Card Tile (used inside Custom Pets tab)
+        self._create_tile_card = _CreatePetCardTile(self)
+        self._create_tile_card.hide()
+        self._create_tile_card.clicked.connect(self._on_create)
+        self._create_btn = self._create_tile_card
 
         # Separator Line
         line = QFrame()
@@ -441,40 +809,41 @@ class LibraryDialog(QDialog):
         line.setStyleSheet("background-color: #e2e8f0; max-height: 1px;")
         root.addWidget(line)
 
-        # Interaction Style Card Frame
-        style_card = QFrame()
-        style_card.setObjectName("InteractionStyleCard")
-        style_card.setStyleSheet(
-            "QFrame#InteractionStyleCard {"
+        controls_card = QFrame()
+        controls_card.setObjectName("ControlsCard")
+        controls_card.setStyleSheet(
+            "QFrame#ControlsCard {"
             "  background-color: #ffffff;"
             "  border: 1px solid #e2e8f0;"
-            "  border-radius: 12px;"
+            "  border-radius: 10px;"
             "}"
         )
-        style_card_layout = QVBoxLayout(style_card)
-        style_card_layout.setContentsMargins(14, 12, 14, 12)
-        style_card_layout.setSpacing(10)
+        controls_layout = QVBoxLayout(controls_card)
+        controls_layout.setContentsMargins(14, 12, 14, 12)
+        controls_layout.setSpacing(12)
 
-        # Header Title
+        # Interaction Style Section
+        style_row = QHBoxLayout()
+        style_row.setContentsMargins(0, 0, 0, 0)
+        style_row.setSpacing(10)
+
         style_title = QLabel("🎭 互动风格")
         style_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 13px; border: none;")
-        style_card_layout.addWidget(style_title)
-
-        LABEL_WIDTH = 72
-
-        # Style Selection & Preview Row
-        style_control_row = QHBoxLayout()
-        style_control_row.setSpacing(8)
-
-        style_lbl = QLabel("风格选择")
-        style_lbl.setFixedWidth(LABEL_WIDTH)
-        style_lbl.setStyleSheet("color: #334155; font-weight: 600; font-size: 12px; border: none;")
-        style_control_row.addWidget(style_lbl)
+        style_row.addWidget(style_title)
 
         self._interaction_style_combo = QComboBox()
-        self._interaction_style_combo.setFixedHeight(32)
+        self._interaction_style_combo.setFixedHeight(28)
+        self._interaction_style_combo.setSizePolicy(
+            self._interaction_style_combo.sizePolicy().horizontalPolicy(),
+            self._interaction_style_combo.sizePolicy().verticalPolicy(),
+        )
         self._interaction_style_combo.setStyleSheet(
-            "QComboBox { font-weight: 600; color: #1e293b; padding-left: 8px; }"
+            "QComboBox {"
+            "  font-weight: 600;"
+            "  color: #1e293b;"
+            "  padding-left: 8px;"
+            "  padding-right: 8px;"
+            "}"
         )
         self._interaction_style_keys: list[str] = []
         for key, style in load_styles().items():
@@ -485,10 +854,10 @@ class LibraryDialog(QDialog):
         self._interaction_style_combo.currentIndexChanged.connect(
             self._on_interaction_style_changed
         )
-        style_control_row.addWidget(self._interaction_style_combo, 1)
+        style_row.addWidget(self._interaction_style_combo, 1)
 
         preview_style = QPushButton("▶ 试听")
-        preview_style.setFixedHeight(32)
+        preview_style.setFixedHeight(28)
         preview_style.setCursor(Qt.PointingHandCursor)
         preview_style.setStyleSheet(
             "QPushButton {"
@@ -504,30 +873,39 @@ class LibraryDialog(QDialog):
             "  border-color: #a5b4fc;"
             "  color: #4338ca;"
             "}"
-            "QPushButton:pressed {"
-            "  background-color: #c7d2fe;"
-            "}"
         )
         preview_style.clicked.connect(lambda: self.preview_style_requested.emit())
-        style_control_row.addWidget(preview_style)
-        style_card_layout.addLayout(style_control_row)
-        root.addWidget(style_card)
+        style_row.addWidget(preview_style)
+        controls_layout.addLayout(style_row)
 
-        # Pet Scale Control Section (Matches Image 2 bottom slider)
+        divider = QFrame()
+        divider.setFrameShape(QFrame.HLine)
+        divider.setStyleSheet("background-color: #e2e8f0; max-height: 1px;")
+        controls_layout.addWidget(divider)
+
+        # Pet Scale Control Section
         scale_box = QVBoxLayout()
-        scale_box.setSpacing(3)
+        scale_box.setSpacing(4)
 
+        scale_hdr_row = QHBoxLayout()
         scale_title = QLabel("宠物大小")
         st_font = QFont()
         st_font.setBold(True)
-        st_font.setPointSize(14)
+        st_font.setPointSize(13)
         scale_title.setFont(st_font)
         scale_title.setStyleSheet("color: #0f172a;")
 
-        scale_sub = QLabel("拖动滑块无级调整，悬浮宠物实时变化")
-        scale_sub.setStyleSheet("color: #64748b; font-size: 12px;")
+        self._scale_val_lbl = QLabel("150%")
+        self._scale_val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        self._scale_val_lbl.setStyleSheet("color: #18181b; font-weight: 700; font-size: 13px;")
 
-        scale_box.addWidget(scale_title)
+        scale_hdr_row.addWidget(scale_title)
+        scale_hdr_row.addStretch()
+        scale_hdr_row.addWidget(self._scale_val_lbl)
+        scale_box.addLayout(scale_hdr_row)
+
+        scale_sub = QLabel("拖动滑杆无级调整，悬浮宠物实时变化")
+        scale_sub.setStyleSheet("color: #64748b; font-size: 12px;")
         scale_box.addWidget(scale_sub)
 
         slider_row = QHBoxLayout()
@@ -543,43 +921,37 @@ class LibraryDialog(QDialog):
         self._scale_slider.setCursor(Qt.PointingHandCursor)
         self._scale_slider.setStyleSheet(
             "QSlider::groove:horizontal { border: none; height: 6px; background: #e2e8f0; border-radius: 3px; }"
-            "QSlider::sub-page:horizontal { background: #4f46e5; border-radius: 3px; }"
-            "QSlider::handle:horizontal { background: #ffffff; border: 2px solid #4f46e5; width: 18px; height: 18px; margin: -6px 0; border-radius: 9px; }"
+            "QSlider::sub-page:horizontal { background: #18181b; border-radius: 3px; }"
+            "QSlider::handle:horizontal { background: #ffffff; border: 2px solid #18181b; width: 18px; height: 18px; margin: -6px 0; border-radius: 9px; }"
         )
 
         lbl_max = QLabel("200%")
         lbl_max.setStyleSheet("color: #94a3b8; font-size: 12px;")
 
-        self._scale_val_lbl = QLabel("150%")
-        self._scale_val_lbl.setFixedWidth(50)
-        self._scale_val_lbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self._scale_val_lbl.setStyleSheet("color: #4f46e5; font-weight: 600; font-size: 14px;")
-
         slider_row.addWidget(lbl_min)
         slider_row.addWidget(self._scale_slider, 1)
         slider_row.addWidget(lbl_max)
-        slider_row.addWidget(self._scale_val_lbl)
-
         scale_box.addLayout(slider_row)
-        root.addLayout(scale_box)
+        controls_layout.addLayout(scale_box)
+        root.addWidget(controls_card)
 
         self._scale_slider.valueChanged.connect(self._on_slider_changed)
 
     # --- public API ---------------------------------------------------------
 
     def refresh(self, pets, selected_id: str | None) -> None:
-        assert self._grid_layout is not None
-        while self._grid_layout.count():
-            item = self._grid_layout.takeAt(0)
-            if item.widget() is not None:
-                item.widget().deleteLater()
         self._cards.clear()
+        self._preset_cards.clear()
+        self._custom_cards.clear()
 
         selected_name = "未选择"
-        for i, record in enumerate(pets):
+        selected_is_custom = False
+
+        for record in pets:
             is_sel = record.id == selected_id
             if is_sel:
                 selected_name = record.display_name or record.id
+
             card = _PetCard(record, selected=is_sel)
             card.selected.connect(self.pet_selected.emit)
             card.previewed.connect(self.preview_requested.emit)
@@ -588,15 +960,63 @@ class LibraryDialog(QDialog):
                 lambda new_name, pid=record.id: self.rename_requested.emit(pid, new_name)
             )
             card.deleted.connect(self.delete_requested.emit)
+
             self._cards.append(card)
-            self._grid_layout.addWidget(card, i // _COLS, i % _COLS)
+
+            # Classify: built-in preset pets vs user created/custom pets
+            is_custom = (
+                record.model in ("custom", "user-generated")
+                or record.id.startswith("custom-")
+            )
+            if is_sel and is_custom:
+                selected_is_custom = True
+
+            if is_custom:
+                self._custom_cards.append(card)
+            else:
+                self._preset_cards.append(card)
 
         self._current_label.setText(f"当前形象：{selected_name}")
+
+        # If selected pet is custom, switch to custom tab automatically
+        if selected_is_custom:
+            self._tab_bar.set_index(1)
+        else:
+            self._tab_bar.set_index(0)
+        self._render_current_tab()
+
+    def _on_tab_changed(self, index: int) -> None:
+        self._render_current_tab()
+
+    def _render_current_tab(self) -> None:
+        assert self._grid_layout is not None
+        while self._grid_layout.count():
+            item = self._grid_layout.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                w.hide()
+                w.setParent(None)
+
+        current_tab = self._tab_bar.index()
+        display_cards = self._preset_cards if current_tab == 0 else self._custom_cards
+
+        idx = 0
+        for card in display_cards:
+            card.show()
+            self._grid_layout.addWidget(card, idx // _COLS, idx % _COLS)
+            idx += 1
+
+        if current_tab == 1:
+            self._create_tile_card.show()
+            self._grid_layout.addWidget(self._create_tile_card, idx // _COLS, idx % _COLS)
+        else:
+            self._create_tile_card.hide()
 
     def set_progress(self, text: str) -> None:
         self._progress.setText(text)
         self._progress.setVisible(bool(text))
         self._create_btn.setEnabled(not text)
+        self._create_tile_card.setEnabled(not text)
 
     def set_scale_value(self, scale: float) -> None:
         val = int(round(scale * 100))
@@ -616,10 +1036,7 @@ class LibraryDialog(QDialog):
         self._interaction_style_combo.blockSignals(False)
 
     def set_voice_config(self, *args, **kwargs) -> None:
-        """Compatibility no-op method for legacy callers."""
         pass
-
-    # --- helpers ------------------------------------------------------------
 
     def _on_slider_changed(self, val: int) -> None:
         self._scale_val_lbl.setText(f"{val}%")
