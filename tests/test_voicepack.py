@@ -270,18 +270,17 @@ def test_sound_service_pool_is_capped(qapp) -> None:
 
 
 def test_sound_service_pool_capped_even_when_sfx_missing(qapp, monkeypatch) -> None:
-    """play() must prune+cap the pool even when the sound file can't resolve.
+    """play() must prune+cap the pool even when it can't actually play.
 
-    Regression: prune used to run AFTER _resolve_sfx, so when the SFX file was
-    missing (e.g. ensure_sfx couldn't synthesize in a headless CI env) play()
-    bailed before pruning and the pool grew unbounded. Prune must run first.
+    Regression for the CI failure: on headless Linux the QSoundEffect backend
+    is unavailable so _ok=False, and play() used to bail at the guard before
+    reaching prune, so finished players accumulated past the cap (assert 5 <= 2).
+    This forces that exact path (_ok=False) and still expects the cap to hold.
     """
-    from petgen import sound as sound_mod
-
-    monkeypatch.setattr(sound_mod, "_resolve_sfx", lambda value: None)
     cap = 2
     s = SoundService(max_players=cap)
+    s._ok = False  # noqa: SLF001 - mimic headless CI where QSoundEffect is absent
     s._players = [_FakePlayer() for _ in range(cap + 3)]  # noqa: SLF001
-    s.play("pop")  # resolves to None -> play returns False
+    assert s.play("pop") is False  # can't play without a backend
     assert len(s._players) <= cap  # noqa: SLF001 - pool still pruned
 

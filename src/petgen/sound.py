@@ -191,13 +191,10 @@ class SoundService:
         self._players = alive
 
     def play(self, value: str | None) -> bool:
-        if not self._enabled or not value or not self._ok:
-            return False
-        # Prune + cap BEFORE resolving the sound: play() may bail early (no SFX
-        # file on disk, e.g. when ensure_sfx() couldn't generate them in a
-        # headless/CI env), but the pool must still be maintained on every call
-        # so finished players don't accumulate. Doing this first keeps the cap
-        # invariant true regardless of whether the play actually starts.
+        # Prune + cap BEFORE any guard that may return early: on headless CI the
+        # QSoundEffect backend is unavailable (_ok=False), and play() used to
+        # bail at the guard below before reaching prune, so finished players
+        # accumulated past the cap. The pool must be maintained on every call.
         self._prune_finished()
         while len(self._players) >= self._max_players:
             old = self._players.pop(0)
@@ -206,6 +203,8 @@ class SoundService:
                 old.deleteLater()
             except Exception:  # noqa: BLE001 - best effort
                 pass
+        if not self._enabled or not value or not self._ok:
+            return False
         try:
             path = _resolve_sfx(value)
             if path is None:
