@@ -8,6 +8,7 @@ Run:  python packaging/make_app_icon.py
 Outputs:
   packaging/PetGen.icns  (macOS — uses iconutil, macOS-only)
   packaging/PetGen.ico   (Windows — Pillow, cross-platform)
+  docs/images/app-icon.png  (README/GitHub preview)
 """
 from __future__ import annotations
 
@@ -22,6 +23,7 @@ PET = ROOT / "docs/images/pet-cat.png"
 ICONSET = ROOT / "packaging/PetGen.iconset"
 OUT_ICNS = ROOT / "packaging/PetGen.icns"
 OUT_ICO = ROOT / "packaging/PetGen.ico"
+OUT_PNG = ROOT / "docs/images/app-icon.png"
 
 # macOS iconset: (logical px, scale). 1024 covers the largest @2x bucket.
 MAC_SIZES = [
@@ -81,7 +83,8 @@ def make_source(size: int = 1024) -> Image.Image:
     if bbox:
         cat = cat.crop(bbox)
     fill = int(size * 0.95)
-    cat.thumbnail((fill, fill))
+    scale = min(fill / cat.width, fill / cat.height)
+    cat = cat.resize((max(1, int(cat.width * scale)), max(1, int(cat.height * scale))), Image.LANCZOS)
     cx = (size - cat.width) // 2
     cy = (size - cat.height) // 2
     canvas.alpha_composite(cat, (cx, cy))
@@ -128,12 +131,19 @@ def build_ico(source: Image.Image) -> None:
     print(f"wrote {OUT_ICO} ({OUT_ICO.stat().st_size // 1024} KB)")
 
 
+def build_png(source: Image.Image) -> None:
+    """Build a plain PNG copy for README/GitHub rendering."""
+    OUT_PNG.parent.mkdir(parents=True, exist_ok=True)
+    source.resize((256, 256), Image.LANCZOS).save(OUT_PNG, optimize=True)
+    print(f"wrote {OUT_PNG} ({OUT_PNG.stat().st_size // 1024} KB)")
+
+
 def main() -> None:
     source = make_source(1024)
     build_icns(source)
     build_ico(source)
+    build_png(source)
 
 
 if __name__ == "__main__":
     main()
-
