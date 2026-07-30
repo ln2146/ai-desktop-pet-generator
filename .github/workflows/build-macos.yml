@@ -1,0 +1,109 @@
+name: Build macOS
+
+# Builds the macOS .app + .dmg distribution of PetGen on every push/PR that
+# touches packaging or the app entry, and on manual dispatch. The output is a
+# signed-optional .dmg uploaded as a workflow artifact and, when a Release
+# exists, attached to it so macOS users download from the same page as Windows.
+#
+# Mirrors build-windows.yml. Runs on macos-latest (arm64 / Apple Silicon); the
+# spec produces a native-arch bundle, matching the documented local-build
+# behavior (packaging/README.md: "本机架构产出本架构包").
+#
+# Triggered:
+#   - on push to main when packaging/ or the launcher changes
+#   - manually via the Actions tab ("Run workflow")
+# This keeps it off the default test matrix so PRs don't pay the macOS build
+# cost unless they're actually about packaging.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packaging/**"
+      - "src/petgen/launcher.py"
+      - "src/petgen/coordinator.py"
+      - ".github/workflows/build-macos.yml"
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "src/petgen/launcher.py"
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to upload assets to a Release
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package + desktop extras
+        # numpy/Pillow/requests come from the core deps; [desktop] adds PySide6
+        # and edge-tts. PyInstaller is the bundler.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[desktop]"
+          pip install pyinstaller
+
+      - name: Regenerate macOS icon
+        # Idempotent: produces packaging/PetGen.icns from docs/images/pet-cat.png
+        # via iconutil (macOS-only). Committed copy is used as-is if generation
+        # is skipped on failure.
+        continue-on-error: true
+        run: python packaging/make_app_icon.py
+
+      - name: Build with PyInstaller
+        # The spec detects macOS (BUNDLE -> dist/PetGen.app with LSUIElement).
+        run: pyinstaller packaging/petgen.spec --noconfirm
+
+      - name: Smoke-test the app starts
+        # Launch and give it a few seconds; a tray-resident (LSUIElement) app
+        # has no window to assert on, so we only check the process doesn't
+        # immediately crash. Best-effort — if Qt plugins are missing it would
+        # exit non-zero fast.
+        run: |
+          dist/PetGen.app/Contents/MacOS/PetGen &
+          pid=$!
+          sleep 6
+          if kill -0 "$pid" 2>/dev/null; then
+            echo "PetGen is still running after 6s — OK"
+            kill "$pid" 2>/dev/null || true
+          else
+            echo "::error::PetGen exited immediately"
+            exit 1
+          fi
+
+      - name: Create .dmg
+        # Bundle dist/PetGen.app into a drag-to-Applications .dmg.
+        run: bash packaging/make_dmg.sh
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PetGen-macos-arm64
+          path: dist/PetGen.dmg
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Attach macOS dmg to the latest Release
+        # If a Release exists for the latest tag (e.g. v0.1.0), upload the
+        # macOS build as an asset so users can download .dmg from the same
+        # page as the Windows .zip. Skips silently if no Release exists yet.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Find the most recent published release tag.
+          tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>/dev/null || true)
+          if [ -z "$tag" ]; then
+            echo "No release found; skipping upload."
+            exit 0
+          fi
+          echo "Attaching dist/PetGen.dmg to release $tag"
+          gh release upload "$tag" dist/PetGen.dmg --clobber

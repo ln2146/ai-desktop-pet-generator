@@ -55,6 +55,19 @@ Windows 不能在 macOS 本机产出 `.exe` —— 走 GitHub Actions 自动构�
 
 spec 同一份(`packaging/petgen.spec`)自动适配平台:macOS 走 BUNDLE 出 `.app`,Windows 走 onedir 出 `dist/PetGen/PetGen.exe`,图标用 `PetGen.ico`。
 
+## CI 自动构建
+
+两个平台都有 GitHub Actions 工作流,改动 `packaging/`、`launcher.py` 或 `coordinator.py` 并 push 到 main 时触发(也可手动 Run workflow):
+
+| 平台 | 工作流 | Runner | 产物 artifact | Release 资产 |
+|------|--------|--------|---------------|--------------|
+| macOS | `.github/workflows/build-macos.yml` | `macos-latest`(arm64) | **`PetGen-macos-arm64`** → `dist/PetGen.dmg` | `PetGen.dmg` |
+| Windows | `.github/workflows/build-windows.yml` | `windows-latest` | **`PetGen-windows-x64`** → `PetGen-windows-x64.zip` | `PetGen-windows-x64.zip` |
+
+二者都跑 PyInstaller(spec 自动按平台适配),并在最新 Release 存在时把产物 `--clobber` 上传为 Release 资产,供用户从同一个 Release 页面下载。artifact 保留 30 天,在对应 Actions 运行页底部下载。
+
+> 注:macOS CI 产出的是 arm64(Apple Silicon)原生包。需要 Intel(x86_64)包时,按上文「一键构建」在对应架构的 Mac 上本地产出。
+
 ## 不在本次范围
 
 - **代码签名/公证**:需 Apple Developer 账号。未签名 macOS 包首次打开要走右键"打开";未签名 Windows 包会被 SmartScreen 拦截,点"仍要运行"。

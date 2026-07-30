@@ -84,13 +84,18 @@ PetGen 会把宠物养在桌面上：它可以呼吸、弹气泡、提醒你休�
 
 ## 自己生成宠物
 
-如果你想用一句话或参考图生成新的宠物，需要先准备 OpenAI API Key。项目会读取当前目录下的 `.env`：
+如果你想用一句话或参考图生成新的宠物，需要先准备 OpenAI（或兼容 OpenAI 接口）的 API Key。项目会读取当前目录下的 `.env`（参考 `.env.example`）：
 
 ```bash
 OPENAI_API_KEY=sk-...
-OPENAI_IMAGE_MODEL=gpt-image-2
-OPENAI_TEXT_MODEL=gpt-4o-mini
+OPENAI_BASE_URL=https://api.openai.com/v1   # 可选，兼容 OpenAI 接口的第三方网关填这里
+OPENAI_IMAGE_MODEL=gpt-image-2              # 可选，默认 gpt-image-2
+OPENAI_TEXT_MODEL=gpt-4o-mini               # 可选，描述过短时自动调用做描述增强
+OPENAI_IMAGE_SIZE=1536x1024                 # 可选，默认 1536x1024
+OPENAI_IMAGE_QUALITY=high                   # 可选，默认 high
 ```
+
+也可以用命令行参数覆盖，例如 `--size`、`--quality`、`--base-url`，详见 `petgen generate --help`。
 
 从源码运行：
 
