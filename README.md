@@ -56,6 +56,12 @@
   <sub>宠物中心 / 提醒列表 / 番茄钟 / 今日使用时长</sub>
 </p>
 
+<p align="center">
+  <img src="docs/images/readme-rest-reminder.png" alt="连续使用电脑 45 分钟后的桌面休息提醒" width="420">
+  <br>
+  <sub>连续工作提醒 · 宠物会弹出休息气泡</sub>
+</p>
+
 ## 小红书素材
 
 已经准备好一组可直接发帖或二次排版的素材：
