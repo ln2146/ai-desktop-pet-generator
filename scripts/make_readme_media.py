@@ -29,14 +29,17 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageSequence
 ROOT = Path(__file__).resolve().parent.parent
 IMG_DIR = ROOT / "docs" / "images"
 SOCIAL_DIR = ROOT / "docs" / "social"
+GPT_SCENE = IMG_DIR / "gpt-desktop-scene.png"
 
 FONT_CJK = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
 FONT_BOLD = "/System/Library/Fonts/HelveticaNeue.ttc"
 FONT_MEDIUM = "/System/Library/Fonts/Helvetica.ttc"
 
 BG = (245, 247, 251)
+PANEL = (255, 255, 255)
 INK = (15, 23, 42)
 MUTED = (100, 116, 139)
+FAINT = (226, 232, 240)
 INDIGO = (79, 70, 229)
 SKY = (14, 165, 233)
 ROSE = (225, 29, 72)
@@ -103,6 +106,38 @@ def _paste_fit(dst: Image.Image, src: Image.Image, box: tuple[int, int, int, int
         dst.alpha_composite(im, (x1 + (w - im.width) // 2, y1 + (h - im.height) // 2))
 
 
+def _paste_fit_anchor(
+    dst: Image.Image,
+    src: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    anchor: tuple[float, float] = (0.5, 0.5),
+) -> None:
+    x1, y1, x2, y2 = box
+    w, h = x2 - x1, y2 - y1
+    im = src.convert("RGBA")
+    scale = max(w / im.width, h / im.height)
+    im = im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))), Image.LANCZOS)
+    max_left = max(0, im.width - w)
+    max_top = max(0, im.height - h)
+    left = int(max_left * anchor[0])
+    top = int(max_top * anchor[1])
+    dst.alpha_composite(im.crop((left, top, left + w, top + h)), (x1, y1))
+
+
+def _remove_light_background(src: Image.Image) -> Image.Image:
+    im = src.convert("RGBA")
+    data = []
+    pixels = im.get_flattened_data() if hasattr(im, "get_flattened_data") else im.getdata()
+    for r, g, b, a in pixels:
+        if r > 245 and g > 245 and b > 245:
+            data.append((r, g, b, 0))
+        else:
+            data.append((r, g, b, a))
+    im.putdata(data)
+    return im
+
+
 def _text(draw: ImageDraw.ImageDraw, xy: tuple[int, int], text: str, font, fill=INK) -> None:
     draw.text(xy, text, font=font, fill=fill)
 
@@ -124,7 +159,7 @@ def _load_idle_frames() -> list[Image.Image]:
     frames = []
     with Image.open(path) as gif:
         for frame in ImageSequence.Iterator(gif):
-            frames.append(frame.convert("RGBA"))
+            frames.append(_remove_light_background(frame))
     if not frames:
         raise RuntimeError(f"no frames found in {path}")
     return frames
@@ -142,48 +177,80 @@ def _pet_on_stage(frame: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 
 def _desktop_frame(frame: Image.Image, index: int, size=(1280, 720)) -> Image.Image:
-    canvas = _gradient(size, (235, 244, 255), (255, 246, 238))
+    if GPT_SCENE.exists():
+        return _gpt_scene_frame(index, size)
+
+    canvas = _gradient(size, (238, 244, 252), (253, 247, 241))
     draw = ImageDraw.Draw(canvas)
     w, h = size
 
-    draw.rectangle((0, 0, w, 34), fill=(255, 255, 255, 190))
-    _text(draw, (24, 8), "PetGen", _font(FONT_BOLD, 16), (30, 41, 59))
-    _text(draw, (1080, 8), "10:24  Thu", _font(FONT_MEDIUM, 15), (71, 85, 105))
+    # macOS-like desktop chrome.
+    draw.rectangle((0, 0, w, 36), fill=(255, 255, 255, 218))
+    _text(draw, (24, 9), "PetGen", _font(FONT_BOLD, 16), (30, 41, 59))
+    _text(draw, (1090, 9), "10:24  Thu", _font(FONT_MEDIUM, 15), (71, 85, 105))
+    draw.rounded_rectangle((458, 650, 822, 704), radius=20, fill=(255, 255, 255, 175))
+    for i, color in enumerate((INDIGO, SKY, GREEN, ROSE, AMBER)):
+        draw.rounded_rectangle((492 + i * 62, 666, 530 + i * 62, 690), radius=8, fill=color + (210,))
 
-    card = _shadow_card((760, 500), radius=22, fill=(21, 25, 43, 246))
-    canvas.alpha_composite(card, (62, 86))
+    terminal_card = _shadow_card((670, 430), radius=24, fill=(18, 24, 42, 255))
+    canvas.alpha_composite(terminal_card, (70, 112))
     draw = ImageDraw.Draw(canvas)
-    draw.rounded_rectangle((112, 128, 782, 540), radius=16, fill=(15, 23, 42))
-    draw.rectangle((112, 128, 782, 172), fill=(30, 41, 59))
+    draw.rounded_rectangle((120, 154, 730, 502), radius=18, fill=(15, 23, 42))
+    draw.rounded_rectangle((120, 154, 730, 200), radius=18, fill=(30, 41, 59))
+    draw.rectangle((120, 182, 730, 200), fill=(30, 41, 59))
     for i, color in enumerate(((248, 113, 113), (251, 191, 36), (52, 211, 153))):
-        draw.ellipse((134 + i * 24, 144, 148 + i * 24, 158), fill=color)
-    _text(draw, (134, 196), "petgen generate \\", _font(FONT_MEDIUM, 24), (226, 232, 240))
-    _text(draw, (134, 236), '  --prompt "一只陪你写代码的桌面宠物"', _font(FONT_CJK, 22), (165, 180, 252))
-    _text(draw, (134, 276), "petgen app", _font(FONT_MEDIUM, 24), (125, 211, 252))
+        draw.ellipse((144 + i * 22, 170, 158 + i * 22, 184), fill=color)
+    _text(draw, (150, 228), "$ petgen generate \\", _font(FONT_MEDIUM, 24), (226, 232, 240))
+    _text(draw, (150, 268), '  --prompt "一只陪你写代码的桌面宠物"', _font(FONT_CJK, 22), (165, 180, 252))
+    _text(draw, (150, 310), "$ petgen app", _font(FONT_MEDIUM, 24), (125, 211, 252))
     cursor = "█" if (index // 8) % 2 == 0 else " "
-    _text(draw, (134, 330), f"桌宠已常驻桌面 {cursor}", _font(FONT_CJK, 24), (187, 247, 208))
+    _text(draw, (150, 382), f"桌宠已常驻桌面 {cursor}", _font(FONT_CJK, 28), (187, 247, 208))
 
-    side = _shadow_card((310, 260), radius=22, fill=(255, 255, 255, 248))
-    canvas.alpha_composite(side, (878, 114))
+    side = _shadow_card((330, 236), radius=24, fill=(255, 255, 255, 250))
+    canvas.alpha_composite(side, (825, 112))
     draw = ImageDraw.Draw(canvas)
-    _text(draw, (930, 168), "AI 任务完成", _font(FONT_CJK, 28), INK)
-    _text(draw, (930, 214), "宠物会切表情、弹气泡、发音效", _font(FONT_CJK, 18), MUTED)
-    for y, label, color in ((268, "Codex", INDIGO), (314, "Claude Code", SKY), (360, "Antigravity", GREEN)):
-        draw.rounded_rectangle((930, y, 1100, y + 28), radius=14, fill=color + (28,))
-        _text(draw, (950, y + 4), label, _font(FONT_MEDIUM, 15), color)
+    _text(draw, (878, 166), "AI 任务完成", _font(FONT_CJK, 30), INK)
+    _text(draw, (880, 212), "切表情、弹气泡、发音效", _font(FONT_CJK, 18), MUTED)
+    for y, label, color in ((264, "Codex", INDIGO), (306, "Claude Code", SKY), (348, "Antigravity", GREEN)):
+        draw.rounded_rectangle((880, y, 1080, y + 30), radius=15, fill=color + (28,))
+        draw.rounded_rectangle((880, y, 1080, y + 30), radius=15, outline=color + (180,), width=1)
+        draw.ellipse((898, y + 10, 908, y + 20), fill=color)
+        _text(draw, (920, y + 5), label, _font(FONT_MEDIUM, 16), INK)
 
-    bubble_y = 472 + int(math.sin(index / 8) * 5)
-    draw.rounded_rectangle((762, bubble_y, 1168, bubble_y + 86), radius=26, fill=(255, 255, 255, 245))
-    draw.polygon(((1060, bubble_y + 82), (1106, bubble_y + 82), (1086, bubble_y + 118)), fill=(255, 255, 255, 245))
-    _text(draw, (804, bubble_y + 22), "我已经在桌面陪跑啦，任务完成会提醒你。", _font(FONT_CJK, 22), INK)
+    bubble_y = 426 + int(math.sin(index / 8) * 5)
+    draw.rounded_rectangle((744, bubble_y, 1076, bubble_y + 78), radius=24, fill=(255, 255, 255, 248))
+    draw.rounded_rectangle((744, bubble_y, 1076, bubble_y + 78), radius=24, outline=FAINT, width=1)
+    draw.polygon(((1012, bubble_y + 74), (1052, bubble_y + 74), (1034, bubble_y + 104)), fill=(255, 255, 255, 248))
+    _text(draw, (782, bubble_y + 18), "任务完成啦，休息一下？", _font(FONT_CJK, 23), INK)
+    _text(draw, (784, bubble_y + 48), "我会在桌面陪你写代码。", _font(FONT_CJK, 17), MUTED)
 
-    pet_scale = 260 + int(math.sin(index / 5) * 4)
+    pet_scale = 235 + int(math.sin(index / 5) * 4)
     pet = _pet_on_stage(frame, (pet_scale, pet_scale))
-    canvas.alpha_composite(pet, (944, 440 + int(math.sin(index / 6) * 8)))
+    canvas.alpha_composite(pet, (1008, 450 + int(math.sin(index / 6) * 8)))
     return canvas.convert("RGB")
 
 
-def _render_qt_panels(output_dir: Path) -> tuple[Path, Path]:
+def _gpt_scene_frame(index: int, size=(1280, 720)) -> Image.Image:
+    base = Image.open(GPT_SCENE).convert("RGBA")
+    w, h = base.size
+    # Gentle Ken Burns movement for the GIF/MP4 while keeping the still image crisp.
+    zoom = 1.0 + 0.012 * math.sin(index / 18)
+    crop_w = int(w / zoom)
+    crop_h = int(h / zoom)
+    left = (w - crop_w) // 2
+    top = (h - crop_h) // 2
+    scene = base.crop((left, top, left + crop_w, top + crop_h)).resize(size, Image.LANCZOS)
+    draw = ImageDraw.Draw(scene)
+
+    # Crisp text over the intentionally blank generated speech bubble.
+    bubble_x = int(size[0] * 0.574)
+    bubble_y = int(size[1] * 0.595)
+    _text(draw, (bubble_x, bubble_y), "Codex 任务完成", _font(FONT_CJK, 22), INK)
+    _text(draw, (bubble_x, bubble_y + 31), "变更已就绪，我在桌面陪你收尾。", _font(FONT_CJK, 14), MUTED)
+    return scene.convert("RGB")
+
+
+def _render_qt_panels(output_dir: Path) -> tuple[Path, Path, Path]:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     import sys
 
@@ -243,8 +310,12 @@ def _render_qt_panels(output_dir: Path) -> tuple[Path, Path]:
     usage.show()
     app.processEvents()
     usage.grab().save(str(usage_path))
+    wide_usage_path = output_dir / "readme-ui-usage-wide.png"
+    usage.resize(760, 360)
+    app.processEvents()
+    usage.grab().save(str(wide_usage_path))
     usage.close()
-    return library_path, usage_path
+    return library_path, usage_path, wide_usage_path
 
 
 def _make_ui_showcase(library_path: Path, usage_path: Path) -> Image.Image:
@@ -278,27 +349,14 @@ def _make_ui_showcase(library_path: Path, usage_path: Path) -> Image.Image:
 
 
 def _make_showcase(desktop: Image.Image, ui: Image.Image) -> Image.Image:
-    canvas = Image.new("RGBA", (1400, 840), (246, 248, 252, 255))
+    canvas = _gradient((1400, 840), (248, 250, 252), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
-    _text(draw, (78, 62), "一句话生成，真的养在桌面上", _font(FONT_CJK, 56), INK)
-    _text(draw, (82, 136), "从 AI 生图、绿幕切帧到托盘常驻，桌宠会呼吸、弹气泡、回应你的 AI 编码任务。", _font(FONT_CJK, 25), MUTED)
+    _text(draw, (78, 54), "一句话生成，真的养在桌面上", _font(FONT_CJK, 58), INK)
+    _text(draw, (82, 132), "从 AI 生图、绿幕切帧到托盘常驻，桌宠会呼吸、弹气泡、回应你的 AI 编码任务。", _font(FONT_CJK, 25), MUTED)
 
-    dcard = _shadow_card((790, 444), radius=34)
-    canvas.alpha_composite(dcard, (46, 238))
-    _paste_fit(canvas, desktop.convert("RGBA"), (96, 288, 826, 672), cover=True)
-
-    ucard = _shadow_card((430, 444), radius=34)
-    canvas.alpha_composite(ucard, (886, 238))
-    _paste_fit(canvas, ui.convert("RGBA"), (936, 288, 1306, 672), cover=True)
-
-    pets = ["pet-cat.png", "pet-redpanda.png", "pet-fox.png", "pet-gingercat.png", "pet-dragon.png"]
-    for i, name in enumerate(pets):
-        p = Image.open(IMG_DIR / name).convert("RGBA")
-        p.thumbnail((98, 98), Image.LANCZOS)
-        x = 114 + i * 112
-        y = 724
-        draw.ellipse((x - 10, y + 72, x + 100, y + 98), fill=(15, 23, 42, 26))
-        canvas.alpha_composite(p, (x + (88 - p.width) // 2, y + (90 - p.height) // 2))
+    dcard = _shadow_card((1100, 620), radius=40)
+    canvas.alpha_composite(dcard, (100, 166))
+    _paste_fit(canvas, desktop.convert("RGBA"), (150, 216, 1250, 786), cover=True)
     return canvas.convert("RGB")
 
 
@@ -311,7 +369,7 @@ def _make_xhs_cover(desktop: Image.Image, ui: Image.Image) -> Image.Image:
 
     dcard = _shadow_card((1010, 568), radius=42)
     canvas.alpha_composite(dcard, (56, 486))
-    _paste_fit(canvas, desktop.convert("RGBA"), (106, 536, 1056, 1004), cover=True)
+    _paste_fit(canvas, desktop.convert("RGBA"), (126, 536, 1026, 1042), cover=False)
 
     hero = Image.open(IMG_DIR / "pet-cat.png").convert("RGBA")
     hero.thumbnail((300, 300), Image.LANCZOS)
@@ -329,7 +387,6 @@ def _make_xhs_cover(desktop: Image.Image, ui: Image.Image) -> Image.Image:
     ucard = _shadow_card((840, 380), radius=38)
     canvas.alpha_composite(ucard, (156, 1214))
     _paste_fit(canvas, ui.convert("RGBA"), (206, 1264, 986, 1544), cover=True)
-    _text(draw, (90, 1572), "github.com/ln2146/ai-desktop-pet-generator", _font(FONT_MEDIUM, 28), (71, 85, 105))
     return canvas.convert("RGB")
 
 
@@ -340,7 +397,7 @@ def _make_xhs_desktop(desktop: Image.Image) -> Image.Image:
     _text(draw, (88, 186), "不是贴图预览，是真正能悬浮陪跑的宠物窗口", _font(FONT_CJK, 32), MUTED)
     card = _shadow_card((1050, 590), radius=44)
     canvas.alpha_composite(card, (46, 326))
-    _paste_fit(canvas, desktop.convert("RGBA"), (96, 376, 1086, 866), cover=True)
+    _paste_fit(canvas, desktop.convert("RGBA"), (106, 376, 1076, 866), cover=False)
     frames = _load_idle_frames()
     for i in range(4):
         pet = _pet_on_stage(frames[(i * 2) % len(frames)], (210, 210))
@@ -349,7 +406,6 @@ def _make_xhs_desktop(desktop: Image.Image) -> Image.Image:
         draw.rounded_rectangle((x - 20, y - 12, x + 220, y + 250), radius=34, fill=(255, 255, 255, 235))
         canvas.alpha_composite(pet, (x, y))
     _text(draw, (90, 1440), "会呼吸、会弹气泡，也能接入 Codex / Claude Code / Antigravity。", _font(FONT_CJK, 36), INK)
-    _text(draw, (90, 1504), "短视频素材：docs/social/petgen-desktop-demo.mp4", _font(FONT_CJK, 28), MUTED)
     return canvas.convert("RGB")
 
 
@@ -361,24 +417,42 @@ def _make_xhs_ui(ui: Image.Image, usage_path: Path) -> Image.Image:
     rich_library = Image.open(IMG_DIR / "ui-pet-center.png").convert("RGBA")
     usage = Image.open(usage_path).convert("RGBA")
 
-    card = _shadow_card((1040, 700), radius=44)
-    canvas.alpha_composite(card, (52, 326))
-    _paste_fit(canvas, rich_library, (102, 376, 1082, 966), cover=True)
-
-    usage_card = _shadow_card((440, 386), radius=42)
-    canvas.alpha_composite(usage_card, (662, 996))
-    _paste_fit(canvas, usage, (712, 1046, 1092, 1332), cover=True)
+    card_w, card_h = 1040, 540
+    image_box_w, image_box_h = 840, 398
+    top_x, top_y = 52, 300
+    bottom_x, bottom_y = 52, 878
+    for x, y, title, accent, image in (
+        (top_x, top_y, "宠物中心", INDIGO, rich_library),
+        (bottom_x, bottom_y, "今日使用时长", GREEN, usage),
+    ):
+        card = _shadow_card((card_w, card_h), radius=44)
+        canvas.alpha_composite(card, (x, y))
+        draw.rounded_rectangle((x + 50, y + 40, x + 250, y + 92), radius=26, fill=accent + (22,))
+        draw.ellipse((x + 76, y + 59, x + 90, y + 73), fill=accent)
+        _text(draw, (x + 108, y + 50), title, _font(FONT_CJK, 28), INK)
+        draw.rounded_rectangle(
+            (x + 100, y + 112, x + 100 + image_box_w, y + 112 + image_box_h),
+            radius=28,
+            fill=(248, 250, 252, 255),
+            outline=FAINT,
+            width=2,
+        )
+        _paste_fit(
+            canvas,
+            image,
+            (x + 124, y + 136, x + 124 + image_box_w - 48, y + 136 + image_box_h - 48),
+            cover=True,
+        )
 
     for x, y, label, color in (
-        (96, 1080, "管理所有宠物", INDIGO),
-        (96, 1164, "生成自定义形象", ROSE),
-        (96, 1248, "统计今日使用", GREEN),
+        (96, 1468, "管理所有宠物", INDIGO),
+        (402, 1468, "生成自定义形象", ROSE),
+        (708, 1468, "统计今日使用", GREEN),
     ):
-        draw.rounded_rectangle((x, y, x + 360, y + 64), radius=32, fill=(255, 255, 255, 245))
-        draw.rounded_rectangle((x, y, x + 360, y + 64), radius=32, outline=color, width=3)
-        draw.ellipse((x + 34, y + 25, x + 48, y + 39), fill=color)
-        _text(draw, (x + 70, y + 15), label, _font(FONT_CJK, 28), INK)
-    _text(draw, (90, 1510), "适合 README、帖子配图、项目介绍页直接复用。", _font(FONT_CJK, 34), INK)
+        draw.rounded_rectangle((x, y, x + 264, y + 64), radius=32, fill=(255, 255, 255, 245))
+        draw.rounded_rectangle((x, y, x + 264, y + 64), radius=32, outline=color, width=3)
+        draw.ellipse((x + 30, y + 25, x + 44, y + 39), fill=color)
+        _text(draw, (x + 64, y + 15), label, _font(FONT_CJK, 26), INK)
     return canvas.convert("RGB")
 
 
@@ -441,7 +515,7 @@ def main() -> None:
     desktop_frames = [_desktop_frame(frames_src[i % len(frames_src)], i) for i in range(72)]
     desktop = desktop_frames[18]
     with tempfile.TemporaryDirectory() as tmp:
-        library_path, usage_path = _render_qt_panels(Path(tmp))
+        library_path, usage_path, wide_usage_path = _render_qt_panels(Path(tmp))
         ui = _make_ui_showcase(library_path, usage_path)
         showcase = _make_showcase(desktop, ui)
 
@@ -450,7 +524,7 @@ def main() -> None:
         showcase.save(paths.readme_showcase, optimize=True)
         _make_xhs_cover(desktop, ui).save(paths.xhs_cover, optimize=True)
         _make_xhs_desktop(desktop).save(paths.xhs_desktop, optimize=True)
-        _make_xhs_ui(ui, usage_path).save(paths.xhs_ui, optimize=True)
+        _make_xhs_ui(ui, wide_usage_path).save(paths.xhs_ui, optimize=True)
         _write_video_and_gif(desktop_frames, paths)
 
     for path in paths.__dict__.values():
