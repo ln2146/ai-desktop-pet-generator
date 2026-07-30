@@ -25,7 +25,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write   # needed to upload assets to a Release
 
 jobs:
   build:
@@ -85,3 +85,20 @@ jobs:
           path: PetGen-windows-x64.zip
           retention-days: 30
           if-no-files-found: error
+
+      - name: Attach Windows zip to the latest Release
+        # If a Release exists for the latest tag (e.g. v0.1.0), upload the
+        # Windows build as an asset so users can download .exe from the same
+        # page as the macOS .dmg. Skips silently if no Release exists yet.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          # Find the most recent published release tag.
+          $tag = gh release list --limit 1 --json tagName --jq '.[0].tagName' 2>$null
+          if (-not $tag) {
+            Write-Host "No release found; skipping upload."
+            return
+          }
+          Write-Host "Attaching PetGen-windows-x64.zip to release $tag"
+          gh release upload $tag PetGen-windows-x64.zip --clobber
