@@ -109,8 +109,13 @@ def _activate_macos_app() -> None:
     app, and only a sliver of it (e.g. an inner config row) peeks out. That is
     the root cause of "clicking the tray sometimes shows a tiny window."
 
-    ``[NSApp activateIgnoringOtherApps:YES]`` is the only reliable way to steal
-    focus on macOS; it is the documented escape hatch Qt itself relies on. No-op
+    ``activateIgnoringOtherApps:YES`` alone is not enough when the app already
+    has visible but non-focus-accepting windows (the pet/bubble): the window
+    server keeps treating the app as a background accessory and refuses the
+    activation. The reliable fix is to **briefly flip the activation policy to
+    Regular** — this re-arms the app as a normal foreground app, forces a fresh
+    activation, then restores Accessory so the Dock icon stays hidden
+    afterwards. This is the same mechanism Qt's own window-raising uses. No-op
     off-platform and in the offscreen self-check platform.
     """
     if sys.platform != "darwin":
@@ -139,10 +144,22 @@ def _activate_macos_app() -> None:
         )
         if not nsapp:
             return
-        # [NSApp activateIgnoringOtherApps:YES] — steal focus unconditionally.
+
+        # Flip activation policy Regular (0) -> activate -> back to Accessory (1).
+        # The brief Regular interval is what actually lets the window server
+        # promote us to the foreground; staying Regular would re-add the Dock icon.
+        send.restype = ctypes.c_bool
+        send.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_long]
+        set_policy = lib.sel_registerName(b"setActivationPolicy:")
+        send(nsapp, set_policy, 0)  # NSApplicationActivationPolicyRegular
+
         send.restype = None
         send.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_bool]
         send(nsapp, lib.sel_registerName(b"activateIgnoringOtherApps:"), True)
+
+        # Restore Accessory immediately — the activation above has already taken
+        # effect synchronously within this call.
+        send(nsapp, set_policy, 1)  # NSApplicationActivationPolicyAccessory
     except Exception:  # noqa: BLE001 - bringing to front must never crash the app
         pass
 
