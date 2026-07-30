@@ -72,10 +72,16 @@ def make_source(size: int = 1024) -> Image.Image:
     glow = glow.filter(ImageFilter.GaussianBlur(size * 0.06))
     canvas.alpha_composite(glow)
 
-    # the cat, centred, filling ~72% of the tile
+    # the cat, cropped tight to its body and scaled to FILL the tile (~95%).
+    # First trim the transparent padding so we don't upscale empty space, then
+    # fit the pet to nearly the full squircle, leaving a small margin so the
+    # rounded corners don't clip ears/feet.
     cat = Image.open(PET).convert("RGBA")
-    side = int(size * 0.72)
-    cat.thumbnail((side, side))
+    bbox = cat.split()[-1].getbbox()
+    if bbox:
+        cat = cat.crop(bbox)
+    fill = int(size * 0.95)
+    cat.thumbnail((fill, fill))
     cx = (size - cat.width) // 2
     cy = (size - cat.height) // 2
     canvas.alpha_composite(cat, (cx, cy))
