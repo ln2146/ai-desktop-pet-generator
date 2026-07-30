@@ -89,6 +89,10 @@ def make_source(size: int = 1024) -> Image.Image:
     cy = (size - cat.height) // 2
     canvas.alpha_composite(cat, (cx, cy))
 
+    # Keep the final asset transparent outside the rounded tile. Effects added
+    # after the initial background paste, such as glow, must not bleed into the
+    # corner alpha channel.
+    canvas.putalpha(mask)
     return canvas
 
 
