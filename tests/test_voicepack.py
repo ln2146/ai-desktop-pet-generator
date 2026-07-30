@@ -267,3 +267,21 @@ def test_sound_service_pool_is_capped(qapp) -> None:
     s._players = [_FakePlayer() for _ in range(cap + 3)]  # noqa: SLF001
     s.play("pop")
     assert len(s._players) <= cap  # noqa: SLF001
+
+
+def test_sound_service_pool_capped_even_when_sfx_missing(qapp, monkeypatch) -> None:
+    """play() must prune+cap the pool even when the sound file can't resolve.
+
+    Regression: prune used to run AFTER _resolve_sfx, so when the SFX file was
+    missing (e.g. ensure_sfx couldn't synthesize in a headless CI env) play()
+    bailed before pruning and the pool grew unbounded. Prune must run first.
+    """
+    from petgen import sound as sound_mod
+
+    monkeypatch.setattr(sound_mod, "_resolve_sfx", lambda value: None)
+    cap = 2
+    s = SoundService(max_players=cap)
+    s._players = [_FakePlayer() for _ in range(cap + 3)]  # noqa: SLF001
+    s.play("pop")  # resolves to None -> play returns False
+    assert len(s._players) <= cap  # noqa: SLF001 - pool still pruned
+

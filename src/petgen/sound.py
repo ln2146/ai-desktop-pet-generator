@@ -193,6 +193,19 @@ class SoundService:
     def play(self, value: str | None) -> bool:
         if not self._enabled or not value or not self._ok:
             return False
+        # Prune + cap BEFORE resolving the sound: play() may bail early (no SFX
+        # file on disk, e.g. when ensure_sfx() couldn't generate them in a
+        # headless/CI env), but the pool must still be maintained on every call
+        # so finished players don't accumulate. Doing this first keeps the cap
+        # invariant true regardless of whether the play actually starts.
+        self._prune_finished()
+        while len(self._players) >= self._max_players:
+            old = self._players.pop(0)
+            try:
+                old.stop()
+                old.deleteLater()
+            except Exception:  # noqa: BLE001 - best effort
+                pass
         try:
             path = _resolve_sfx(value)
             if path is None:
@@ -200,16 +213,6 @@ class SoundService:
             from PySide6.QtCore import QUrl
             from PySide6.QtMultimedia import QSoundEffect
 
-            self._prune_finished()
-            # Hard cap: drop the oldest so a burst of events (or a backend that
-            # never reports playingChanged) cannot grow the pool without bound.
-            while len(self._players) >= self._max_players:
-                old = self._players.pop(0)
-                try:
-                    old.stop()
-                    old.deleteLater()
-                except Exception:  # noqa: BLE001 - best effort
-                    pass
             player = QSoundEffect()
             player.setSource(QUrl.fromLocalFile(str(path)))
             player.setVolume(0.8)
