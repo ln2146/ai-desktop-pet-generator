@@ -31,6 +31,7 @@ IMG_DIR = ROOT / "docs" / "images"
 SOCIAL_DIR = ROOT / "docs" / "social"
 GPT_SCENE = IMG_DIR / "gpt-desktop-scene.png"
 NOTIFICATION_SHOT = IMG_DIR / "readme-notification.png"
+REST_REMINDER_SHOT = IMG_DIR / "readme-rest-reminder.png"
 PET_CENTER_SHOT = IMG_DIR / "readme-pet-center.png"
 REMINDERS_SHOT = IMG_DIR / "readme-reminders.png"
 POMODORO_SHOT = IMG_DIR / "readme-pomodoro.png"
@@ -365,14 +366,16 @@ def _render_qt_panels(output_dir: Path) -> tuple[Path, Path, Path]:
 def _make_ui_showcase(library_path: Path, usage_path: Path) -> Image.Image:
     canvas = _gradient((1280, 1080), (248, 250, 252), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
-    _text(draw, (72, 54), "看得见的桌宠工作台", _font(FONT_CJK, 48), INK)
-    _text(draw, (74, 124), "宠物中心、提醒列表、番茄钟和今日使用时长都是真实窗口截图", _font(FONT_CJK, 25), MUTED)
+    _text(draw, (72, 54), "真实运行，一屏看全", _font(FONT_CJK, 48), INK)
+    _text(draw, (74, 124), "桌面通知、休息提醒、宠物中心、提醒列表、番茄钟和今日使用时长", _font(FONT_CJK, 25), MUTED)
 
     shots = (
-        ("宠物中心", _required_image(PET_CENTER_SHOT), (72, 238, 616, 594), True),
-        ("提醒列表", _required_image(REMINDERS_SHOT), (664, 238, 1208, 594), False),
-        ("番茄钟", _required_image(POMODORO_SHOT), (72, 706, 616, 1062), False),
-        ("今日使用时长", _required_image(USAGE_SHOT), (664, 706, 1208, 1062), False),
+        ("Codex 完成通知", _required_image(NOTIFICATION_SHOT), (72, 238, 416, 590), False),
+        ("休息提醒", _required_image(REST_REMINDER_SHOT), (468, 238, 812, 590), False),
+        ("宠物中心", _required_image(PET_CENTER_SHOT), (864, 238, 1208, 590), False),
+        ("提醒列表", _required_image(REMINDERS_SHOT), (72, 700, 416, 1052), False),
+        ("番茄钟", _required_image(POMODORO_SHOT), (468, 700, 812, 1052), False),
+        ("今日使用时长", _required_image(USAGE_SHOT), (864, 700, 1208, 1052), False),
     )
     for title, image, box, cover in shots:
         _draw_image_panel(canvas, image, box, cover=cover)
@@ -384,13 +387,15 @@ def _make_showcase(desktop: Image.Image, ui: Image.Image) -> Image.Image:
     canvas = _gradient((1400, 1040), (248, 250, 252), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
     _text(draw, (78, 54), "一句话生成，真的养在桌面上", _font(FONT_CJK, 58), INK)
-    _text(draw, (82, 132), "桌宠工作台集中管理宠物、提醒、专注和今日使用时长。", _font(FONT_CJK, 25), MUTED)
+    _text(draw, (82, 132), "桌面通知、休息提醒、宠物中心、番茄钟和今日使用时长都在真实运行。", _font(FONT_CJK, 25), MUTED)
 
     shots = (
-        ("宠物中心", _required_image(PET_CENTER_SHOT), (90, 246, 660, 622), True),
-        ("提醒列表", _required_image(REMINDERS_SHOT), (740, 246, 1310, 622), False),
-        ("番茄钟", _required_image(POMODORO_SHOT), (90, 748, 660, 1018), False),
-        ("今日使用时长", _required_image(USAGE_SHOT), (740, 748, 1310, 1018), False),
+        ("Codex 完成通知", _required_image(NOTIFICATION_SHOT), (90, 246, 470, 610), False),
+        ("休息提醒", _required_image(REST_REMINDER_SHOT), (510, 246, 890, 610), False),
+        ("宠物中心", _required_image(PET_CENTER_SHOT), (930, 246, 1310, 610), False),
+        ("提醒列表", _required_image(REMINDERS_SHOT), (90, 740, 470, 1018), False),
+        ("番茄钟", _required_image(POMODORO_SHOT), (510, 740, 890, 1018), False),
+        ("今日使用时长", _required_image(USAGE_SHOT), (930, 740, 1310, 1018), False),
     )
     for title, image, box, cover in shots:
         _draw_image_panel(canvas, image, box, radius=34, cover=cover)

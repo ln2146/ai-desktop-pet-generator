@@ -16,7 +16,7 @@
 它会完成从 AI 生图到本地切帧的整条链路：生成形象、绿幕抠图、切帧、打包成 `8 x 9` 精灵表，然后通过托盘应用把宠物养在桌面上。你也可以把它接入 Claude Code、Codex、Antigravity 等 AI 编码工具，让任务状态实时变成桌宠表情、气泡和音效反馈。
 
 <p align="center">
-  <img src="docs/images/readme-showcase.png" alt="AI 桌面宠物生成器：宠物中心、提醒列表、番茄钟和今日使用时长四宫格展示" width="880">
+  <img src="docs/images/readme-showcase.png" alt="AI 桌面宠物生成器：桌面通知、休息提醒、宠物中心、提醒列表、番茄钟和今日使用时长六宫格展示" width="880">
   <br>
   <sub>一句话生成、绿幕切帧、托盘常驻，并在一个工作台里管理宠物、提醒、专注和使用时长。</sub>
 </p>
@@ -51,16 +51,9 @@
 不只是预览图，这是 `petgen app` 跑起来后的核心体验：悬浮宠物常驻桌面、有呼吸动画，宠物中心可以浏览、切换、管理你养的所有伙伴，今日使用时长面板会记录连续工作和休息提醒。
 
 <p align="center">
-  <img src="docs/images/readme-ui-showcase.png" alt="宠物中心、提醒列表、番茄钟和今日使用时长四宫格界面展示" width="820">
+  <img src="docs/images/readme-ui-showcase.png" alt="桌面通知、休息提醒、宠物中心、提醒列表、番茄钟和今日使用时长六宫格展示" width="840">
   <br>
-  <sub>宠物中心 / 提醒列表 / 番茄钟 / 今日使用时长</sub>
-</p>
-
-<p align="center">
-  <img src="docs/images/readme-notification.png" alt="Codex 任务完成后的桌面宠物通知" width="360">
-  <img src="docs/images/readme-rest-reminder.png" alt="连续使用电脑 45 分钟后的桌面休息提醒" width="420">
-  <br>
-  <sub>Codex 完成通知 / 连续工作休息提醒</sub>
+  <sub>Codex 完成通知 / 休息提醒 / 宠物中心 / 提醒列表 / 番茄钟 / 今日使用时长</sub>
 </p>
 
 ## 小红书素材
