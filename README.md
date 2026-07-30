@@ -26,26 +26,6 @@ PetGen 会把宠物养在桌面上：它可以呼吸、弹气泡、提醒你休�
   <sub>桌面通知、休息提醒、宠物中心、提醒列表、番茄钟和今日使用时长。</sub>
 </p>
 
-## 下载体验
-
-不想折腾环境的话，直接从 Release 下载应用包：
-
-<p align="center">
-  <a href="https://github.com/ln2146/ai-desktop-pet-generator/releases"><b>前往 Releases 下载最新版</b></a>
-</p>
-
-下载后启动桌宠应用，就可以在托盘里打开宠物中心、提醒列表、番茄钟和使用时长面板。想自己生成新宠物时，再配置 AI Key 即可。
-
-## 用户反馈群
-
-使用中遇到问题、想提建议，或想交流自己生成的桌宠，可以加入 QQ 用户反馈群。
-
-<p align="center">
-  <img src="docs/images/qq-feedback-group-preview.jpg" alt="AI 桌面宠物生成器 QQ 用户反馈群二维码" width="360">
-  <br>
-  <sub>QQ群：914057336</sub>
-</p>
-
 ## 精选伙伴
 
 每一只都由一句话生成，画风一致，可以直接养在桌面。
@@ -71,16 +51,6 @@ PetGen 会把宠物养在桌面上：它可以呼吸、弹气泡、提醒你休�
   </table>
 </p>
 
-## 真实运行
-
-不只是预览图，这是 `petgen app` 跑起来后的核心体验：悬浮宠物常驻桌面、有呼吸动画，宠物中心可以浏览、切换、管理你养的所有伙伴，今日使用时长面板会记录连续工作和休息提醒。
-
-<p align="center">
-  <img src="docs/images/readme-ui-showcase.png" alt="桌面通知、休息提醒、宠物中心、提醒列表、番茄钟和今日使用时长六宫格展示" width="840">
-  <br>
-  <sub>Codex 完成通知 / 休息提醒 / 宠物中心 / 提醒列表 / 番茄钟 / 今日使用时长</sub>
-</p>
-
 ## 功能概览
 
 | 功能 | 说明 |
@@ -91,6 +61,26 @@ PetGen 会把宠物养在桌面上：它可以呼吸、弹气泡、提醒你休�
 | 番茄钟 | 内置 25 分钟专注计时，到点后桌宠提醒 |
 | 今日使用时长 | 查看本次连续工作、今日累计和提醒次数 |
 | AI 任务反馈 | Codex / Claude Code / Antigravity 完成任务时，桌宠可以弹出通知 |
+
+## 下载体验
+
+不想折腾环境的话，直接从 Release 下载应用包：
+
+<p align="center">
+  <a href="https://github.com/ln2146/ai-desktop-pet-generator/releases"><b>前往 Releases 下载最新版</b></a>
+</p>
+
+下载后启动桌宠应用，就可以在托盘里打开宠物中心、提醒列表、番茄钟和使用时长面板。想自己生成新宠物时，再配置 AI Key 即可。
+
+## 用户反馈群
+
+使用中遇到问题、想提建议，或想交流自己生成的桌宠，可以加入 QQ 用户反馈群。
+
+<p align="center">
+  <img src="docs/images/qq-feedback-group-preview.jpg" alt="AI 桌面宠物生成器 QQ 用户反馈群二维码" width="360">
+  <br>
+  <sub>QQ群：914057336</sub>
+</p>
 
 ## 自己生成宠物
 
