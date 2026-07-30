@@ -57,9 +57,10 @@
 </p>
 
 <p align="center">
+  <img src="docs/images/readme-notification.png" alt="Codex 任务完成后的桌面宠物通知" width="360">
   <img src="docs/images/readme-rest-reminder.png" alt="连续使用电脑 45 分钟后的桌面休息提醒" width="420">
   <br>
-  <sub>连续工作提醒 · 宠物会弹出休息气泡</sub>
+  <sub>Codex 完成通知 / 连续工作休息提醒</sub>
 </p>
 
 ## 小红书素材
