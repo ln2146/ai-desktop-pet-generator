@@ -30,6 +30,11 @@ ROOT = Path(__file__).resolve().parent.parent
 IMG_DIR = ROOT / "docs" / "images"
 SOCIAL_DIR = ROOT / "docs" / "social"
 GPT_SCENE = IMG_DIR / "gpt-desktop-scene.png"
+NOTIFICATION_SHOT = IMG_DIR / "readme-notification.png"
+PET_CENTER_SHOT = IMG_DIR / "readme-pet-center.png"
+REMINDERS_SHOT = IMG_DIR / "readme-reminders.png"
+POMODORO_SHOT = IMG_DIR / "readme-pomodoro.png"
+USAGE_SHOT = IMG_DIR / "readme-usage.png"
 
 FONT_CJK = "/System/Library/Fonts/Supplemental/Arial Unicode.ttf"
 FONT_BOLD = "/System/Library/Fonts/HelveticaNeue.ttc"
@@ -125,6 +130,28 @@ def _paste_fit_anchor(
     dst.alpha_composite(im.crop((left, top, left + w, top + h)), (x1, y1))
 
 
+def _required_image(path: Path) -> Image.Image:
+    if not path.exists():
+        raise FileNotFoundError(f"required README media source is missing: {path}")
+    return Image.open(path).convert("RGBA")
+
+
+def _draw_image_panel(
+    dst: Image.Image,
+    image: Image.Image,
+    box: tuple[int, int, int, int],
+    *,
+    radius: int = 28,
+    cover: bool = False,
+    fill: tuple[int, int, int, int] = (255, 255, 255, 255),
+) -> None:
+    x1, y1, x2, y2 = box
+    card = _shadow_card((x2 - x1, y2 - y1), radius=radius, fill=fill)
+    dst.alpha_composite(card, (x1 - 30, y1 - 30))
+    inset = 24
+    _paste_fit(dst, image, (x1 + inset, y1 + inset, x2 - inset, y2 - inset), cover=cover)
+
+
 def _remove_light_background(src: Image.Image) -> Image.Image:
     im = src.convert("RGBA")
     data = []
@@ -177,6 +204,9 @@ def _pet_on_stage(frame: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 
 def _desktop_frame(frame: Image.Image, index: int, size=(1280, 720)) -> Image.Image:
+    if NOTIFICATION_SHOT.exists():
+        return _notification_frame(index, size)
+
     if GPT_SCENE.exists():
         return _gpt_scene_frame(index, size)
 
@@ -250,6 +280,20 @@ def _gpt_scene_frame(index: int, size=(1280, 720)) -> Image.Image:
     return scene.convert("RGB")
 
 
+def _notification_frame(index: int, size=(1280, 720)) -> Image.Image:
+    canvas = _gradient(size, (236, 246, 255), (247, 250, 252))
+    shot = _required_image(NOTIFICATION_SHOT)
+    w, h = size
+    zoom = 1.0 + 0.01 * math.sin(index / 18)
+    target_h = int(h * 0.86 * zoom)
+    target_w = int(target_h * shot.width / shot.height)
+    shot = shot.resize((target_w, target_h), Image.LANCZOS)
+    x = (w - target_w) // 2
+    y = (h - target_h) // 2 + int(6 * math.sin(index / 12))
+    canvas.alpha_composite(shot, (x, y))
+    return canvas.convert("RGB")
+
+
 def _render_qt_panels(output_dir: Path) -> tuple[Path, Path, Path]:
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     import sys
@@ -319,44 +363,34 @@ def _render_qt_panels(output_dir: Path) -> tuple[Path, Path, Path]:
 
 
 def _make_ui_showcase(library_path: Path, usage_path: Path) -> Image.Image:
-    canvas = Image.new("RGBA", (1280, 760), BG)
+    canvas = _gradient((1280, 1080), (248, 250, 252), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
     _text(draw, (72, 54), "看得见的桌宠工作台", _font(FONT_CJK, 48), INK)
-    _text(draw, (74, 124), "宠物中心、健康提醒、AI 工具接入都在同一个托盘应用里", _font(FONT_CJK, 25), MUTED)
+    _text(draw, (74, 124), "宠物中心、提醒列表、番茄钟和今日使用时长都是真实窗口截图", _font(FONT_CJK, 25), MUTED)
 
-    rich_library = IMG_DIR / "ui-pet-center.png"
-    lib = Image.open(rich_library if rich_library.exists() else library_path).convert("RGBA")
-    use = Image.open(usage_path).convert("RGBA")
-    lib_card = _shadow_card((820, 570), radius=28)
-    canvas.alpha_composite(lib_card, (42, 160))
-    _paste_fit(canvas, lib, (92, 210, 852, 700), cover=True)
-
-    use_card = _shadow_card((360, 332), radius=28)
-    canvas.alpha_composite(use_card, (864, 306))
-    _paste_fit(canvas, use, (914, 356, 1214, 618), cover=True)
-
-    for x, y, label, color in (
-        (916, 202, "切换宠物", INDIGO),
-        (1050, 202, "创建新宠", ROSE),
-        (916, 248, "久坐提醒", GREEN),
-        (1050, 248, "AI 联动", SKY),
-    ):
-        draw.rounded_rectangle((x, y, x + 126, y + 36), radius=18, fill=(255, 255, 255, 245))
-        draw.rounded_rectangle((x, y, x + 126, y + 36), radius=18, outline=color, width=2)
-        draw.ellipse((x + 14, y + 13, x + 24, y + 23), fill=color)
-        _text(draw, (x + 34, y + 8), label, _font(FONT_CJK, 17), INK)
+    shots = (
+        ("宠物中心", _required_image(PET_CENTER_SHOT), (72, 238, 654, 580), True),
+        ("提醒列表", _required_image(REMINDERS_SHOT), (694, 238, 1208, 580), False),
+        ("番茄钟", _required_image(POMODORO_SHOT), (72, 698, 586, 1006), False),
+        ("今日使用时长", _required_image(USAGE_SHOT), (626, 698, 1208, 1006), False),
+    )
+    for title, image, box, cover in shots:
+        _draw_image_panel(canvas, image, box, cover=cover)
+        _text(draw, (box[0] + 18, box[1] - 40), title, _font(FONT_CJK, 24), INK)
     return canvas.convert("RGB")
 
 
 def _make_showcase(desktop: Image.Image, ui: Image.Image) -> Image.Image:
-    canvas = _gradient((1400, 840), (248, 250, 252), (239, 246, 255))
+    canvas = _gradient((1400, 900), (248, 250, 252), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
     _text(draw, (78, 54), "一句话生成，真的养在桌面上", _font(FONT_CJK, 58), INK)
-    _text(draw, (82, 132), "从 AI 生图、绿幕切帧到托盘常驻，桌宠会呼吸、弹气泡、回应你的 AI 编码任务。", _font(FONT_CJK, 25), MUTED)
+    _text(draw, (82, 132), "桌宠在桌面回应 AI 编码任务，工作台集中管理宠物、提醒和专注状态。", _font(FONT_CJK, 25), MUTED)
 
-    dcard = _shadow_card((1100, 620), radius=40)
-    canvas.alpha_composite(dcard, (100, 166))
-    _paste_fit(canvas, desktop.convert("RGBA"), (150, 216, 1250, 786), cover=True)
+    notification = _required_image(NOTIFICATION_SHOT)
+    _draw_image_panel(canvas, notification, (90, 210, 520, 790), radius=36)
+    _draw_image_panel(canvas, _required_image(PET_CENTER_SHOT), (570, 210, 1298, 505), radius=34, cover=True)
+    _draw_image_panel(canvas, _required_image(USAGE_SHOT), (570, 560, 930, 790), radius=34)
+    _draw_image_panel(canvas, _required_image(POMODORO_SHOT), (980, 560, 1298, 790), radius=34)
     return canvas.convert("RGB")
 
 
@@ -367,26 +401,18 @@ def _make_xhs_cover(desktop: Image.Image, ui: Image.Image) -> Image.Image:
     _text(draw, (86, 206), "养在了桌面上", _font(FONT_CJK, 86), INK)
     _text(draw, (92, 326), "一句话生成  ·  托盘常驻  ·  编码任务会回应", _font(FONT_CJK, 34), MUTED)
 
-    dcard = _shadow_card((1010, 568), radius=42)
-    canvas.alpha_composite(dcard, (56, 486))
-    _paste_fit(canvas, desktop.convert("RGBA"), (126, 536, 1026, 1042), cover=False)
+    notification = _required_image(NOTIFICATION_SHOT)
+    _draw_image_panel(canvas, notification, (88, 470, 520, 1018), radius=42)
+
+    _draw_image_panel(canvas, _required_image(PET_CENTER_SHOT), (580, 516, 1120, 812), radius=38, cover=True)
+    _draw_image_panel(canvas, _required_image(USAGE_SHOT), (580, 850, 1120, 1060), radius=38, cover=False)
 
     hero = Image.open(IMG_DIR / "pet-cat.png").convert("RGBA")
     hero.thumbnail((300, 300), Image.LANCZOS)
     canvas.alpha_composite(hero, (852, 296))
 
-    chips = [("AI 生图", INDIGO), ("绿幕切帧", GREEN), ("桌面运行", SKY), ("任务提醒", ROSE)]
-    x, y = 96, 1104
-    for label, color in chips:
-        draw.rounded_rectangle((x, y, x + 220, y + 58), radius=29, fill=(255, 255, 255, 245))
-        draw.rounded_rectangle((x, y, x + 220, y + 58), radius=29, outline=color, width=3)
-        draw.ellipse((x + 28, y + 23, x + 40, y + 35), fill=color)
-        _text(draw, (x + 56, y + 13), label, _font(FONT_CJK, 28), INK)
-        x += 248
-
-    ucard = _shadow_card((840, 380), radius=38)
-    canvas.alpha_composite(ucard, (156, 1214))
-    _paste_fit(canvas, ui.convert("RGBA"), (206, 1264, 986, 1544), cover=True)
+    _draw_image_panel(canvas, _required_image(REMINDERS_SHOT), (86, 1156, 560, 1484), radius=38)
+    _draw_image_panel(canvas, _required_image(POMODORO_SHOT), (646, 1210, 1120, 1468), radius=38)
     return canvas.convert("RGB")
 
 
@@ -395,17 +421,14 @@ def _make_xhs_desktop(desktop: Image.Image) -> Image.Image:
     draw = ImageDraw.Draw(canvas)
     _text(draw, (82, 86), "桌面运行效果", _font(FONT_CJK, 76), INK)
     _text(draw, (88, 186), "不是贴图预览，是真正能悬浮陪跑的宠物窗口", _font(FONT_CJK, 32), MUTED)
-    card = _shadow_card((1050, 590), radius=44)
-    canvas.alpha_composite(card, (46, 326))
-    _paste_fit(canvas, desktop.convert("RGBA"), (106, 376, 1076, 866), cover=False)
+    _draw_image_panel(canvas, _required_image(NOTIFICATION_SHOT), (260, 302, 982, 1184), radius=44)
     frames = _load_idle_frames()
-    for i in range(4):
+    for i in range(3):
         pet = _pet_on_stage(frames[(i * 2) % len(frames)], (210, 210))
-        x = 120 + i * 270
-        y = 1030 + int(math.sin(i) * 12)
+        x = 190 + i * 330
+        y = 1240 + int(math.sin(i) * 12)
         draw.rounded_rectangle((x - 20, y - 12, x + 220, y + 250), radius=34, fill=(255, 255, 255, 235))
         canvas.alpha_composite(pet, (x, y))
-    _text(draw, (90, 1440), "会呼吸、会弹气泡，也能接入 Codex / Claude Code / Antigravity。", _font(FONT_CJK, 36), INK)
     return canvas.convert("RGB")
 
 
@@ -413,46 +436,17 @@ def _make_xhs_ui(ui: Image.Image, usage_path: Path) -> Image.Image:
     canvas = _gradient((1242, 1660), (255, 255, 255), (239, 246, 255))
     draw = ImageDraw.Draw(canvas)
     _text(draw, (82, 86), "桌宠也有工作台", _font(FONT_CJK, 76), INK)
-    _text(draw, (88, 184), "宠物中心、健康提醒、AI 工具接入，都能在托盘里打开", _font(FONT_CJK, 32), MUTED)
-    rich_library = Image.open(IMG_DIR / "ui-pet-center.png").convert("RGBA")
-    usage = Image.open(usage_path).convert("RGBA")
+    _text(draw, (88, 184), "宠物中心、提醒列表、番茄钟和今日使用时长都是真实窗口", _font(FONT_CJK, 32), MUTED)
 
-    card_w, card_h = 1040, 540
-    image_box_w, image_box_h = 840, 398
-    top_x, top_y = 52, 300
-    bottom_x, bottom_y = 52, 878
-    for x, y, title, accent, image in (
-        (top_x, top_y, "宠物中心", INDIGO, rich_library),
-        (bottom_x, bottom_y, "今日使用时长", GREEN, usage),
-    ):
-        card = _shadow_card((card_w, card_h), radius=44)
-        canvas.alpha_composite(card, (x, y))
-        draw.rounded_rectangle((x + 50, y + 40, x + 250, y + 92), radius=26, fill=accent + (22,))
-        draw.ellipse((x + 76, y + 59, x + 90, y + 73), fill=accent)
-        _text(draw, (x + 108, y + 50), title, _font(FONT_CJK, 28), INK)
-        draw.rounded_rectangle(
-            (x + 100, y + 112, x + 100 + image_box_w, y + 112 + image_box_h),
-            radius=28,
-            fill=(248, 250, 252, 255),
-            outline=FAINT,
-            width=2,
-        )
-        _paste_fit(
-            canvas,
-            image,
-            (x + 124, y + 136, x + 124 + image_box_w - 48, y + 136 + image_box_h - 48),
-            cover=True,
-        )
-
-    for x, y, label, color in (
-        (96, 1468, "管理所有宠物", INDIGO),
-        (402, 1468, "生成自定义形象", ROSE),
-        (708, 1468, "统计今日使用", GREEN),
-    ):
-        draw.rounded_rectangle((x, y, x + 264, y + 64), radius=32, fill=(255, 255, 255, 245))
-        draw.rounded_rectangle((x, y, x + 264, y + 64), radius=32, outline=color, width=3)
-        draw.ellipse((x + 30, y + 25, x + 44, y + 39), fill=color)
-        _text(draw, (x + 64, y + 15), label, _font(FONT_CJK, 26), INK)
+    panels = (
+        ("宠物中心", _required_image(PET_CENTER_SHOT), (78, 300, 1164, 720), True),
+        ("提醒列表", _required_image(REMINDERS_SHOT), (78, 780, 586, 1154), False),
+        ("番茄钟", _required_image(POMODORO_SHOT), (656, 804, 1164, 1130), False),
+        ("今日使用时长", _required_image(USAGE_SHOT), (222, 1210, 1020, 1532), False),
+    )
+    for title, image, box, cover in panels:
+        _draw_image_panel(canvas, image, box, radius=38, cover=cover)
+        _text(draw, (box[0] + 18, box[1] - 40), title, _font(FONT_CJK, 26), INK)
     return canvas.convert("RGB")
 
 

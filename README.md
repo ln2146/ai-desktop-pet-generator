@@ -54,24 +54,29 @@
   <table align="center">
     <tr>
       <td align="center">
-        <img src="docs/images/desktop-demo.gif" alt="桌面宠物动态运行演示" width="360">
+        <img src="docs/images/readme-notification.png" alt="Codex 任务完成后的桌面宠物通知" width="300">
       </td>
       <td align="center">
-        <img src="docs/images/readme-ui-showcase.png" alt="宠物中心和今日使用时长界面展示" width="520">
+        <img src="docs/images/readme-ui-showcase.png" alt="宠物中心、提醒列表、番茄钟和今日使用时长界面展示" width="560">
       </td>
     </tr>
     <tr>
-      <td align="center"><sub>桌面运行 · 呼吸动画 / 气泡反馈</sub></td>
-      <td align="center"><sub>宠物工作台 · 宠物中心 / 健康提醒</sub></td>
+      <td align="center"><sub>桌面通知 · AI 任务完成反馈</sub></td>
+      <td align="center"><sub>宠物工作台 · 宠物中心 / 提醒 / 专注 / 统计</sub></td>
     </tr>
   </table>
 </p>
 
-静态截图：
+应用界面截图：
 
 <p align="center">
-  <img src="docs/images/readme-desktop-running.png" alt="桌面宠物运行效果图" width="430">
-  <img src="docs/images/readme-ui-showcase.png" alt="宠物工作台界面拼图" width="430">
+  <img src="docs/images/readme-pet-center.png" alt="PetGen 宠物中心" width="860">
+</p>
+
+<p align="center">
+  <img src="docs/images/readme-reminders.png" alt="提醒事项中心" width="280">
+  <img src="docs/images/readme-pomodoro.png" alt="番茄钟助手" width="280">
+  <img src="docs/images/readme-usage.png" alt="今日使用时长" width="280">
 </p>
 
 ## 小红书素材
