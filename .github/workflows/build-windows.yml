@@ -1,0 +1,87 @@
+name: Build Windows
+
+# Builds the Windows .exe distribution of PetGen on every push/PR that touches
+# packaging or the app entry, and on manual dispatch. The output is a zipped
+# onedir (dist/PetGen/*.exe + Qt runtime) uploaded as a workflow artifact.
+#
+# Triggered:
+#   - on push to main when packaging/ or the launcher changes
+#   - manually via the Actions tab ("Run workflow")
+# This keeps it off the default test matrix so PRs don't pay the ~5min Windows
+# build cost unless they're actually about packaging.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packaging/**"
+      - "src/petgen/launcher.py"
+      - "src/petgen/coordinator.py"
+      - ".github/workflows/build-windows.yml"
+  pull_request:
+    paths:
+      - "packaging/**"
+      - "src/petgen/launcher.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package + desktop extras
+        # numpy/Pillow/requests come from the core deps; [desktop] adds PySide6
+        # and edge-tts. PyInstaller is the bundler.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[desktop]"
+          pip install pyinstaller
+
+      - name: Regenerate Windows icon
+        # Idempotent: produces packaging/PetGen.ico from docs/images/pet-cat.png.
+        # Committed copy is used as-is if generation is skipped on failure.
+        shell: pwsh
+        continue-on-error: true
+        run: python packaging/make_app_icon.py
+
+      - name: Build with PyInstaller
+        # The spec detects Windows (no BUNDLE/.app; produces dist/PetGen/ onedir).
+        run: pyinstaller packaging/petgen.spec --noconfirm
+
+      - name: Smoke-test the exe starts
+        # Launch and give it a few seconds; a tray app has no window to assert
+        # on, so we only check the process doesn't immediately crash. Best-effort
+        # — if Qt plugins are missing it would exit non-zero fast.
+        shell: pwsh
+        run: |
+          $proc = Start-Process -FilePath "dist\PetGen\PetGen.exe" -PassThru
+          Start-Sleep -Seconds 6
+          if ($proc.HasExited) {
+            Write-Error "PetGen.exe exited immediately with code $($proc.ExitCode)"
+            exit 1
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+
+      - name: Zip the distribution
+        # Zip dist/PetGen so the artifact is a single downloadable archive.
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist\PetGen\* -DestinationPath PetGen-windows-x64.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PetGen-windows-x64
+          path: PetGen-windows-x64.zip
+          retention-days: 30
+          if-no-files-found: error

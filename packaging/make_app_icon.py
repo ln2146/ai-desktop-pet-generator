@@ -1,15 +1,18 @@
-"""Generate a macOS .icns app icon from the grey-white cat.
+"""Generate app icons (macOS .icns + Windows .ico) from the grey-white cat.
 
 Builds a high-res square source (cat on a brand-gradient rounded tile), then
-fans it out into the full iconset sizes required by iconutil and packs them
-into an .icns.
+fans it out into the full iconset sizes for iconutil (.icns) and the Windows
+multi-size .ico.
 
 Run:  python packaging/make_app_icon.py
-Output: packaging/PetGen.icns
+Outputs:
+  packaging/PetGen.icns  (macOS — uses iconutil, macOS-only)
+  packaging/PetGen.ico   (Windows — Pillow, cross-platform)
 """
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageFilter
@@ -18,9 +21,10 @@ ROOT = Path(__file__).resolve().parent.parent
 PET = ROOT / "docs/images/pet-cat.png"
 ICONSET = ROOT / "packaging/PetGen.iconset"
 OUT_ICNS = ROOT / "packaging/PetGen.icns"
+OUT_ICO = ROOT / "packaging/PetGen.ico"
 
 # macOS iconset: (logical px, scale). 1024 covers the largest @2x bucket.
-SIZES = [
+MAC_SIZES = [
     (16, 1), (16, 2),
     (32, 1), (32, 2),
     (64, 1), (64, 2),
@@ -29,6 +33,9 @@ SIZES = [
     (512, 1), (512, 2),
     (1024, 1), (1024, 2),
 ]
+
+# Windows .ico embeds multiple sizes in one file.
+WIN_SIZES = [16, 24, 32, 48, 64, 128, 256]
 
 # Brand gradient matching the app (deep purple -> near-black, amber accent)
 BG_TOP = (45, 27, 78)
@@ -76,39 +83,51 @@ def make_source(size: int = 1024) -> Image.Image:
     return canvas
 
 
-def main() -> None:
+def build_icns(source: Image.Image) -> None:
+    """Build .icns via iconutil (macOS only). Skipped on other platforms."""
+    if sys.platform != "darwin":
+        print("skip .icns (not macOS)")
+        return
     ICONSET.mkdir(exist_ok=True)
-    # clear stale entries
     for f in ICONSET.iterdir():
         f.unlink()
-
-    source = make_source(1024)
-    for logical, scale in SIZES:
+    for logical, scale in MAC_SIZES:
         px = logical * scale
-        img = source.resize((px, px), Image.LANCZOS)
-        name = f"icon_{logical}x{logical}"
-        if scale == 2:
-            name += "@2x"
-        img.save(ICONSET / f"{name}.png")
-
-    # pack into .icns
+        source.resize((px, px), Image.LANCZOS).save(
+            ICONSET / f"icon_{logical}x{logical}{'@2x' if scale == 2 else ''}.png"
+        )
     if OUT_ICNS.exists():
         OUT_ICNS.unlink()
     r = subprocess.run(
         ["iconutil", "-c", "icns", str(ICONSET), "-o", str(OUT_ICNS)],
         capture_output=True, text=True,
     )
-    if r.returncode != 0:
-        print("iconutil failed:", r.stderr)
-        raise SystemExit(1)
-
-    # clean up the iconset dir
     for f in ICONSET.iterdir():
         f.unlink()
     ICONSET.rmdir()
-
+    if r.returncode != 0:
+        print("iconutil failed:", r.stderr)
+        raise SystemExit(1)
     print(f"wrote {OUT_ICNS} ({OUT_ICNS.stat().st_size // 1024} KB)")
+
+
+def build_ico(source: Image.Image) -> None:
+    """Build a multi-size Windows .ico with Pillow (cross-platform)."""
+    if OUT_ICO.exists():
+        OUT_ICO.unlink()
+    # Pillow's ICO plugin auto-generates each requested size from the source
+    # when `sizes` is passed; pass the largest frame and let it downscale.
+    big = source.resize((256, 256), Image.LANCZOS)
+    big.save(OUT_ICO, format="ICO", sizes=[(s, s) for s in WIN_SIZES])
+    print(f"wrote {OUT_ICO} ({OUT_ICO.stat().st_size // 1024} KB)")
+
+
+def main() -> None:
+    source = make_source(1024)
+    build_icns(source)
+    build_ico(source)
 
 
 if __name__ == "__main__":
     main()
+

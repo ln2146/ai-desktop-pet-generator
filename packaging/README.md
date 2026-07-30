@@ -38,11 +38,27 @@ bash packaging/make_dmg.sh                        # 产出 dist/PetGen.dmg
 | `LSUIElement: true` | 托盘常驻 App,启动即无 Dock 图标(比运行时 ctypes 切换更可靠) |
 | `collect_submodules(petgen/aiohttp)` | 代码大量函数内动态 import;edge-tts 依赖 aiohttp 的 C 扩展 |
 
+## Windows 构建
+
+Windows 不能在 macOS 本机产出 `.exe` —— 走 GitHub Actions 自动构建。
+
+```yaml
+# .github/workflows/build-windows.yml
+```
+
+触发条件:
+- push 到 main 且改动 `packaging/` 或 `launcher.py`/`coordinator.py`
+- 手动在 Actions 页点 "Run workflow"(workflow_dispatch)
+- 相关 PR
+
+产物:Windows runner 跑 PyInstaller → 把 `dist/PetGen/`(onedir)打 zip → 上传为 artifact **`PetGen-windows-x64`**(保留 30 天)。在 Actions 运行页底部下载。
+
+spec 同一份(`packaging/petgen.spec`)自动适配平台:macOS 走 BUNDLE 出 `.app`,Windows 走 onedir 出 `dist/PetGen/PetGen.exe`,图标用 `PetGen.ico`。
+
 ## 不在本次范围
 
-- **Windows .exe**:必须 Windows CI runner 构建,本机 Mac 不能产出 `.exe`。需在 `.github/workflows` 加 Windows job。
-- **代码签名/公证**:需 Apple Developer 账号。未签名包首次打开要走右键"打开"。
-- **App 图标**:`packaging/PetGen.icns`(灰白小猫),用 `python packaging/make_app_icon.py` 从 `docs/images/pet-cat.png` 重新生成。
+- **代码签名/公证**:需 Apple Developer 账号。未签名 macOS 包首次打开要走右键"打开";未签名 Windows 包会被 SmartScreen 拦截,点"仍要运行"。
+- **App 图标**:`packaging/PetGen.icns`(macOS)+ `PetGen.ico`(Windows),灰白小猫,用 `python packaging/make_app_icon.py` 从 `docs/images/pet-cat.png` 重新生成。
 
 ## 重新构建
 

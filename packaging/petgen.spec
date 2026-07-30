@@ -1,12 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for the PetGen macOS desktop app.
+"""PyInstaller spec for the PetGen desktop app (macOS + Windows).
 
 Build:  pyinstaller packaging/petgen.spec   (run from the repo root)
-Output: dist/PetGen.app
+Output:
+  macOS:   dist/PetGen.app   (app bundle, then hdiutil -> .dmg)
+  Windows: dist/PetGen/      (onedir; zip it for distribution)
 
 Key decisions (see the packaging exploration notes for the why):
 
-* Entry point is petgen.launcher (NOT petgen.cli) — double-clicking a .app
+* Entry point is petgen.launcher (NOT petgen.cli) — double-clicking a .app/.exe
   bundle passes no argv, so cli.main() would just print argparse help and
   quit. The launcher goes straight to AppCoordinator.run().
 
@@ -21,14 +23,20 @@ Key decisions (see the packaging exploration notes for the why):
   pulls in the whole petgen package (heavy use of deferred in-function imports)
   and aiohttp (edge_tts dependency with C extensions).
 
-* LSUIElement=true makes the app a menu-bar/accessory app from launch — no Dock
-  icon, matching the existing ctypes setActivationPolicy:Accessory, but more
-  reliable (it takes effect before the first event-loop tick).
+Platform split at the end:
+* macOS -> BUNDLE into PetGen.app with LSUIElement=true (tray-resident, no
+  Dock icon, more reliable than the runtime ctypes policy flip).
+* Windows -> onedir COLLECT output (dist/PetGen/). QSystemTrayIcon already
+  makes it tray-resident; setQuitOnLastWindowClosed(False) keeps it alive.
 
-* No code signing here — see packaging/README for the right-click-to-open note.
+No code signing here — see packaging/README for the trust notes.
 """
 
+import sys
 from PyInstaller.utils.hooks import collect_submodules
+
+IS_MAC = sys.platform == "darwin"
+IS_WIN = sys.platform.startswith("win")
 
 # Resolve everything against the repo root (the spec lives in packaging/).
 import os
@@ -70,6 +78,8 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# Windows-only idle-time helper imports ctypes.windll; on macOS it is dead
+# code guarded by sys.platform. No action needed, but note it here.
 exe = EXE(
     pyz,
     a.scripts,
@@ -80,11 +90,13 @@ exe = EXE(
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    console=False,  # --windowed: no Terminal window
+    console=False,  # --windowed: no console/Terminal window
     disable_windowed_traceback=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    # EXE-level icon (used on Windows; macOS app icon is set in BUNDLE).
+    icon=_p("packaging", "PetGen.ico") if IS_WIN else None,
 )
 
 coll = COLLECT(
@@ -97,21 +109,24 @@ coll = COLLECT(
     name="PetGen",
 )
 
-app = BUNDLE(
-    coll,
-    name="PetGen.app",
-    icon=_p("packaging", "PetGen.icns"),  # grey-white cat icon
-    bundle_identifier="com.petgen.app",
-    info_plist={
-        "CFBundleName": "PetGen",
-        "CFBundleDisplayName": "PetGen 桌宠",
-        "CFBundleShortVersionString": "0.1.0",
-        "CFBundleExecutable": "PetGen",
-        # Accessory app: no Dock icon, no app menu — this is a tray-resident pet.
-        "LSUIElement": True,
-        "LSMinimumSystemVersion": "11.0",
-        # Retina rendering for crisp spritesheet frames.
-        "NSHighResolutionCapable": True,
-        "NSPrincipalClass": "NSApplication",
-    },
-)
+if IS_MAC:
+    app = BUNDLE(
+        coll,
+        name="PetGen.app",
+        icon=_p("packaging", "PetGen.icns"),  # grey-white cat icon
+        bundle_identifier="com.petgen.app",
+        info_plist={
+            "CFBundleName": "PetGen",
+            "CFBundleDisplayName": "PetGen 桌宠",
+            "CFBundleShortVersionString": "0.1.0",
+            "CFBundleExecutable": "PetGen",
+            # Accessory app: no Dock icon, no app menu — this is a tray-resident pet.
+            "LSUIElement": True,
+            "LSMinimumSystemVersion": "11.0",
+            # Retina rendering for crisp spritesheet frames.
+            "NSHighResolutionCapable": True,
+            "NSPrincipalClass": "NSApplication",
+        },
+    )
+# Windows: the COLLECT above already produced dist/PetGen/ (onedir). The CI
+# workflow zips it into an artifact. PetGen.exe inside uses PetGen.ico.
