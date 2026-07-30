@@ -1,4 +1,12 @@
-# AI 桌面宠物生成器
+<p align="center">
+  <img src="docs/images/app-icon.png" alt="PetGen 应用图标" width="128">
+</p>
+
+<h1 align="center">AI 桌面宠物生成器</h1>
+
+<p align="center">
+  把一句话，或一张参考图，变成一只常驻桌面的可爱宠物。
+</p>
 
 <p align="center">
   <a href="README.md"><b>中文</b></a> · <a href="README_EN.md">English</a>
@@ -9,8 +17,6 @@
   <img src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-lightgrey.svg" alt="macOS / Linux / Windows">
   <a href="https://github.com/ln2146/ai-desktop-pet-generator/releases"><img src="https://img.shields.io/badge/Download-Releases-4f46e5.svg" alt="Download releases"></a>
 </p>
-
-把一句话，或一张参考图，变成一只常驻桌面的可爱宠物。
 
 PetGen 会把宠物养在桌面上：它可以呼吸、弹气泡、提醒你休息，也能在 Codex / Claude Code / Antigravity 任务完成时给你一个轻轻的反馈。你可以直接使用内置宠物，也可以自己生成新的形象。
 
