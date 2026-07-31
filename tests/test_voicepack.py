@@ -26,7 +26,15 @@ from petgen.voicepack import (  # noqa: E402
 
 def test_catalog_has_bound_interaction_styles_with_required_kinds() -> None:
     catalog = load_catalog()
-    assert {"moe-pet", "moe-girl", "elegant-senior", "butler", "tsundere"} <= set(catalog)
+    assert {
+        "moe-pet",
+        "moe-girl",
+        "elegant-senior",
+        "butler",
+        "sunny-boy",
+        "steady-senior",
+        "tsundere",
+    } <= set(catalog)
     assert default_pack().id in catalog
     for pack in catalog.values():
         assert pack.display_name and pack.emoji and pack.description
@@ -81,6 +89,42 @@ def test_butler_uses_professional_male_voice_without_overcompression() -> None:
     assert pack.edge_rate == "-2%"
     assert -8 <= pitch <= 0
     assert "避免过度机械" in pack.prompt_flavor
+
+
+def test_sunny_boy_adds_distinct_everyday_male_voice() -> None:
+    catalog = load_catalog()
+    pack = catalog["sunny-boy"]
+
+    male_style_signatures = {
+        catalog["butler"].edge_voice,
+        catalog["steady-senior"].edge_voice,
+        catalog["tsundere"].edge_voice,
+    }
+
+    assert pack.display_name == "清爽男声"
+    assert pack.edge_voice == "zh-CN-YunjianNeural"
+    assert pack.edge_voice not in male_style_signatures
+    assert pack.edge_rate == "+4%"
+    assert pack.edge_pitch == "+2Hz"
+    assert "不过度热血" in pack.prompt_flavor
+
+
+def test_steady_senior_adds_calm_male_voice_distinct_from_other_male_styles() -> None:
+    catalog = load_catalog()
+    pack = catalog["steady-senior"]
+
+    other_male_voices = {
+        catalog["butler"].edge_voice,
+        catalog["sunny-boy"].edge_voice,
+        catalog["tsundere"].edge_voice,
+    }
+
+    assert pack.display_name == "沉稳男声"
+    assert pack.edge_voice == "zh-CN-YunyangNeural"
+    assert pack.edge_voice not in other_male_voices
+    assert pack.edge_rate == "-4%"
+    assert pack.edge_pitch == "-8Hz"
+    assert "有经验的前辈搭档" in pack.prompt_flavor
 
 
 def test_elegant_senior_uses_mainland_mandarin_with_settled_prosody() -> None:
@@ -283,4 +327,3 @@ def test_sound_service_pool_capped_even_when_sfx_missing(qapp, monkeypatch) -> N
     s._players = [_FakePlayer() for _ in range(cap + 3)]  # noqa: SLF001
     assert s.play("pop") is False  # can't play without a backend
     assert len(s._players) <= cap  # noqa: SLF001 - pool still pruned
-
