@@ -6,6 +6,7 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QDialog,
     QDoubleSpinBox,
     QFrame,
@@ -21,7 +22,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from petgen import __version__, integrations
+from petgen import __version__, i18n, integrations
 from petgen.datadir import data_dir
 from petgen.envfile import load_env_file
 from petgen.theme import apply_theme
@@ -95,7 +96,7 @@ class SettingsDialog(QDialog):
     def __init__(self, settings, parent=None) -> None:
         super().__init__(parent)
         self._settings = settings
-        self.setWindowTitle("PetGen 设置中心")
+        self.setWindowTitle(self.tr("PetGen 设置中心"))
         self.resize(680, 680)
         self.setMinimumSize(620, 620)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
@@ -108,14 +109,14 @@ class SettingsDialog(QDialog):
         # Header Title Area
         title_box = QVBoxLayout()
         title_box.setSpacing(4)
-        head = QLabel("⚙️ PetGen 偏好配置")
+        head = QLabel(self.tr("⚙️ PetGen 偏好配置"))
         h_font = QFont()
         h_font.setPointSize(16)
         h_font.setBold(True)
         head.setFont(h_font)
         head.setStyleSheet("color: #0f172a; border: none;")
 
-        subhead = QLabel("配置模型服务、生成参数与桌面宠物交互偏好")
+        subhead = QLabel(self.tr("配置模型服务、生成参数与桌面宠物交互偏好"))
         subhead.setStyleSheet("color: #64748b; font-size: 13px; border: none;")
 
         title_box.addWidget(head)
@@ -124,26 +125,26 @@ class SettingsDialog(QDialog):
 
         # Tabs (Styled Segmented Control) with ScrollArea wrappers
         tabs = QTabWidget()
-        tabs.addTab(_wrap_tab_scroll(self._build_pet_tab()), "⚙️  偏好配置")
-        tabs.addTab(_wrap_tab_scroll(self._build_tools_tab()), "🔌  工具接入")
-        tabs.addTab(_wrap_tab_scroll(self._build_about_tab()), "ℹ️  关于 PetGen")
+        tabs.addTab(_wrap_tab_scroll(self._build_pet_tab()), self.tr("⚙️  偏好配置"))
+        tabs.addTab(_wrap_tab_scroll(self._build_tools_tab()), self.tr("🔌  工具接入"))
+        tabs.addTab(_wrap_tab_scroll(self._build_about_tab()), self.tr("ℹ️  关于 PetGen"))
         root.addWidget(tabs, 1)
 
         # Action Buttons Bottom Bar
         buttons = QHBoxLayout()
         buttons.setSpacing(10)
 
-        fill_btn = QPushButton("从 .env 填充")
+        fill_btn = QPushButton(self.tr("从 .env 填充"))
         fill_btn.setCursor(Qt.PointingHandCursor)
         fill_btn.setStyleSheet("QPushButton { padding: 8px 16px; font-size: 13px; }")
         fill_btn.clicked.connect(self._fill_from_env)
 
-        cancel = QPushButton("取消")
+        cancel = QPushButton(self.tr("取消"))
         cancel.setCursor(Qt.PointingHandCursor)
         cancel.setStyleSheet("QPushButton { padding: 8px 16px; font-size: 13px; }")
         cancel.clicked.connect(self.reject)
 
-        save = QPushButton("保存设置")
+        save = QPushButton(self.tr("保存设置"))
         save.setProperty("accent", "primary")
         save.setCursor(Qt.PointingHandCursor)
         save.setStyleSheet("QPushButton { padding: 8px 20px; font-size: 13px; }")
@@ -168,10 +169,10 @@ class SettingsDialog(QDialog):
 
         # API Credentials Card
         card1, c1_layout = _create_card_container(
-            "API 凭据配置", "用于调用 OpenAI 或兼容 OpenAI 协议的大模型服务"
+            self.tr("API 凭据配置"), self.tr("用于调用 OpenAI 或兼容 OpenAI 协议的大模型服务")
         )
 
-        c1_layout.addWidget(_create_field_label("API Key"))
+        c1_layout.addWidget(_create_field_label(self.tr("API Key")))
         key_box = QHBoxLayout()
         key_box.setSpacing(8)
 
@@ -197,21 +198,23 @@ class SettingsDialog(QDialog):
         key_box.addWidget(self._ai_eye)
         c1_layout.addLayout(key_box)
 
-        c1_layout.addWidget(_create_field_label("Base URL (自定义中转接口，留空使用官方)"))
+        c1_layout.addWidget(_create_field_label(self.tr("Base URL (自定义中转接口，留空使用官方)")))
         self.ai_base_url = QLineEdit()
         self.ai_base_url.setPlaceholderText("https://api.openai.com/v1")
         c1_layout.addWidget(self.ai_base_url)
         layout.addWidget(card1)
 
         # Model Selection Card
-        card2, c2_layout = _create_card_container("模型选择", "图像生成与文本对话模型名称")
+        card2, c2_layout = _create_card_container(
+            self.tr("模型选择"), self.tr("图像生成与文本对话模型名称")
+        )
 
         grid = QHBoxLayout()
         grid.setSpacing(12)
 
         v1 = QVBoxLayout()
         v1.setSpacing(6)
-        v1.addWidget(_create_field_label("图像模型"))
+        v1.addWidget(_create_field_label(self.tr("图像模型")))
         self.ai_image_model = QLineEdit()
         self.ai_image_model.setPlaceholderText("dall-e-3")
         v1.addWidget(self.ai_image_model)
@@ -219,7 +222,7 @@ class SettingsDialog(QDialog):
 
         v2 = QVBoxLayout()
         v2.setSpacing(6)
-        v2.addWidget(_create_field_label("文本模型"))
+        v2.addWidget(_create_field_label(self.tr("文本模型")))
         self.ai_text_model = QLineEdit()
         self.ai_text_model.setPlaceholderText("gpt-4o-mini")
         v2.addWidget(self.ai_text_model)
@@ -229,15 +232,17 @@ class SettingsDialog(QDialog):
         layout.addWidget(card2)
 
         # Visual & Animation Card
-        card3, c3_layout = _create_card_container("外观与动作", "调整桌宠动画显示与悬浮互动行为")
+        card3, c3_layout = _create_card_container(
+            self.tr("外观与动作"), self.tr("调整桌宠动画显示与悬浮互动行为")
+        )
         self.pet_scale = QDoubleSpinBox()
         self.pet_scale.setRange(0.5, 3.0)
         self.pet_scale.setSingleStep(0.25)
         self.pet_scale.setVisible(False)
 
-        self.pet_motion = QCheckBox("开启动画动作与呼吸效果")
-        self.pet_sound = QCheckBox("开启音效反馈")
-        self.pet_click_chat = QCheckBox("点击宠物时触发 AI 实时智能对话")
+        self.pet_motion = QCheckBox(self.tr("开启动画动作与呼吸效果"))
+        self.pet_sound = QCheckBox(self.tr("开启音效反馈"))
+        self.pet_click_chat = QCheckBox(self.tr("点击宠物时触发 AI 实时智能对话"))
         for cb in (self.pet_motion, self.pet_sound, self.pet_click_chat):
             cb.setCursor(Qt.PointingHandCursor)
             cb.setStyleSheet("font-size: 13px; font-weight: 500;")
@@ -246,16 +251,17 @@ class SettingsDialog(QDialog):
 
         # Health / rest-nudge Card
         card4, c4_layout = _create_card_container(
-            "健康提醒", "久坐时让桌宠主动提醒你休息（离开电脑超过 5 分钟会自动算作休息）"
+            self.tr("健康提醒"),
+            self.tr("久坐时让桌宠主动提醒你休息（离开电脑超过 5 分钟会自动算作休息）"),
         )
-        self.pet_usage_reminder = QCheckBox("启用久坐休息提醒")
+        self.pet_usage_reminder = QCheckBox(self.tr("启用久坐休息提醒"))
         self.pet_usage_reminder.setCursor(Qt.PointingHandCursor)
         self.pet_usage_reminder.setStyleSheet("font-size: 13px; font-weight: 500;")
         c4_layout.addWidget(self.pet_usage_reminder)
 
         threshold_row = QHBoxLayout()
         threshold_row.setSpacing(8)
-        threshold_row.addWidget(_create_field_label("连续工作提醒阈值（分钟）"))
+        threshold_row.addWidget(_create_field_label(self.tr("连续工作提醒阈值（分钟）")))
         self.pet_usage_threshold = QSpinBox()
         self.pet_usage_threshold.setRange(15, 120)
         self.pet_usage_threshold.setSingleStep(5)
@@ -264,6 +270,25 @@ class SettingsDialog(QDialog):
         threshold_row.addWidget(self.pet_usage_threshold)
         c4_layout.addLayout(threshold_row)
         layout.addWidget(card4)
+
+        # Language Card
+        card5, c5_layout = _create_card_container(
+            self.tr("语言 / Language"), self.tr("切换界面语言，保存后重启生效")
+        )
+        lang_row = QHBoxLayout()
+        lang_row.setSpacing(8)
+        self.ui_language = QComboBox()
+        self._ui_language_keys: list[str] = []
+        for lang_id, label in i18n.available_locales():
+            self._ui_language_keys.append(lang_id)
+            self.ui_language.addItem(label, lang_id)
+        self.ui_language.setFixedWidth(220)
+        self.ui_language.setCursor(Qt.PointingHandCursor)
+        lang_row.addWidget(_create_field_label(self.tr("界面语言")))
+        lang_row.addStretch(1)
+        lang_row.addWidget(self.ui_language)
+        c5_layout.addLayout(lang_row)
+        layout.addWidget(card5)
 
         layout.addStretch(1)
         return w
@@ -276,9 +301,11 @@ class SettingsDialog(QDialog):
         layout.setSpacing(14)
 
         card, c_layout = _create_card_container(
-            "🔌 AI 工具接入",
-            "接通后，桌宠会实时回应 Claude Code / Codex / Antigravity 的任务状态。"
-            "点击按钮即时生效（无需「保存设置」），配置文件改动前自动备份。",
+            self.tr("🔌 AI 工具接入"),
+            self.tr(
+                "接通后，桌宠会实时回应 Claude Code / Codex / Antigravity 的任务状态。"
+                "点击按钮即时生效（无需「保存设置」），配置文件改动前自动备份。"
+            ),
         )
 
         self._tool_rows: dict[str, tuple[QLabel, QCheckBox]] = {}
@@ -306,7 +333,7 @@ class SettingsDialog(QDialog):
             c_layout.addLayout(row)
             self._tool_rows[tool] = (chip, toggle)
 
-        connect_all = QPushButton("⚡ 一键全部接通")
+        connect_all = QPushButton(self.tr("⚡ 一键全部接通"))
         connect_all.setProperty("accent", "primary")
         connect_all.setCursor(Qt.PointingHandCursor)
         connect_all.setFixedHeight(36)
@@ -327,17 +354,19 @@ class SettingsDialog(QDialog):
         layout.setSpacing(14)
 
         card, c_layout = _create_card_container(
-            f"PetGen 桌宠小助手 v{__version__}", "AI 智能桌面灵动宠物构建平台"
+            self.tr("PetGen 桌宠小助手 v{0}").format(__version__),
+            self.tr("AI 智能桌面灵动宠物构建平台"),
         )
 
-        c_layout.addWidget(_create_field_label(f"📂 数据目录：{data_dir()}"))
+        c_layout.addWidget(_create_field_label(self.tr("📂 数据目录：{0}").format(str(data_dir()))))
         try:
             from petgen.store import AiEventStore
 
             stats = AiEventStore().stats()
             c_layout.addWidget(
                 _create_field_label(
-                    f"📊 已记录 AI 互动事件：{stats['total']} 条（今日 {stats['today_count']} 条）"
+                    self.tr("📊 已记录 AI 互动事件：{0} 条（今日 {1} 条）")
+                    .format(str(stats["total"]), str(stats["today_count"]))
                 )
             )
         except Exception:
@@ -360,6 +389,11 @@ class SettingsDialog(QDialog):
         self.pet_scale.setValue(float(self._settings.get("pet.scale", 1.5)))
         self.pet_usage_reminder.setChecked(bool(self._settings.get("pet.usage_reminder_enabled", True)))
         self.pet_usage_threshold.setValue(int(self._settings.get("pet.usage_work_threshold", 45)))
+        # Language picker: select the stored preference (default "auto").
+        if hasattr(self, "ui_language"):
+            lang = str(self._settings.get("ui.language", "auto") or "auto")
+            idx = self._ui_language_keys.index(lang) if lang in self._ui_language_keys else 0
+            self.ui_language.setCurrentIndex(idx)
         # Refresh the tool-wiring states (the dialog instance is reused across shows);
         # a failure here must never break the dialog itself.
         try:
@@ -381,6 +415,8 @@ class SettingsDialog(QDialog):
             "pet.usage_reminder_enabled": self.pet_usage_reminder.isChecked(),
             "pet.usage_work_threshold": int(self.pet_usage_threshold.value()),
         }
+        if hasattr(self, "ui_language"):
+            values["ui.language"] = self.ui_language.currentData()
         self._settings.set_many(values)
         return values
 
@@ -412,13 +448,19 @@ class SettingsDialog(QDialog):
         integrations.ToolStatus.NOT_DETECTED: ("未检测到", "#94a3b8"),
     }
 
+    def _chip_text(self, status) -> str:
+        # The class-level dict holds source text + color. Resolve via stable
+        # labels because dynamic ``tr(text)`` calls are not extracted into .ts.
+        text, _color = self._TOOL_CHIP_STYLE[status]
+        return i18n.tool_status_label(text)
+
     def refresh_tool_rows(self) -> None:
         for tool, (chip, toggle) in self._tool_rows.items():
             try:
                 state = integrations.status(tool)
             except Exception:
                 # Never let a status probe failure break the dialog.
-                chip.setText("状态未知")
+                chip.setText(self.tr("状态未知"))
                 chip.setStyleSheet(
                     "color: #94a3b8; font-size: 12px; font-weight: 600; border: none; background: transparent;"
                 )
@@ -427,8 +469,8 @@ class SettingsDialog(QDialog):
                 toggle.setEnabled(False)
                 toggle.blockSignals(False)
                 continue
-            text, color = self._TOOL_CHIP_STYLE[state.status]
-            chip.setText(text)
+            _text, color = self._TOOL_CHIP_STYLE[state.status]
+            chip.setText(self._chip_text(state.status))
             chip.setStyleSheet(
                 f"color: {color}; font-size: 12px; font-weight: 600; border: none; background: transparent;"
             )
@@ -457,7 +499,7 @@ class SettingsDialog(QDialog):
             else:
                 integrations.connect(tool)
         except (integrations.IntegrationsError, OSError, ValueError) as exc:
-            QMessageBox.warning(self, "操作失败", str(exc))
+            QMessageBox.warning(self, self.tr("操作失败"), str(exc))
         finally:
             toggle.blockSignals(False)
             self.refresh_tool_rows()
@@ -469,7 +511,7 @@ class SettingsDialog(QDialog):
                 if integrations.status(tool).status != integrations.ToolStatus.CONNECTED:
                     integrations.connect(tool)
             except (integrations.IntegrationsError, OSError, ValueError) as exc:
-                errors.append(f"{integrations.TOOL_LABELS[tool]}：{exc}")
+                errors.append(self.tr("{0}：{1}").format(integrations.TOOL_LABELS[tool], str(exc)))
         self.refresh_tool_rows()
         if errors:
-            QMessageBox.warning(self, "部分工具接通失败", "\n".join(errors))
+            QMessageBox.warning(self, self.tr("部分工具接通失败"), "\n".join(errors))

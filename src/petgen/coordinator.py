@@ -223,7 +223,7 @@ class GenerationWorker(QThread):
             from petgen.prompt import build_pet_prompt
             from petgen.spritesheet import build_pet_assets
 
-            self.progress.emit("正在生成形象…")
+            self.progress.emit(self.tr("正在生成形象…"))
             config = ImageRequestConfig.from_env(**self._config_overrides)
             prompt = build_pet_prompt(self._description)
             refs = [Path(p) for p in self._image_paths if p]
@@ -232,7 +232,7 @@ class GenerationWorker(QThread):
             source_path = self._work_dir / "source.png"
             source_path.write_bytes(image_bytes)
 
-            self.progress.emit("正在合成精灵图…")
+            self.progress.emit(self.tr("正在合成精灵图…"))
             paths = build_pet_assets(
                 source_path,
                 self._work_dir,
@@ -245,7 +245,7 @@ class GenerationWorker(QThread):
             # thread; doing it here (a QThread) raises ProgrammingError
             # ("SQLite objects created in a thread can only be used in that same
             # thread"). Emit the built paths and let the main thread register.
-            self.progress.emit("正在登记到宠物库…")
+            self.progress.emit(self.tr("正在登记到宠物库…"))
             self.finished_ok.emit(
                 BuildResult(
                     pet_id=self._pet_id,
@@ -272,15 +272,24 @@ class AppCoordinator(QObject):
         self._argv = argv or []
         # A QApplication MUST exist before any QSystemTrayIcon call (isSystemTrayAvailable
         # segfaults without one), and the tray is built below, so create it up front.
-        QApplication.instance() or QApplication(self._argv or ["petgen-app"])
+        app = QApplication.instance() or QApplication(self._argv or ["petgen-app"])
         _set_macos_accessory_policy()
+        self.settings = SettingsStore()
+        # Install the Qt translator before any widget/dialog is created so every
+        # tr() call resolves in the right language from the start. Source
+        # language is Chinese; an app_en.qm swaps it to English. Settings must
+        # exist first so we can read the stored language preference.
+        from petgen import i18n
+
+        i18n.install_translator(
+            app, i18n.resolve_language(self.settings.get("ui.language", "auto"))
+        )
         self._scale_override = scale
         self._passthrough = passthrough
         self._quiet = False
         self._pet_visible_requested = True
         self._worker: GenerationWorker | None = None
 
-        self.settings = SettingsStore()
         self.registry = PetRegistry()
         self.library = PetLibrary(self.registry)
         self.event_store = AiEventStore()
@@ -414,7 +423,7 @@ class AppCoordinator(QObject):
             self.tray.set_pet_visible(False)
             if self.bubble is not None:
                 try:
-                    self.bubble.show_message(f"宠物素材损坏，已跳过：{exc}")
+                    self.bubble.show_message(self.tr("宠物素材损坏，已跳过：{0}").format(str(exc)))
                 except Exception:  # noqa: BLE001 - bubble is best-effort at startup
                     pass
             return
@@ -482,7 +491,7 @@ class AppCoordinator(QObject):
         if self.pet_window is not None:
             self.pet_window.set_expression("attentive")
         # keep the bubble text in sync with what the interaction style speaks.
-        line = self.voice.pack.line_for("tap") or "我在。"
+        line = self.voice.pack.line_for("tap") or self.tr("我在。")
         self.bubble.show_message(line)
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())
@@ -549,7 +558,7 @@ class AppCoordinator(QObject):
     def _on_library_interaction_style_changed(self, style_id: str) -> None:
         style_id = normalize_style_id(style_id)
         if style_id not in self.voice.styles:
-            self.bubble.show_message(f"未知互动风格：{style_id}")
+            self.bubble.show_message(self.tr("未知互动风格：{0}").format(style_id))
             return
         self.settings.set("pet.interaction_style", style_id)
         self.voice.set_style(style_id)
@@ -561,7 +570,7 @@ class AppCoordinator(QObject):
             style_id = self._current_interaction_style_id()
             style = self.voice.styles.get(style_id)
             if style is None:
-                self.bubble.show_message(f"未知互动风格：{style_id}")
+                self.bubble.show_message(self.tr("未知互动风格：{0}").format(style_id))
                 return
             svc = getattr(self, "_preview_voice_svc", None)
             if svc is None:
@@ -575,7 +584,7 @@ class AppCoordinator(QObject):
             svc.set_enabled(True)
             svc.preview()
         except Exception as exc:  # noqa: BLE001 - keep the UI alive and surface the failure
-            self.bubble.show_message(f"试听失败：{exc}")
+            self.bubble.show_message(self.tr("试听失败：{0}").format(str(exc)))
 
     def _select_pet(self, pet_id: str) -> None:
         self.library.select(self.settings, pet_id)
@@ -599,21 +608,21 @@ class AppCoordinator(QObject):
         try:
             record = self.library.import_existing_dir(Path(directory))
         except Exception as exc:
-            self.bubble.show_message(f"导入失败：{exc}")
+            self.bubble.show_message(self.tr("导入失败：{0}").format(str(exc)))
             return
         self._select_pet(record.id)
-        self.bubble.show_message(f"已导入「{record.display_name}」")
+        self.bubble.show_message(self.tr("已导入「{0}」").format(record.display_name))
 
     def _create_pet(self, description: str, image_paths: list) -> None:
         if not description.strip():
-            self.bubble.show_message("描述不能为空")
+            self.bubble.show_message(self.tr("描述不能为空"))
             return
         # A previous generation is still running: reassigning self._worker would
         # drop the last Python reference to a live QThread and abort the process
         # ("QThread: Destroyed while thread is still running"). Ignore the new
         # request and tell the user instead of racing the prior worker.
         if self._worker is not None and self._worker.isRunning():
-            self.bubble.show_message("上一次生成还在进行中，请稍候…")
+            self.bubble.show_message(self.tr("上一次生成还在进行中，请稍候…"))
             return
         pet_id = f"pet-{uuid.uuid4().hex[:12]}"
         work_dir = data_dir() / "workspace" / pet_id
@@ -633,7 +642,7 @@ class AppCoordinator(QObject):
         # thread is still running"). deleteLater reclaims it once done.
         self._worker.finished.connect(self._worker.deleteLater)
         if self.library_dialog is not None:
-            self.library_dialog.set_progress("正在生成形象…")
+            self.library_dialog.set_progress(self.tr("正在生成形象…"))
         self._worker.start()
 
     def _on_gen_progress(self, text: str) -> None:
@@ -656,20 +665,20 @@ class AppCoordinator(QObject):
                 description=result.description,
             )
         except Exception as exc:
-            self.bubble.show_message(f"登记失败：{exc}")
+            self.bubble.show_message(self.tr("登记失败：{0}").format(str(exc)))
             return
         self._select_pet(record.id)
         if self.pet_window is not None:
             self.pet_window.set_expression("happy")
             self.pet_window.celebrate()
-        self.bubble.show_message(f"新伙伴「{record.display_name}」来啦！")
+        self.bubble.show_message(self.tr("新伙伴「{0}」来啦！").format(record.display_name))
 
     def _on_gen_failed(self, message: str) -> None:
         if self.library_dialog is not None:
             self.library_dialog.set_progress("")
         if self.pet_window is not None:
             self.pet_window.set_expression("error")
-        self.bubble.show_message(f"生成失败：{message}")
+        self.bubble.show_message(self.tr("生成失败：{0}").format(message))
 
     def _open_settings(self) -> None:
         if self.settings_dialog is None:
@@ -725,11 +734,11 @@ class AppCoordinator(QObject):
                 custom_weekdays=data.get("custom_weekdays") or [],
             )
         except Exception as exc:
-            self.bubble.show_message(f"新建提醒失败：{exc}")
+            self.bubble.show_message(self.tr("新建提醒失败：{0}").format(str(exc)))
             return
         self._refresh_reminder_list()
         if not self._quiet:
-            self.bubble.show_message(f"已设置提醒：{reminder.title}")
+            self.bubble.show_message(self.tr("已设置提醒：{0}").format(reminder.title))
 
     def _open_reminder_list(self) -> None:
         from petgen.reminder_list import ReminderListDialog
@@ -779,7 +788,7 @@ class AppCoordinator(QObject):
             else:
                 self._create_reminder(data)
         except Exception as exc:
-            self.bubble.show_message(f"保存提醒失败：{exc}")
+            self.bubble.show_message(self.tr("保存提醒失败：{0}").format(str(exc)))
             return
         self._refresh_reminder_list()
 
@@ -796,7 +805,7 @@ class AppCoordinator(QObject):
         self.reminder_scheduler.snooze(reminder_id)
         self._refresh_reminder_list()
         if not self._quiet:
-            self.bubble.show_message("已稍后提醒 ⏰")
+            self.bubble.show_message(self.tr("已稍后提醒 ⏰"))
 
     def _delete_reminder(self, reminder_id: str) -> None:
         self.reminder_scheduler.delete(reminder_id)
@@ -809,12 +818,12 @@ class AppCoordinator(QObject):
             self.pet_window.set_expression("alert")
         self.voice.react("alert")
         actions = [
-            ("完成啦", lambda rid=reminder.id: self._complete_reminder(rid)),
-            ("等会儿", lambda rid=reminder.id: self._snooze_reminder(rid)),
-            ("知道啦", lambda: None),
+            (self.tr("完成啦"), lambda rid=reminder.id: self._complete_reminder(rid)),
+            (self.tr("等会儿"), lambda rid=reminder.id: self._snooze_reminder(rid)),
+            (self.tr("知道啦"), lambda: None),
         ]
         self.bubble.show_message(
-            f"叮咚~ {reminder.title} 时间到啦 ✨", actions=actions, timeout_ms=0
+            self.tr("叮咚~ {0} 时间到啦 ✨").format(reminder.title), actions=actions, timeout_ms=0
         )
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())
@@ -838,7 +847,7 @@ class AppCoordinator(QObject):
             self.pet_window.set_expression("happy")
             self.pet_window.celebrate()
         self.voice.react("happy")
-        msg = "🍅 专注完成，休息一下吧！" if phase != BREAK else "☕ 休息结束，继续加油！"
+        msg = self.tr("🍅 专注完成，休息一下吧！") if phase != BREAK else self.tr("☕ 休息结束，继续加油！")
         self.bubble.show_message(msg)
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())
@@ -892,12 +901,12 @@ class AppCoordinator(QObject):
             self.pet_window.set_expression("alert")
         self.voice.react("alert")
         actions = [
-            ("休息一下", lambda: self.usage_tracker.take_break()),
-            ("再等 10 分钟", lambda: self.usage_tracker.snooze(10 * 60)),
-            ("知道啦", lambda: None),
+            (self.tr("休息一下"), lambda: self.usage_tracker.take_break()),
+            (self.tr("再等 10 分钟"), lambda: self.usage_tracker.snooze(10 * 60)),
+            (self.tr("知道啦"), lambda: None),
         ]
         self.bubble.show_message(
-            f"你已经连续用电脑 {mins} 分钟啦，起来动一动、看看远处吧 🌿",
+            self.tr("你已经连续用电脑 {0} 分钟啦，起来动一动、看看远处吧 🌿").format(str(mins)),
             actions=actions,
             timeout_ms=0,
         )

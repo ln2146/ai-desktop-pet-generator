@@ -118,7 +118,7 @@ class TrayController(QObject):
         if self._tray is not None:
             self._tray.setContextMenu(self._menu)
             self._tray.setIcon(_placeholder_icon())
-            self._tray.setToolTip("PetGen 桌宠")
+            self._tray.setToolTip(self.tr("PetGen 桌宠"))
             self._tray.activated.connect(self._on_activated)
 
     # --- public API ---------------------------------------------------------
@@ -158,25 +158,25 @@ class TrayController(QObject):
 
         menu = QMenu()
         apply_theme(menu)
-        self._show_action = menu.addAction("显示宠物")
+        self._show_action = menu.addAction(self.tr("显示宠物"))
         self._show_action.setCheckable(True)
         self._show_action.setChecked(True)
         self._show_action.triggered.connect(
             lambda checked: self.show_pet_requested.emit(bool(checked))
         )
-        menu.addAction("宠物中心").triggered.connect(lambda: self.library_requested.emit())
+        menu.addAction(self.tr("宠物中心")).triggered.connect(lambda: self.library_requested.emit())
         menu.addSeparator()
-        menu.addAction("提醒列表").triggered.connect(lambda: self.reminder_list_requested.emit())
-        menu.addAction("番茄钟").triggered.connect(lambda: self.pomodoro_requested.emit())
-        menu.addAction("今日使用时长").triggered.connect(lambda: self.usage_requested.emit())
+        menu.addAction(self.tr("提醒列表")).triggered.connect(lambda: self.reminder_list_requested.emit())
+        menu.addAction(self.tr("番茄钟")).triggered.connect(lambda: self.pomodoro_requested.emit())
+        menu.addAction(self.tr("今日使用时长")).triggered.connect(lambda: self.usage_requested.emit())
         menu.addSeparator()
-        self._quiet_action = menu.addAction("安静模式")
+        self._quiet_action = menu.addAction(self.tr("安静模式"))
         self._quiet_action.setCheckable(True)
         self._quiet_action.triggered.connect(lambda checked: self.quiet_toggled.emit(bool(checked)))
         menu.addSeparator()
-        menu.addAction("设置").triggered.connect(lambda: self.settings_requested.emit())
+        menu.addAction(self.tr("设置")).triggered.connect(lambda: self.settings_requested.emit())
         menu.addSeparator()
-        menu.addAction("退出").triggered.connect(lambda: self.quit_requested.emit())
+        menu.addAction(self.tr("退出")).triggered.connect(lambda: self.quit_requested.emit())
         return menu
 
     def _on_activated(self, reason) -> None:

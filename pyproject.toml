@@ -31,7 +31,13 @@ petgen = "petgen.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-petgen = ["resources/_sfx/*.wav", "resources/_sfx/*.txt", "resources/*.svg"]
+petgen = [
+  "resources/_sfx/*.wav",
+  "resources/_sfx/*.txt",
+  "resources/*.svg",
+  "resources/i18n/*.ts",
+  "resources/i18n/*.qm",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

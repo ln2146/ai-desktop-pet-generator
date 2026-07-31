@@ -43,7 +43,7 @@ class UsagePanelDialog(QDialog):
         self._refresh_timer.setInterval(REFRESH_INTERVAL_MS)
         self._refresh_timer.timeout.connect(self.refresh)
 
-        self.setWindowTitle("今日使用时长")
+        self.setWindowTitle(self.tr("今日使用时长"))
         self.resize(360, 320)
         self.setMinimumSize(340, 300)
         self.setWindowFlags(
@@ -60,7 +60,7 @@ class UsagePanelDialog(QDialog):
         title_row.setAlignment(Qt.AlignCenter)
         title_row.setSpacing(6)
 
-        title = QLabel("📊 今日使用时长")
+        title = QLabel(self.tr("📊 今日使用时长"))
         t_font = QFont()
         t_font.setPointSize(15)
         t_font.setBold(True)
@@ -98,7 +98,7 @@ class UsagePanelDialog(QDialog):
         badge_row = QHBoxLayout()
         badge_row.setAlignment(Qt.AlignCenter)
 
-        badge = QLabel("本次连续工作")
+        badge = QLabel(self.tr("本次连续工作"))
         badge.setStyleSheet(
             "background-color: #eef2ff;"
             "color: #4338ca;"
@@ -131,7 +131,7 @@ class UsagePanelDialog(QDialog):
         ct_layout.setSpacing(2)
         ct_layout.setAlignment(Qt.AlignCenter)
 
-        lbl_ct_title = QLabel("⏱️ 今日累计")
+        lbl_ct_title = QLabel(self.tr("⏱️ 今日累计"))
         lbl_ct_title.setStyleSheet(
             "color: #64748b; font-size: 11px; font-weight: 500; border: none;"
         )
@@ -156,11 +156,11 @@ class UsagePanelDialog(QDialog):
         cr_layout.setSpacing(2)
         cr_layout.setAlignment(Qt.AlignCenter)
 
-        lbl_cr_title = QLabel("☕ 提醒休息")
+        lbl_cr_title = QLabel(self.tr("☕ 提醒休息"))
         lbl_cr_title.setStyleSheet(
             "color: #64748b; font-size: 11px; font-weight: 500; border: none;"
         )
-        self.reminders_val_lbl = QLabel("0 次")
+        self.reminders_val_lbl = QLabel(self.tr("0 次"))
         self.reminders_val_lbl.setStyleSheet(
             "color: #0f172a; font-size: 15px; font-weight: 700; border: none;"
         )
@@ -185,7 +185,7 @@ class UsagePanelDialog(QDialog):
         btn_row = QHBoxLayout()
         btn_row.setSpacing(10)
 
-        refresh_btn = QPushButton("🔄 刷新")
+        refresh_btn = QPushButton(self.tr("🔄 刷新"))
         refresh_btn.setCursor(Qt.PointingHandCursor)
         refresh_btn.setFixedHeight(32)
         refresh_btn.setStyleSheet(
@@ -204,7 +204,7 @@ class UsagePanelDialog(QDialog):
         )
         refresh_btn.clicked.connect(self.refresh)
 
-        reset_btn = QPushButton("🗑️ 重置今日统计")
+        reset_btn = QPushButton(self.tr("🗑️ 重置今日统计"))
         reset_btn.setCursor(Qt.PointingHandCursor)
         reset_btn.setFixedHeight(32)
         reset_btn.setStyleSheet(
@@ -244,16 +244,16 @@ class UsagePanelDialog(QDialog):
         n = self.tracker.reminders_today
 
         self.today_val_lbl.setText(today)
-        self.reminders_val_lbl.setText(f"{n} 次")
+        self.reminders_val_lbl.setText(self.tr("{0} 次").format(str(n)))
         if self.tracker.idle_detection_available:
-            hint = "🌿 离开电脑超过 5 分钟会自动计为休息"
+            hint = self.tr("🌿 离开电脑超过 5 分钟会自动计为休息")
         else:
-            hint = "⚠️ 未获取到系统空闲时间，当前按应用运行时间估算"
+            hint = self.tr("⚠️ 未获取到系统空闲时间，当前按应用运行时间估算")
         self.hint_note.setText(hint)
 
         self.detail_label.setText(
-            f"今日累计 {today}　·　已提醒休息 {n} 次\n"
-            "（离开电脑超过 5 分钟会自动算作休息 🌿）"
+            self.tr("今日累计 {0}　·　已提醒休息 {1} 次\n（离开电脑超过 5 分钟会自动算作休息 🌿）")
+            .format(today, str(n))
         )
 
     def _reset_today(self) -> None:

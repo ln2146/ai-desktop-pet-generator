@@ -82,15 +82,12 @@ class PomodoroService(QObject):
         self.ticked.emit(self.remaining)
 
 
-_PHASE_TEXT = {WORK: "🍅 专注中", BREAK: "☕ 休息中"}
-
-
 class PomodoroWindow(QDialog):
     def __init__(self, service: PomodoroService | None = None, parent=None) -> None:
         super().__init__(parent)
         from petgen.theme import apply_theme
 
-        self.setWindowTitle("番茄钟助手")
+        self.setWindowTitle(self.tr("番茄钟助手"))
         self.resize(320, 200)
         self.setMinimumSize(280, 180)
         apply_theme(self)
@@ -101,7 +98,7 @@ class PomodoroWindow(QDialog):
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
 
-        self.phase_label = QLabel(_PHASE_TEXT[self.service.phase])
+        self.phase_label = QLabel(self._phase_text(self.service.phase))
         self.phase_label.setAlignment(Qt.AlignCenter)
         self.phase_label.setStyleSheet("font-size: 16px; font-weight: 600; color: #4f46e5;")
         layout.addWidget(self.phase_label)
@@ -113,16 +110,16 @@ class PomodoroWindow(QDialog):
 
         row = QHBoxLayout()
         row.setSpacing(8)
-        self.start_btn = QPushButton("开始")
+        self.start_btn = QPushButton(self._start_label(self.service.running))
         self.start_btn.setProperty("accent", "primary")
         self.start_btn.setCursor(Qt.PointingHandCursor)
         self.start_btn.clicked.connect(self._toggle)
 
-        reset_btn = QPushButton("重置")
+        reset_btn = QPushButton(self.tr("重置"))
         reset_btn.setCursor(Qt.PointingHandCursor)
         reset_btn.clicked.connect(self.service.reset)
 
-        skip_btn = QPushButton("跳过")
+        skip_btn = QPushButton(self.tr("跳过"))
         skip_btn.setCursor(Qt.PointingHandCursor)
         skip_btn.clicked.connect(self.service.skip)
 
@@ -135,10 +132,20 @@ class PomodoroWindow(QDialog):
 
     def _toggle(self) -> None:
         self.service.toggle()
-        self.start_btn.setText("暂停" if self.service.running else "开始")
+        self.start_btn.setText(self._start_label(self.service.running))
+
+    def _phase_text(self, phase: str) -> str:
+        if phase == WORK:
+            return self.tr("🍅 专注中")
+        if phase == BREAK:
+            return self.tr("☕ 休息中")
+        return phase
+
+    def _start_label(self, running: bool) -> str:
+        return self.tr("暂停") if running else self.tr("开始")
 
     def _on_phase(self, phase: str) -> None:
-        self.phase_label.setText(_PHASE_TEXT.get(phase, phase))
+        self.phase_label.setText(self._phase_text(phase))
         self.time_label.setText(format_mmss(self.service.remaining))
 
     def _on_tick(self, remaining: int) -> None:

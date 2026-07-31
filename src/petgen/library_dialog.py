@@ -26,6 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from petgen import i18n
 from petgen.interaction_style import load_styles
 from petgen.theme import apply_theme
 
@@ -137,7 +138,7 @@ class _AddImageTile(QFrame):
 class _CreatePetDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("生成自定义宠物")
+        self.setWindowTitle(self.tr("生成自定义宠物"))
         self.resize(520, 510)
         self.setMinimumSize(480, 480)
         self.setStyleSheet("QDialog { background-color: #ffffff; }")
@@ -150,7 +151,7 @@ class _CreatePetDialog(QDialog):
         main_layout.setSpacing(16)
 
         # Header Title
-        header_title = QLabel("生成自定义宠物")
+        header_title = QLabel(self.tr("生成自定义宠物"))
         header_title.setStyleSheet(
             "color: #0f172a; font-weight: 700; font-size: 16px; border: none;"
         )
@@ -159,13 +160,13 @@ class _CreatePetDialog(QDialog):
         # Field 1: 宠物命名（选填）
         name_box = QVBoxLayout()
         name_box.setSpacing(6)
-        name_label = QLabel("宠物命名（选填）")
+        name_label = QLabel(self.tr("宠物命名（选填）"))
         name_label.setStyleSheet(
             "color: #1e293b; font-weight: 600; font-size: 13px; border: none;"
         )
         self.name_edit = QLineEdit()
         self.name_edit.setFixedHeight(40)
-        self.name_edit.setPlaceholderText("给宠物起个名字，例如：小橘")
+        self.name_edit.setPlaceholderText(self.tr("给宠物起个名字，例如：小橘"))
         self.name_edit.setStyleSheet(
             "QLineEdit {"
             "  background-color: #f4f5f7;"
@@ -189,7 +190,7 @@ class _CreatePetDialog(QDialog):
         img_section.setSpacing(8)
 
         img_header_row = QHBoxLayout()
-        img_title = QLabel("参考图")
+        img_title = QLabel(self.tr("参考图"))
         img_title.setStyleSheet(
             "color: #1e293b; font-weight: 600; font-size: 13px; border: none;"
         )
@@ -210,13 +211,13 @@ class _CreatePetDialog(QDialog):
         # Field 3: 形象描述（选填）
         desc_box = QVBoxLayout()
         desc_box.setSpacing(6)
-        desc_label = QLabel("形象描述（选填）")
+        desc_label = QLabel(self.tr("形象描述（选填）"))
         desc_label.setStyleSheet(
             "color: #1e293b; font-weight: 600; font-size: 13px; border: none;"
         )
         self.description = QTextEdit()
         self.description.setPlaceholderText(
-            "例如：橘色眼镜小猫，抱着 laptop，圆头胖身，像素风"
+            self.tr("例如：橘色眼镜小猫，抱着 laptop，圆头胖身，像素风")
         )
         self.description.setStyleSheet(
             "QTextEdit {"
@@ -247,7 +248,7 @@ class _CreatePetDialog(QDialog):
         action_row.setSpacing(12)
         action_row.addStretch()
 
-        cancel_btn = QPushButton("取消")
+        cancel_btn = QPushButton(self.tr("取消"))
         cancel_btn.setCursor(Qt.PointingHandCursor)
         cancel_btn.setStyleSheet(
             "QPushButton {"
@@ -264,7 +265,7 @@ class _CreatePetDialog(QDialog):
         )
         cancel_btn.clicked.connect(self.reject)
 
-        submit_btn = QPushButton("开始生成")
+        submit_btn = QPushButton(self.tr("开始生成"))
         submit_btn.setCursor(Qt.PointingHandCursor)
         submit_btn.setStyleSheet(
             "QPushButton {"
@@ -315,7 +316,7 @@ class _CreatePetDialog(QDialog):
         if remaining <= 0:
             return
         paths, _ = QFileDialog.getOpenFileNames(
-            self, "选择参考图", "", "Images (*.png *.jpg *.jpeg *.webp)"
+            self, self.tr("选择参考图"), "", "Images (*.png *.jpg *.jpeg *.webp)"
         )
         if paths:
             self._images.extend(paths[:remaining])
@@ -330,9 +331,9 @@ class _CreatePetDialog(QDialog):
         name = self.name_edit.text().strip()
         desc = self.description.toPlainText().strip()
         if name and desc:
-            prompt = f"名字：{name}。{desc}"
+            prompt = self.tr("名字：{0}。{1}").format(name, desc)
         elif name:
-            prompt = f"名字：{name}"
+            prompt = self.tr("名字：{0}").format(name)
         else:
             prompt = desc
         return prompt, list(self._images)
@@ -421,23 +422,23 @@ class _PetCard(QFrame):
         layout.addWidget(name)
 
         # Hidden Test Compatibility Buttons (for unit tests like test_app_windows.py)
-        self._legacy_sel = QPushButton("选择")
+        self._legacy_sel = QPushButton(self.tr("选择"))
         self._legacy_sel.setVisible(False)
         self._legacy_sel.clicked.connect(lambda: self.selected.emit(self._id))
 
-        self._prev_btn = QPushButton("预览")
+        self._prev_btn = QPushButton(self.tr("预览"))
         self._prev_btn.setVisible(False)
         self._prev_btn.clicked.connect(lambda: self.previewed.emit(self._id))
 
-        self._rev_btn = QPushButton("显示")
+        self._rev_btn = QPushButton(self.tr("显示"))
         self._rev_btn.setVisible(False)
         self._rev_btn.clicked.connect(lambda: self.revealed.emit(self._dir))
 
-        self._rename_btn = QPushButton("改名")
+        self._rename_btn = QPushButton(self.tr("改名"))
         self._rename_btn.setVisible(False)
         self._rename_btn.clicked.connect(self._ask_rename)
 
-        self._del_btn = QPushButton("删除")
+        self._del_btn = QPushButton(self.tr("删除"))
         self._del_btn.setVisible(False)
         self._del_btn.clicked.connect(lambda: self.deleted.emit(self._id))
 
@@ -513,11 +514,11 @@ class _PetCard(QFrame):
         menu = QMenu(self)
         apply_theme(menu)
 
-        act_preview = menu.addAction("👁 预览")
-        act_reveal = menu.addAction("📂 在文件夹中显示")
-        act_rename = menu.addAction("✏️ 重命名")
+        act_preview = menu.addAction(self.tr("👁 预览"))
+        act_reveal = menu.addAction(self.tr("📂 在文件夹中显示"))
+        act_rename = menu.addAction(self.tr("✏️ 重命名"))
         menu.addSeparator()
-        act_delete = menu.addAction("🗑️ 删除")
+        act_delete = menu.addAction(self.tr("🗑️ 删除"))
 
         action = menu.exec(event.globalPos())
         if action == act_preview:
@@ -530,7 +531,7 @@ class _PetCard(QFrame):
             self.deleted.emit(self._id)
 
     def _ask_rename(self) -> None:
-        new_name, ok = QInputDialog.getText(self, "改名", "宠物名称", text=self._name)
+        new_name, ok = QInputDialog.getText(self, self.tr("改名"), self.tr("宠物名称"), text=self._name)
         if ok and new_name.strip():
             self.renamed.emit(new_name.strip())
 
@@ -568,7 +569,7 @@ class _CreatePetCardTile(QFrame):
         )
         layout.addWidget(icon_lbl)
 
-        text_lbl = QLabel("生成新宠物", self)
+        text_lbl = QLabel(self.tr("生成新宠物"), self)
         text_lbl.setAlignment(Qt.AlignCenter)
         text_font = QFont()
         text_font.setBold(True)
@@ -601,11 +602,11 @@ class _PetTabBar(QFrame):
         layout.setContentsMargins(4, 4, 4, 4)
         layout.setSpacing(4)
 
-        self.btn_preset = QPushButton("预设宠物")
+        self.btn_preset = QPushButton(self.tr("预设宠物"))
         self.btn_preset.setFixedHeight(30)
         self.btn_preset.setCursor(Qt.PointingHandCursor)
 
-        self.btn_custom = QPushButton("自定义宠物")
+        self.btn_custom = QPushButton(self.tr("自定义宠物"))
         self.btn_custom.setFixedHeight(30)
         self.btn_custom.setCursor(Qt.PointingHandCursor)
 
@@ -675,7 +676,7 @@ class LibraryDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("PetGen 宠物管理")
+        self.setWindowTitle(self.tr("PetGen 宠物管理"))
         self.resize(1012, 810)
         self.setMinimumSize(980, 720)
         self.setWindowFlags(
@@ -687,7 +688,7 @@ class LibraryDialog(QDialog):
         self._cards: list[_PetCard] = []
         self._preset_cards: list[_PetCard] = []
         self._custom_cards: list[_PetCard] = []
-        self._selected_name: str = "未选择"
+        self._selected_name: str = self.tr("未选择")
         self._fish_reference_ids: dict[str, str] = {}
 
         root = QVBoxLayout(self)
@@ -710,14 +711,14 @@ class LibraryDialog(QDialog):
         title_text = QVBoxLayout()
         title_text.setSpacing(2)
 
-        title = QLabel("宠物")
+        title = QLabel(self.tr("宠物"))
         t_font = QFont()
         t_font.setPointSize(16)
         t_font.setBold(True)
         title.setFont(t_font)
         title.setStyleSheet("color: #0f172a; border: none;")
 
-        subtitle = QLabel("切换工作伙伴并调整悬浮行为")
+        subtitle = QLabel(self.tr("切换工作伙伴并调整悬浮行为"))
         subtitle.setStyleSheet("color: #64748b; font-size: 12px; border: none;")
 
         title_text.addWidget(title)
@@ -748,7 +749,7 @@ class LibraryDialog(QDialog):
             "}"
         )
 
-        import_btn = QPushButton("📥 导入文件夹")
+        import_btn = QPushButton(self.tr("📥 导入文件夹"))
         import_btn.setCursor(Qt.PointingHandCursor)
         import_btn.setFixedHeight(32)
         import_btn.setStyleSheet(button_style)
@@ -768,7 +769,7 @@ class LibraryDialog(QDialog):
         tab_header_row.addWidget(self._tab_bar)
         tab_header_row.addStretch(1)
 
-        self._current_label = QLabel("当前形象：星糖熊猫")
+        self._current_label = QLabel(self.tr("当前形象：星糖熊猫"))
         self._current_label.setStyleSheet("color: #64748b; font-size: 12px; padding-bottom: 4px;")
         tab_header_row.addWidget(self._current_label)
 
@@ -827,7 +828,7 @@ class LibraryDialog(QDialog):
         style_row.setContentsMargins(0, 0, 0, 0)
         style_row.setSpacing(10)
 
-        style_title = QLabel("🎭 互动风格")
+        style_title = QLabel(self.tr("🎭 互动风格"))
         style_title.setStyleSheet("color: #0f172a; font-weight: 700; font-size: 13px; border: none;")
         style_row.addWidget(style_title)
 
@@ -849,14 +850,14 @@ class LibraryDialog(QDialog):
         for key, style in load_styles().items():
             self._interaction_style_keys.append(key)
             self._interaction_style_combo.addItem(
-                f"{style.emoji} {style.display_name}", key
+                f"{style.emoji} {i18n.interaction_style_label(key, style.display_name)}", key
             )
         self._interaction_style_combo.currentIndexChanged.connect(
             self._on_interaction_style_changed
         )
         style_row.addWidget(self._interaction_style_combo, 1)
 
-        preview_style = QPushButton("▶ 试听")
+        preview_style = QPushButton(self.tr("▶ 试听"))
         preview_style.setFixedHeight(28)
         preview_style.setCursor(Qt.PointingHandCursor)
         preview_style.setStyleSheet(
@@ -888,7 +889,7 @@ class LibraryDialog(QDialog):
         scale_box.setSpacing(4)
 
         scale_hdr_row = QHBoxLayout()
-        scale_title = QLabel("宠物大小")
+        scale_title = QLabel(self.tr("宠物大小"))
         st_font = QFont()
         st_font.setBold(True)
         st_font.setPointSize(13)
@@ -904,7 +905,7 @@ class LibraryDialog(QDialog):
         scale_hdr_row.addWidget(self._scale_val_lbl)
         scale_box.addLayout(scale_hdr_row)
 
-        scale_sub = QLabel("拖动滑杆无级调整，悬浮宠物实时变化")
+        scale_sub = QLabel(self.tr("拖动滑杆无级调整，悬浮宠物实时变化"))
         scale_sub.setStyleSheet("color: #64748b; font-size: 12px;")
         scale_box.addWidget(scale_sub)
 
@@ -944,7 +945,7 @@ class LibraryDialog(QDialog):
         self._preset_cards.clear()
         self._custom_cards.clear()
 
-        selected_name = "未选择"
+        selected_name = self.tr("未选择")
         selected_is_custom = False
 
         for record in pets:
@@ -976,7 +977,7 @@ class LibraryDialog(QDialog):
             else:
                 self._preset_cards.append(card)
 
-        self._current_label.setText(f"当前形象：{selected_name}")
+        self._current_label.setText(self.tr("当前形象：{0}").format(selected_name))
 
         # If selected pet is custom, switch to custom tab automatically
         if selected_is_custom:
@@ -1055,6 +1056,6 @@ class LibraryDialog(QDialog):
                 self.create_requested.emit(description, images)
 
     def _on_import(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "选择含 pet.json 的宠物文件夹")
+        directory = QFileDialog.getExistingDirectory(self, self.tr("选择含 pet.json 的宠物文件夹"))
         if directory:
             self.import_requested.emit(directory)

@@ -14,16 +14,16 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from petgen import i18n
 from petgen.reminder import parse_dt
 from petgen.theme import apply_theme
 
 _RECURRENCE_LABEL = {
-    "none": "",
-    "daily": "每天",
-    "weekdays": "工作日",
-    "weekly": "每周",
-    "monthly": "每月",
-    "custom_weekly": "自定义",
+    "daily",
+    "weekdays",
+    "weekly",
+    "monthly",
+    "custom_weekly",
 }
 
 
@@ -58,7 +58,7 @@ class _ReminderCard(QFrame):
         layout.setSpacing(10)
 
         head = QHBoxLayout()
-        title = QLabel(reminder.title or "（无标题）")
+        title = QLabel(reminder.title or self.tr("（无标题）"))
         t_font = QFont()
         t_font.setBold(True)
         t_font.setPointSize(13)
@@ -66,36 +66,35 @@ class _ReminderCard(QFrame):
         title.setStyleSheet("color: #0f172a; border: none;")
         head.addWidget(title, 1)
 
-        recur = _RECURRENCE_LABEL.get(reminder.recurrence, "")
-        if recur:
-            tag = QLabel(f"🔁 {recur}")
+        if reminder.recurrence in _RECURRENCE_LABEL:
+            tag = QLabel(self.tr("🔁 {0}").format(i18n.recurrence_label(reminder.recurrence)))
             tag.setStyleSheet("color: #6366f1; font-weight: 600; font-size: 11px; border: none;")
             head.addWidget(tag)
 
-        when = QLabel(f"⏰ {_format_when(reminder.snooze_until or reminder.trigger_at)}")
+        when = QLabel(self.tr("⏰ {0}").format(_format_when(reminder.snooze_until or reminder.trigger_at)))
         when.setStyleSheet("color: #64748b; font-size: 12px; border: none;")
         head.addWidget(when)
         layout.addLayout(head)
 
         btns = QHBoxLayout()
         btns.setSpacing(6)
-        done = QPushButton("完成")
+        done = QPushButton(self.tr("完成"))
         done.setProperty("accent", "primary")
         done.setCursor(Qt.PointingHandCursor)
         done.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 11px; }")
         done.clicked.connect(lambda: self.completed.emit(self._id))
 
-        snooze = QPushButton("稍后")
+        snooze = QPushButton(self.tr("稍后"))
         snooze.setCursor(Qt.PointingHandCursor)
         snooze.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 11px; }")
         snooze.clicked.connect(lambda: self.snoozed.emit(self._id))
 
-        edit = QPushButton("编辑")
+        edit = QPushButton(self.tr("编辑"))
         edit.setCursor(Qt.PointingHandCursor)
         edit.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 11px; }")
         edit.clicked.connect(lambda: self.edited.emit(self._id))
 
-        delete = QPushButton("删除")
+        delete = QPushButton(self.tr("删除"))
         delete.setProperty("accent", "danger")
         delete.setCursor(Qt.PointingHandCursor)
         delete.setStyleSheet("QPushButton { padding: 4px 10px; font-size: 11px; }")
@@ -115,7 +114,7 @@ class ReminderListDialog(QDialog):
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("提醒事项中心")
+        self.setWindowTitle(self.tr("提醒事项中心"))
         self.resize(560, 520)
         self.setMinimumSize(480, 440)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
@@ -131,21 +130,21 @@ class ReminderListDialog(QDialog):
         title_box = QHBoxLayout()
         title_text = QVBoxLayout()
         title_text.setSpacing(2)
-        title = QLabel("📋 提醒事项中心")
+        title = QLabel(self.tr("📋 提醒事项中心"))
         t_font = QFont()
         t_font.setPointSize(16)
         t_font.setBold(True)
         title.setFont(t_font)
         title.setStyleSheet("color: #0f172a;")
 
-        subtitle = QLabel("到点桌宠将弹窗气泡提醒，可自由选择提醒时间与重复模式")
+        subtitle = QLabel(self.tr("到点桌宠将弹窗气泡提醒，可自由选择提醒时间与重复模式"))
         subtitle.setStyleSheet("color: #64748b; font-size: 12px;")
         title_text.addWidget(title)
         title_text.addWidget(subtitle)
         title_box.addLayout(title_text)
         title_box.addStretch(1)
 
-        new_btn = QPushButton("＋ 新建提醒")
+        new_btn = QPushButton(self.tr("＋ 新建提醒"))
         new_btn.setProperty("accent", "primary")
         new_btn.setCursor(Qt.PointingHandCursor)
         new_btn.setStyleSheet("QPushButton { padding: 7px 16px; font-size: 13px; }")
@@ -176,7 +175,7 @@ class ReminderListDialog(QDialog):
                 item.widget().deleteLater()
         self._cards.clear()
         if not reminders:
-            empty = QLabel("目前没有活跃的提醒事项喔 ~")
+            empty = QLabel(self.tr("目前没有活跃的提醒事项喔 ~"))
             empty.setAlignment(Qt.AlignCenter)
             empty.setStyleSheet("color: #94a3b8; font-size: 14px; padding: 40px;")
             self._grid.addWidget(empty, 0, 0)

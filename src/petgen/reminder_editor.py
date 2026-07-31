@@ -18,18 +18,21 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from petgen import i18n
 from petgen.reminder import Reminder, parse_dt, to_iso
 from petgen.theme import apply_theme
 
+# Recurrence keys (stable identifiers persisted to storage) -> translatable
+# labels. Labels resolve via stable keys so Qt extraction cannot miss dynamic
+# ``tr(label)`` calls.
 _RECURRENCE_OPTIONS = [
-    ("none", "不重复"),
-    ("daily", "每天"),
-    ("weekdays", "工作日 (周一至周五)"),
-    ("weekly", "每周"),
-    ("monthly", "每月"),
-    ("custom_weekly", "自定义"),
+    ("none", "none"),
+    ("daily", "daily"),
+    ("weekdays", "weekdays_full"),
+    ("weekly", "weekly"),
+    ("monthly", "monthly"),
+    ("custom_weekly", "custom_weekly"),
 ]
-_WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"]
 
 
 def _to_qdt(iso: str) -> QDateTime:
@@ -59,7 +62,7 @@ class ReminderEditorDialog(QDialog):
     def __init__(self, reminder: Reminder | None = None, parent=None) -> None:
         super().__init__(parent)
         self._editing_id = reminder.id if reminder else None
-        self.setWindowTitle("编辑提醒" if reminder else "新建提醒")
+        self.setWindowTitle(self.tr("编辑提醒") if reminder else self.tr("新建提醒"))
         self.resize(540, 720)
         self.setMinimumSize(500, 680)
         self.setWindowFlags(Qt.Window | Qt.WindowMinimizeButtonHint | Qt.WindowCloseButtonHint)
@@ -73,14 +76,14 @@ class ReminderEditorDialog(QDialog):
         title_box = QVBoxLayout()
         title_box.setSpacing(3)
 
-        head = QLabel("📝 编辑提醒事项" if reminder else "📝 新建提醒事项")
+        head = QLabel(self.tr("📝 编辑提醒事项") if reminder else self.tr("📝 新建提醒事项"))
         h_font = QFont()
         h_font.setPointSize(17)
         h_font.setBold(True)
         head.setFont(h_font)
         head.setStyleSheet("color: #0f172a; border: none;")
 
-        subhead = QLabel("自定义提醒名称、目标触发时间与循环周期")
+        subhead = QLabel(self.tr("自定义提醒名称、目标触发时间与循环周期"))
         subhead.setStyleSheet("color: #64748b; font-size: 12px; border: none;")
 
         title_box.addWidget(head)
@@ -88,16 +91,16 @@ class ReminderEditorDialog(QDialog):
         layout.addLayout(title_box)
 
         # Title Field
-        lbl1 = QLabel("提醒内容")
+        lbl1 = QLabel(self.tr("提醒内容"))
         lbl1.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl1)
         self.title = QLineEdit()
-        self.title.setPlaceholderText("例如：喝水 / 吃饭 / 开会 / 休息一下")
+        self.title.setPlaceholderText(self.tr("例如：喝水 / 吃饭 / 开会 / 休息一下"))
         self.title.setFixedHeight(38)
         layout.addWidget(self.title)
 
         # Date + Time Field
-        lbl2 = QLabel("提醒时间")
+        lbl2 = QLabel(self.tr("提醒时间"))
         lbl2.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl2)
 
@@ -118,7 +121,7 @@ class ReminderEditorDialog(QDialog):
 
         time_row = QHBoxLayout()
         time_row.setSpacing(10)
-        time_label = QLabel("具体时间")
+        time_label = QLabel(self.tr("具体时间"))
         time_label.setStyleSheet("color: #475569; font-weight: 600; font-size: 12px;")
         self.time_edit = QTimeEdit()
         self.time_edit.setDisplayFormat("HH:mm")
@@ -129,20 +132,20 @@ class ReminderEditorDialog(QDialog):
         layout.addLayout(time_row)
 
         # Recurrence Field
-        lbl3 = QLabel("重复模式")
+        lbl3 = QLabel(self.tr("重复模式"))
         lbl3.setStyleSheet("font-weight: 600; color: #334155; font-size: 13px;")
         layout.addWidget(lbl3)
         self.recurrence = QComboBox()
         self.recurrence.setFixedHeight(38)
-        for key, label in _RECURRENCE_OPTIONS:
-            self.recurrence.addItem(label, key)
+        for key, label_key in _RECURRENCE_OPTIONS:
+            self.recurrence.addItem(i18n.recurrence_label(label_key), key)
         self.recurrence.currentIndexChanged.connect(self._on_recurrence_changed)
         layout.addWidget(self.recurrence)
 
         self._weekday_row = QHBoxLayout()
         self._weekday_boxes: list[QCheckBox] = []
-        for i, label in enumerate(_WEEKDAY_LABELS):
-            box = QCheckBox(label)
+        for i in range(7):
+            box = QCheckBox(i18n.weekday_short_label(i))
             box.setProperty("weekday", i)
             self._weekday_boxes.append(box)
             self._weekday_row.addWidget(box)
@@ -158,12 +161,12 @@ class ReminderEditorDialog(QDialog):
         box = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         save_btn = box.button(QDialogButtonBox.Save)
         if save_btn:
-            save_btn.setText("保存")
+            save_btn.setText(self.tr("保存"))
             save_btn.setProperty("accent", "primary")
             save_btn.setCursor(Qt.PointingHandCursor)
         cancel_btn = box.button(QDialogButtonBox.Cancel)
         if cancel_btn:
-            cancel_btn.setText("取消")
+            cancel_btn.setText(self.tr("取消"))
             cancel_btn.setCursor(Qt.PointingHandCursor)
 
         box.accepted.connect(self._save)
