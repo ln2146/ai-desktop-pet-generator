@@ -7,6 +7,7 @@ import tempfile
 import threading
 from typing import Callable
 
+from petgen import i18n
 from petgen.sound import SoundService
 from petgen.voicepack import VoicePack, default_pack, load_catalog
 
@@ -63,21 +64,23 @@ class _SystemSpeaker:
     def available(self) -> bool:
         return self._available
 
-    def apply_pack(self, pack: VoicePack) -> None:
+    def apply_pack(self, pack: VoicePack, language: str = "zh_CN") -> None:
         if not self._available or self._tts is None:
             return
         try:
             voices = self._tts.availableVoices()
             chosen = None
-            if pack.voice:
+            voice_name = pack.voice_for(language)
+            locale_name = pack.locale_for(language)
+            if voice_name:
                 for v in voices:
-                    if v.name() == pack.voice:
+                    if v.name() == voice_name:
                         chosen = v
                         break
-            if chosen is None and pack.locale:
+            if chosen is None and locale_name:
                 for v in voices:
                     loc = v.locale()
-                    if loc.name() == pack.locale or loc.bcp47Name() == pack.locale:
+                    if loc.name() == locale_name or loc.bcp47Name() == locale_name:
                         chosen = v
                         break
             if chosen is None and voices:
@@ -241,10 +244,11 @@ class Speaker:
         pass
 
     def apply_pack(self, pack: VoicePack) -> None:
-        self._edge_voice = pack.edge_voice
-        self._edge_rate = pack.edge_rate
-        self._edge_pitch = pack.edge_pitch
-        self._system.apply_pack(pack)
+        language = i18n.current_language()
+        self._edge_voice = pack.edge_voice_for(language)
+        self._edge_rate = pack.edge_rate_for(language)
+        self._edge_pitch = pack.edge_pitch_for(language)
+        self._system.apply_pack(pack, language)
 
     def speak(self, text: str | None) -> bool:
         if not text:
@@ -340,14 +344,20 @@ class VoicePackService:
         result = {"sfx": False, "speech": False}
         if not self._enabled:
             return result
+        self._speaker.apply_pack(self._pack)
+        language = i18n.current_language()
         result["sfx"] = self._sound.play(self._pack.sound_for(kind))
-        result["speech"] = self._speaker.speak(line or self._pack.line_for(kind))
+        result["speech"] = self._speaker.speak(line or self._pack.line_for(kind, language))
         return result
 
     def preview(self) -> dict[str, bool]:
         if not self._enabled:
             return {"sfx": False, "speech": False}
-        return {"sfx": False, "speech": self._speaker.speak(self._pack.line_for("tap"))}
+        self._speaker.apply_pack(self._pack)
+        return {
+            "sfx": False,
+            "speech": self._speaker.speak(self._pack.line_for("tap", i18n.current_language())),
+        }
 
 
 InteractionStyleService = VoicePackService

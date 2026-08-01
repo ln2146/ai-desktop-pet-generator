@@ -19,23 +19,55 @@ class InteractionStyle:
     prompt_flavor: str = ""
     locale: str = ""  # BCP-47-ish, e.g. "zh_CN"; "" = any available voice
     voice: str = ""  # preferred installed voice name; "" = locale default
+    locale_en: str = "en_US"
+    voice_en: str = ""
     lines: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    lines_en: dict[str, tuple[str, ...]] = field(default_factory=dict)
     sounds: dict[str, str] = field(default_factory=dict)  # kind -> synth key or a wav filename
     # edge-tts (free online neural voice); empty string = use the system TTS fallback
     edge_voice: str = ""
     edge_rate: str = ""  # prosody rate e.g. +10% / -8%; empty = omit
     edge_pitch: str = ""  # prosody pitch e.g. +20Hz; empty = omit
+    edge_voice_en: str = ""
+    edge_rate_en: str = ""
+    edge_pitch_en: str = ""
 
-    def line_for(self, kind: str) -> str | None:
+    def line_for(self, kind: str, language: str = "zh_CN") -> str | None:
         import random
 
-        pool = self.lines.get(kind) or self.lines.get("tap") or ()
+        lines = self.lines_en if _is_english(language) and self.lines_en else self.lines
+        pool = lines.get(kind) or lines.get("tap") or ()
         if not pool:
             return None
         return random.choice(pool)
 
     def sound_for(self, kind: str) -> str | None:
         return self.sounds.get(kind)
+
+    def locale_for(self, language: str = "zh_CN") -> str:
+        return self.locale_en if _is_english(language) and self.locale_en else self.locale
+
+    def voice_for(self, language: str = "zh_CN") -> str:
+        return self.voice_en if _is_english(language) and self.voice_en else self.voice
+
+    def edge_voice_for(self, language: str = "zh_CN") -> str:
+        if _is_english(language) and self.edge_voice_en:
+            return self.edge_voice_en
+        return self.edge_voice
+
+    def edge_rate_for(self, language: str = "zh_CN") -> str:
+        if _is_english(language) and self.edge_rate_en:
+            return self.edge_rate_en
+        return self.edge_rate
+
+    def edge_pitch_for(self, language: str = "zh_CN") -> str:
+        if _is_english(language) and self.edge_pitch_en:
+            return self.edge_pitch_en
+        return self.edge_pitch
+
+
+def _is_english(language: str | None) -> bool:
+    return str(language or "").lower().startswith("en")
 
 
 def _sfx_path(pack_dir_name: str | None = None) -> Path:
@@ -65,6 +97,14 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("唔，卡住了。", "这里不太对，我们看看。"),
             "idle": ("我在待机。", "需要就叫我。"),
         },
+        lines_en={
+            "tap": ("I'm here with you.", "Still here.", "Need a tiny pause?", "Got it. Easy does it."),
+            "happy": ("Done. Nice work.", "Yay, that step is clear.", "Lovely. Keep going."),
+            "alert": ("Ping, a reminder is here.", "There's something to check."),
+            "busy": ("Working on it. One sec.", "I'm watching the progress."),
+            "error": ("Hmm, it got stuck.", "Something looks off. Let's check."),
+            "idle": ("I'm on standby.", "Call me when you need me."),
+        },
         sounds={
             "tap": "pop",
             "happy": "chime_up",
@@ -75,6 +115,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-XiaoyiNeural",
         edge_rate="+6%",
         edge_pitch="+18Hz",
+        edge_voice_en="en-US-AnaNeural",
+        edge_rate_en="+8%",
+        edge_pitch_en="+18Hz",
     ),
     InteractionStyle(
         id="moe-girl",
@@ -96,6 +139,14 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("欸，好像卡住了，我们看一下。", "出错啦，先慢慢查。"),
             "idle": ("我在待机中。", "需要我就点我一下呀。"),
         },
+        lines_en={
+            "tap": ("I'm here, let's do this.", "Hey, you called?", "Want a tiny reward first?"),
+            "happy": ("Done. That was beautiful.", "All set, great pace!", "Yes, this step is ours."),
+            "alert": ("Ding, something needs a look.", "Reminder's here. Don't miss it."),
+            "busy": ("Processing. Almost there.", "I'm keeping an eye on it."),
+            "error": ("Looks like we're stuck. Let's check.", "It errored, but we'll trace it slowly."),
+            "idle": ("I'm standing by.", "Tap me when you need me."),
+        },
         sounds={
             "tap": "pop",
             "happy": "tada",
@@ -106,6 +157,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-XiaoxiaoNeural",
         edge_rate="+6%",
         edge_pitch="+18Hz",
+        edge_voice_en="en-US-JennyNeural",
+        edge_rate_en="+6%",
+        edge_pitch_en="+12Hz",
     ),
     InteractionStyle(
         id="elegant-senior",
@@ -127,6 +181,18 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("这里出问题了。别急，先抓关键错误。", "异常出现了，我们先定位根因。"),
             "idle": ("我在旁边待命。", "需要时叫我就好。"),
         },
+        lines_en={
+            "tap": ("I'm here. Give me the essentials.", "Let me take a look.", "Good state. Keep moving."),
+            "happy": (
+                "Done. Clean result, nicely wrapped.",
+                "This round landed well. Move to the next step.",
+                "Good. The key part is handled.",
+            ),
+            "alert": ("Reminder's in. Check the most important one first.", "This needs your attention."),
+            "busy": ("I'm handling it. Let it finish.", "Progress is moving. One moment."),
+            "error": ("Something broke here. Start with the key error.", "There's an exception. Let's find the root cause."),
+            "idle": ("I'm nearby on standby.", "Call me when needed."),
+        },
         sounds={
             "tap": "chime_soft",
             "happy": "chime_up",
@@ -137,6 +203,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-XiaoxiaoNeural",
         edge_rate="-8%",
         edge_pitch="-2Hz",
+        edge_voice_en="en-US-AriaNeural",
+        edge_rate_en="-6%",
+        edge_pitch_en="-2Hz",
     ),
     InteractionStyle(
         id="butler",
@@ -154,6 +223,14 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("出现异常，请查看关键错误。", "这里需要先确认根因。"),
             "idle": ("我在待命。", "需要时请叫我。"),
         },
+        lines_en={
+            "tap": ("I'm here. Please go ahead.", "What would you like handled?", "I'll remain on standby."),
+            "happy": ("Completed. The result is ready.", "Task complete. You may proceed.", "This round is finished."),
+            "alert": ("Reminder received. Please note it.", "One item needs your confirmation."),
+            "busy": ("Please wait. I'm processing it.", "Processing now. Results shortly."),
+            "error": ("An error occurred. Check the key error.", "This needs root-cause confirmation first."),
+            "idle": ("I'm on standby.", "Call me when needed."),
+        },
         sounds={
             "tap": "chime_soft",
             "happy": "chime_up",
@@ -164,6 +241,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-YunxiNeural",
         edge_rate="-2%",
         edge_pitch="-4Hz",
+        edge_voice_en="en-GB-ThomasNeural",
+        edge_rate_en="-4%",
+        edge_pitch_en="-4Hz",
     ),
     InteractionStyle(
         id="sunny-boy",
@@ -190,6 +270,14 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("这里卡住了，先看关键错误。", "出问题了，我们拆开看。"),
             "idle": ("我在待命。", "需要时叫我。"),
         },
+        lines_en={
+            "tap": ("I'm here. What's up?", "Alright, let's take a look.", "Looks steady. Keep going.", "Want me to watch it?"),
+            "happy": ("Done. Looks good.", "This step is cleared. Keep moving.", "Finished. Nice and steady."),
+            "alert": ("Reminder's here. Take a look.", "Something needs handling."),
+            "busy": ("Processing. Give it a sec.", "I'm running this part. Results soon."),
+            "error": ("This got stuck. Check the key error first.", "Something broke. Let's split it up."),
+            "idle": ("I'm on standby.", "Call me when needed."),
+        },
         sounds={
             "tap": "pop",
             "happy": "chime_up",
@@ -200,6 +288,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-YunjianNeural",
         edge_rate="+4%",
         edge_pitch="+2Hz",
+        edge_voice_en="en-US-AndrewNeural",
+        edge_rate_en="+4%",
+        edge_pitch_en="+2Hz",
     ),
     InteractionStyle(
         id="steady-senior",
@@ -226,6 +317,18 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("这里有异常，先看根因。", "别急，先把关键错误找出来。"),
             "idle": ("我在旁边待命。", "需要时叫我。"),
         },
+        lines_en={
+            "tap": ("I'm here. Take your time.", "No rush. Start with the point.", "Still steady. Keep looking.", "Want me to help sort it out?"),
+            "happy": (
+                "Done. That was handled steadily.",
+                "The result has landed. You can wrap it up.",
+                "Good round. Keep the rhythm.",
+            ),
+            "alert": ("Reminder's in. Check the important part first.", "This needs your confirmation."),
+            "busy": ("I'm processing it. Let it finish.", "Progress is moving. Give it a moment."),
+            "error": ("There's an issue. Start with the root cause.", "Don't rush. Find the key error first."),
+            "idle": ("I'm nearby on standby.", "Call me when needed."),
+        },
         sounds={
             "tap": "chime_soft",
             "happy": "chime_up",
@@ -236,6 +339,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-YunyangNeural",
         edge_rate="-4%",
         edge_pitch="-8Hz",
+        edge_voice_en="en-US-BrianNeural",
+        edge_rate_en="-4%",
+        edge_pitch_en="-6Hz",
     ),
     InteractionStyle(
         id="tsundere",
@@ -261,6 +367,22 @@ _BUILTIN: list[InteractionStyle] = [
             "error": ("笨蛋，出错了啦。先看日志。", "这里不对，别硬跑了。"),
             "idle": ("……才没有无聊。", "我只是在待机而已。"),
         },
+        lines_en={
+            "tap": (
+                "Hmph, I wasn't waiting for you.",
+                "Don't get the wrong idea. I was just here.",
+                "Fine, I'll keep you company for a bit.",
+            ),
+            "happy": (
+                "Hmph. Smooth enough, I guess.",
+                "Done? Not bad.",
+                "I'll admit, that was handled pretty well.",
+            ),
+            "alert": ("Hey, check the reminder. Don't ignore it.", "Something came up. Deal with it."),
+            "busy": ("Wait a second. I'm processing it.", "Don't rush me. I'm watching it."),
+            "error": ("Dummy, it errored. Check the logs first.", "This is wrong. Stop forcing it."),
+            "idle": ("...I'm not bored.", "I'm just on standby, that's all."),
+        },
         sounds={
             "tap": "pop",
             "happy": "tada",
@@ -271,6 +393,9 @@ _BUILTIN: list[InteractionStyle] = [
         edge_voice="zh-CN-YunxiaNeural",
         edge_rate="+8%",
         edge_pitch="+15Hz",
+        edge_voice_en="en-US-EricNeural",
+        edge_rate_en="+6%",
+        edge_pitch_en="+6Hz",
     ),
 ]
 

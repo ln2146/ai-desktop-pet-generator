@@ -491,7 +491,11 @@ class AppCoordinator(QObject):
         if self.pet_window is not None:
             self.pet_window.set_expression("attentive")
         # keep the bubble text in sync with what the interaction style speaks.
-        line = self.voice.pack.line_for("tap") or self.tr("我在。")
+        from petgen import i18n
+
+        language = i18n.current_language()
+        fallback = "I'm here." if language == "en" else self.tr("我在。")
+        line = self.voice.pack.line_for("tap", language) or fallback
         self.bubble.show_message(line)
         if self.pet_window is not None:
             self.bubble.anchor_to(self.pet_window.frameGeometry())

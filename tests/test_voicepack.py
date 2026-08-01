@@ -8,6 +8,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest  # noqa: E402
 
+from petgen import i18n  # noqa: E402
 from petgen import sound as sound_mod  # noqa: E402
 from petgen.sound import (  # noqa: E402
     SoundService,
@@ -53,6 +54,30 @@ def test_interaction_styles_use_distinct_valid_edge_prosody() -> None:
         assert pack.edge_rate.endswith("%")
         assert not pack.edge_pitch.endswith("%")
         assert pack.edge_pitch.endswith("Hz")
+
+
+def test_interaction_styles_have_english_lines_and_edge_prosody() -> None:
+    catalog = load_catalog()
+    signatures = {
+        (pack.edge_voice_for("en"), pack.edge_rate_for("en"), pack.edge_pitch_for("en"))
+        for pack in catalog.values()
+    }
+
+    assert len(signatures) == len(catalog)
+    for pack in catalog.values():
+        line = pack.line_for("tap", "en")
+        assert line
+        assert not any("\u4e00" <= ch <= "\u9fff" for ch in line)
+        assert pack.edge_voice_for("en").startswith(("en-US-", "en-GB-"))
+        assert pack.edge_rate_for("en").endswith("%")
+        assert pack.edge_pitch_for("en").endswith("Hz")
+
+
+def test_line_for_uses_language_specific_fallback() -> None:
+    pack = load_catalog()["sunny-boy"]
+
+    assert pack.line_for("missing-kind", "zh_CN") in pack.lines["tap"]
+    assert pack.line_for("missing-kind", "en") in pack.lines_en["tap"]
 
 
 def test_moe_pet_uses_soft_natural_pet_voice_distinct_from_moe_girl() -> None:
@@ -226,6 +251,21 @@ def test_voice_pack_service_constructs_and_reacts(qapp, monkeypatch: pytest.Monk
     assert set(result) == {"sfx", "speech"}
     # booleans, never None / never raises
     assert isinstance(result["sfx"], bool) and isinstance(result["speech"], bool)
+
+
+def test_voice_pack_service_speaks_english_when_ui_language_is_english(
+    qapp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    spoken: list[str | None] = []
+    monkeypatch.setattr("petgen.speak.Speaker.speak", lambda _self, text: spoken.append(text) or True)
+    monkeypatch.setattr("petgen.sound.SoundService.play", lambda _self, value: bool(value))
+    assert i18n.install_translator(qapp, "en")
+
+    svc = VoicePackService(load_catalog()["sunny-boy"], enabled=True)
+    result = svc.react("happy")
+
+    assert result == {"sfx": True, "speech": True}
+    assert spoken and spoken[0] in svc.pack.lines_en["happy"]
 
 
 def test_voice_pack_service_disabled_silences(qapp, monkeypatch: pytest.MonkeyPatch) -> None:
